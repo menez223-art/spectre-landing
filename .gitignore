@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+.env*.local
+.env
+.DS_Store
+
+.vercel
+.env*
+env_dump.json
+*.log
+dev-server.log
+.claude
+.agents
+graphify-out
+link
