@@ -14,3 +14,13 @@ dev-server.log
 .agents
 graphify-out
 link
+
+# ملفات مؤقتة من اختبارات curl
+exyz_dump_*.html
+live.html
+page2.html
+page3.html
+prod.html
+root.html
+*.tsbuildinfo
+memory/
