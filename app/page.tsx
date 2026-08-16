@@ -17,7 +17,7 @@ function goToStudio(router: ReturnType<typeof useRouter>) {
   const root = document.documentElement;
   root.classList.add("page-enter", "page-enter-active");
   requestAnimationFrame(() => root.classList.remove("page-enter"));
-  setTimeout(() => root.classList.remove("page-enter-active"), 360);
+  setTimeout(() => root.classList.remove("page-enter-active"), 120);
   router.push("/studio");
 }
 
@@ -54,9 +54,19 @@ export default function Home() {
       {/* الترويسة */}
       <header className="sticky top-0 z-30 border-b border-navy-900/10 bg-ivory-50/85 backdrop-blur dark:border-white/10 dark:bg-[#0d1117]/85">
         <div className="container-landing flex items-center justify-between gap-3 py-5">
-          <Link href="/" className="font-display text-2xl font-extrabold tracking-tight text-navy-900">
-            {t("brand")}
-          </Link>
+          <div className="flex flex-col items-start gap-1">
+            <a
+              href="https://www.facebook.com/share/1Ep7pL32L4/"
+              target="_blank"
+              rel="noopener"
+              className="rounded-full border border-navy-900/15 px-4 py-2 text-xs font-extrabold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50/80"
+            >
+              SHOP‑VISION
+            </a>
+            <Link href="/" className="font-display text-2xl font-extrabold tracking-tight text-navy-900">
+              {t("brand")}
+            </Link>
+          </div>
           <nav className="hidden items-center gap-8 text-sm font-semibold text-navy-700 md:flex" aria-label={t("products")}>
             <a href="#catalog" className="transition hover:text-navy-400">{t("products")}</a>
             <Link href="/studio" className="transition hover:text-navy-400">{t("studio")}</Link>
@@ -169,6 +179,21 @@ export default function Home() {
         </div>
 
         <CatalogLocal staticProducts={PRODUCTS} />
+      </section>
+
+      {/* قسم الاشتراكات — صورة عمودية متمركزة قبل التذييل */}
+      <section className="container-landing py-16 lg:py-20">
+        <div className="mb-8 text-center">
+          <p className="text-xs font-bold tracking-wide text-navy-400 dark:text-navy-300">{t("subsEyebrow")}</p>
+          <h2 className="mt-3 font-display text-3xl font-extrabold text-navy-900 dark:text-ivory-50">{t("subsTitle")}</h2>
+        </div>
+        <div className="mx-auto max-w-md">
+          <img
+            src="/اشتراك.png"
+            alt="باقات الاشتراكات"
+            className="w-full rounded-3xl ring-1 ring-navy-900/10 dark:ring-white/10"
+          />
+        </div>
       </section>
 
       {/* التذييل */}

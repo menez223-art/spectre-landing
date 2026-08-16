@@ -6,6 +6,7 @@ import { getPublishedProduct, getPublishedOwner, getPublishedMeta } from "@/app/
 import { recomputeStatus } from "@/app/lib/subsStore";
 import { resolveOwnerEmail } from "@/app/lib/profileStore";
 import { withResolvedWebhook } from "@/app/lib/sheetResolver";
+import { bumpBandwidth } from "@/app/lib/statsStore";
 import { ProductPage } from "@/app/components/landing/ProductPage";
 
 // السلاگز غير المدرجة في generateStaticParams (مثل المنتجات المنشورة) تُعرض عند الطلب
@@ -134,5 +135,13 @@ export default async function ProductSlugPage({ params }: { params: { slug: stri
   }
   // حلّ رابط الجدول الحيّ ديناميكياً (يتعافى تلقائياً بعد أي إعادة نشر في Apps Script)
   const resolved = published ? await withResolvedWebhook(published) : null;
+
+  // تتبّع السعة: نعدّ بايتات الصفحة المخدومة فعلياً (المنتج بصوره المضمّنة data URL
+  // هو التقدير الأقرب لحجم HTML المولّد). نُطلقه دون انتظار كي لا نبطئ الاستجابة.
+  if (published) {
+    const bytes = Buffer.byteLength(JSON.stringify(published), "utf-8");
+    void bumpBandwidth(bytes);
+  }
+
   return <ProductPage slug={params.slug} staticProduct={resolved} />;
 }

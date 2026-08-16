@@ -55,6 +55,21 @@ export interface ProductColor {
   hex: string; // كود اللون (للعرض فقط)
 }
 
+// الحدود القصوى لكل صفحة هبوط (متجر) — تُخفّف حمل الروابط كما طلب المستخدم.
+// - حتى 5 منتجات في الصفحة الواحدة.
+// - حتى 5 صور إجمالاً تُوزَّع بحرية على منتجات الصفحة (صورة رئيسية لكل منتج
+//   + صور إضافية)؛ المجموع لا يتجاوز 5 صور للصفحة ككل.
+export const MAX_LANDING_PRODUCTS = 5;
+export const MAX_LANDING_IMAGES = 5;
+
+// يعدّ كل صور الصفحة (صورة رئيسية + إضافية) عبر منتجاتها — للتحقق من الحد.
+export function countPageImages(products: Product[]): number {
+  return products.reduce((total, p) => {
+    const n = (p.image ? 1 : 0) + (p.images?.filter(Boolean).length ?? 0);
+    return total + n;
+  }, 0);
+}
+
 // لوحة ألوان المنتج — تُشتق تلقائياً من الصورة أو تُحدَّد يدوياً
 export interface Theme {
   mode: "dark" | "light";
@@ -108,6 +123,13 @@ export interface Product {
   deliveryMode?: DeliveryMode; // وضع التوصيل: ثابت (fixed) أو حسب الولاية (wilaya)
   wilayaPrices?: WilayaPrices; // أسعار التوصيل المخصّصة (للمنزل + للمكتب) لكل ولاية — تُستخدم عند deliveryMode="wilaya"
   colors?: ProductColor[]; // خيارات الألوان المتاحة — يختارها الزبون للعرض فقط (لا تُرسل للجدول)
+
+  // ── وضع المتجر (منتجات متعددة في صفحة واحدة) ──
+  // عند وجوده: هذه الصفحة = متجر يحوي حتى MAX_LANDING_PRODUCTS منتجاً،
+  // والزبون يختار منتجاً فيظهر سعره ديناميكياً. الصور تُوزَّع بين المنتجات
+  // بشرط ألا يتجاوز مجموعها MAX_LANDING_IMAGES للصفحة كلها.
+  // التوافق العكسي: غياب هذا الحقل = صفحة منتج واحد (السلوك القديم).
+  products?: Product[];
 }
 
 export interface PaletteResult {

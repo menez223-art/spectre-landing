@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Product, Theme } from "@/app/lib/types";
+import { MAX_LANDING_PRODUCTS, MAX_LANDING_IMAGES } from "@/app/lib/types";
 import { defaultTheme, normalizeTheme } from "@/app/lib/theme";
 import {
   PaletteCorsError,
@@ -23,6 +24,7 @@ import { apiCanProduce } from "@/app/lib/auth";
 import { LangToggle } from "@/app/components/LangToggle";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import { useLocale } from "@/app/components/LocaleProvider";
+import { ProductItemsEditor, type ProductItemDraft } from "@/app/components/studio/ProductItemsEditor";
 
 export interface PublishedItem {
   id: string;
@@ -43,20 +45,18 @@ const stBtnGhost =
 const stBtnIcon =
   "grid h-9 w-9 place-items-center rounded-full border border-navy-900/15 text-sm font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400";
 
+// مسودة صفحة هبوط = «متجر» يحوي عنصراً واحداً على الأقل.
+// المنتج المفرد = items بعنصر واحد (توافق عكسي كامل مع المنشورات القديمة).
+// المتجر (منتجات متعددة) = items بعدة عناصر، والحقول الجذرية (brand/theme/
+// delivery/features...) هي إعدادات «الغلاف» المشتركة لكل الصفحة.
 interface Draft {
   id?: string;
-  name: string;
-  nameEn: string;
+  name: string; // اسم الصفحة/المتجر (لقب الغلاف)
   brand: string;
-  price: string;
-  oldPrice: string;
   deliveryHome: string;
   deliveryOffice: string;
   deliveryMode: "fixed" | "wilaya";
   wilayaPrices: Record<number, { home: number; office: number }>;
-  colors: { name: string; hex: string }[];
-  image: string;
-  images: string[];
   eyebrow: string;
   badge: string;
   description: string;
@@ -69,22 +69,21 @@ interface Draft {
   theme: Theme;
   swatches: string[];
   extracted: boolean;
+  items: ProductItemDraft[]; // عنصر واحد على الأقل (المنتج المفرد = [واحد])
+}
+
+function emptyItem(): ProductItemDraft {
+  return { name: "", nameEn: "", price: "", oldPrice: "", image: "", images: [], colors: [] };
 }
 
 function emptyDraft(): Draft {
   return {
     name: "",
-    nameEn: "",
     brand: "",
-    price: "",
-    oldPrice: "",
     deliveryHome: String(DELIVERY_PRICES.home),
     deliveryOffice: String(DELIVERY_PRICES.office),
     deliveryMode: "fixed",
     wilayaPrices: {},
-    colors: [],
-    image: "",
-    images: [],
     eyebrow: "",
     badge: "",
     description: "",
@@ -97,6 +96,7 @@ function emptyDraft(): Draft {
     theme: defaultTheme("light"),
     swatches: [],
     extracted: false,
+    items: [emptyItem()],
   };
 }
 
@@ -123,10 +123,32 @@ function toWilayaPricesRecord(
   return out;
 }
 
+// يحوّل عنصر مسودة واحداً إلى Product جزئي (باسمه وسعره وصوره وألوانه).
+function itemToProduct(item: ProductItemDraft): Product {
+  const name = item.name.trim() || "منتج جديد";
+  const price = Math.max(0, Number(item.price) || 0);
+  const oldPriceRaw = Number(item.oldPrice) || 0;
+  const images = item.images.map((s) => s.trim()).filter(Boolean);
+  return {
+    id: slugify(item.nameEn || name) || `item-${rand4()}`,
+    name,
+    price,
+    image: item.image,
+    theme: defaultTheme("light"),
+    ...(item.nameEn.trim() ? { nameEn: item.nameEn.trim() } : {}),
+    ...(images.length ? { images } : {}),
+    ...(oldPriceRaw > price ? { oldPrice: oldPriceRaw } : {}),
+    ...(item.colors.length
+      ? {
+          colors: item.colors
+            .map((c) => ({ name: c.name.trim(), hex: normalizeHex(c.hex) }))
+            .filter((c) => c.name && /^#[0-9a-fA-F]{6}$/.test(c.hex)),
+        }
+      : {}),
+  };
+}
+
 function draftToProduct(d: Draft, preview: boolean): Product {
-  const name = d.name.trim() || "منتج جديد";
-  const price = Math.max(0, Number(d.price) || 0);
-  const oldPriceRaw = Number(d.oldPrice) || 0;
   const brand = d.brand.trim() || undefined;
   const features = d.features
     .filter((f) => f.title.trim() && f.copy.trim())
@@ -141,20 +163,21 @@ function draftToProduct(d: Draft, preview: boolean): Product {
     .split(/[,،\n]/)
     .map((t) => t.trim())
     .filter(Boolean);
-  const images = d.images.map((s) => s.trim()).filter(Boolean);
 
   const id = preview
     ? d.id ?? "preview"
-    : slugify(d.nameEn || d.brand || name) || `product-${rand4()}`;
+    : slugify(d.brand || d.name) || `shop-${rand4()}`;
 
-  const product: Product = {
+  // العناصر الفعلية — نضمن وجود واحد على الأقل (المنتج المفرد).
+  const items = (d.items.length ? d.items : [emptyItem()]).map(itemToProduct);
+
+  const base: Product = {
     id,
-    name,
-    price,
-    image: d.image,
+    name: d.name.trim() || items[0].name || "متجر",
+    price: items[0].price,
+    image: items[0].image,
     ...(brand ? { brand } : {}),
-    ...(d.nameEn.trim() ? { nameEn: d.nameEn.trim() } : {}),
-    ...(images.length ? { images } : {}),
+    ...(tags.length ? { tags } : {}),
     ...(d.eyebrow.trim() ? { eyebrow: d.eyebrow.trim() } : {}),
     ...(d.badge.trim() ? { badge: d.badge.trim() } : {}),
     ...(d.description.trim() ? { description: d.description.trim() } : {}),
@@ -162,7 +185,6 @@ function draftToProduct(d: Draft, preview: boolean): Product {
     ...(features.length ? { features } : {}),
     ...(testimonials.length ? { testimonials } : {}),
     ...(stats.length ? { stats } : {}),
-    ...(tags.length ? { tags } : {}),
     theme: normalizeTheme(d.theme),
     delivery: {
       home: Number.isFinite(Number(d.deliveryHome)) ? Math.max(0, Number(d.deliveryHome)) : DELIVERY_PRICES.home,
@@ -174,25 +196,54 @@ function draftToProduct(d: Draft, preview: boolean): Product {
           wilayaPrices: toWilayaPricesRecord(d.wilayaPrices),
         }
       : {}),
-    ...(d.colors.length
-      ? {
-          colors: d.colors
-            .map((c) => ({ name: c.name.trim(), hex: normalizeHex(c.hex) }))
-            .filter((c) => c.name && /^#[0-9a-fA-F]{6}$/.test(c.hex)),
-        }
-      : {}),
   };
-  return product;
+
+  // وضع المتجر: أكثر من منتج → نخزّن القائمة في products[] ونعتمد اسم/صورة
+  // الغلاف من أول عنصر؛ وإلا ندمج العنصر الوحيد مباشرة على الجذر (توافق عكسي).
+  if (items.length > 1) {
+    return { ...base, products: items };
+  }
+  const solo = items[0];
+  return {
+    ...base,
+    name: d.name.trim() || solo.name,
+    price: solo.price,
+    image: solo.image,
+    ...(solo.nameEn ? { nameEn: solo.nameEn } : {}),
+    ...(solo.images?.length ? { images: solo.images } : {}),
+    ...(typeof solo.oldPrice === "number" ? { oldPrice: solo.oldPrice } : {}),
+    ...(solo.colors?.length ? { colors: solo.colors } : {}),
+  };
 }
 
 function productToDraft(p: Product): Draft {
+  // استخراج العناصر: إن وُجدت products[] نكون في وضع المتجر، وإلا نبني عنصراً
+  // واحداً من حقول الجذر (المنتج المفرد — توافق عكسي مع المنشورات القديمة).
+  const items: ProductItemDraft[] = Array.isArray(p.products) && p.products.length > 0
+    ? p.products.map((it) => ({
+        name: it.name,
+        nameEn: it.nameEn ?? "",
+        price: String(it.price),
+        oldPrice: it.oldPrice ? String(it.oldPrice) : "",
+        image: it.image,
+        images: it.images ?? [],
+        colors: (it.colors ?? []).map((c) => ({ name: c.name, hex: c.hex })),
+      }))
+    : [
+        {
+          name: p.name,
+          nameEn: p.nameEn ?? "",
+          price: String(p.price),
+          oldPrice: p.oldPrice ? String(p.oldPrice) : "",
+          image: p.image,
+          images: p.images ?? [],
+          colors: (p.colors ?? []).map((c) => ({ name: c.name, hex: c.hex })),
+        },
+      ];
   return {
     id: p.id,
     name: p.name,
-    nameEn: p.nameEn ?? "",
     brand: p.brand ?? "",
-    price: String(p.price),
-    oldPrice: p.oldPrice ? String(p.oldPrice) : "",
     deliveryHome: p.delivery ? String(p.delivery.home) : String(DELIVERY_PRICES.home),
     deliveryOffice: p.delivery ? String(p.delivery.office) : String(DELIVERY_PRICES.office),
     deliveryMode: p.deliveryMode ?? "fixed",
@@ -201,9 +252,6 @@ function productToDraft(p: Product): Draft {
         ([code, entry]) => [Number(code), normalizeWilayaEntry(entry, DELIVERY_PRICES.office)]
       )
     ) as Record<number, { home: number; office: number }>,
-    colors: (p.colors ?? []).map((c) => ({ name: c.name, hex: c.hex })),
-    image: p.image,
-    images: p.images ?? [],
     eyebrow: p.eyebrow ?? "",
     badge: p.badge ?? "",
     description: p.description ?? "",
@@ -216,6 +264,7 @@ function productToDraft(p: Product): Draft {
     theme: normalizeTheme(p.theme),
     swatches: [p.theme.primary],
     extracted: true,
+    items,
   };
 }
 
@@ -227,6 +276,17 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       {hint && <span className="text-[10px] font-normal text-navy-900/45">{hint}</span>}
     </label>
   );
+}
+
+// تحديث العنصر النشط (activeItem) داخل draft.items بشكل آمن.
+function updateItem(
+  items: ProductItemDraft[],
+  index: number,
+  patch: Partial<ProductItemDraft>
+): ProductItemDraft[] {
+  const next = items.slice();
+  next[index] = { ...next[index], ...patch };
+  return next;
 }
 
 function ColorField({
@@ -265,7 +325,7 @@ export default function StudioPage() {
 function StudioInner() {
   const router = useRouter();
   const { user, account, fingerprint, logout, openSettings, subscription } = useAuth();
-  const { t } = useLocale();
+  const { t, lang, dir } = useLocale();
   // قفل التنزيل/التوليد/النشر: يُعطَّلان تماماً لمن لم يربط إيميله بعد،
   // أو لمن حظره الأدمن. هذا يمنع إنتاج روابط جديدة أو تحميل HTML قبل اكتمال
   // ربط الهوية (أو عند المنع). الحارس الحقيقي يبقى خادمياً في /api/publish.
@@ -281,6 +341,19 @@ function StudioInner() {
   const [imageTab, setImageTab] = useState<"upload" | "url">("upload");
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [paletteWarning, setPaletteWarning] = useState("");
+  // العنصر النشط الذي تُحرَّر صوره وألوانه حالياً في اللوحة الجانبية.
+  const [activeItem, setActiveItem] = useState(0);
+
+  // مجموع صور كل عناصر الصفحة — للتحقق من الحد الأقصى (5) في الواجهة.
+  const totalImages = useMemo(
+    () =>
+      draft.items.reduce(
+        (sum, it) => sum + (it.image ? 1 : 0) + it.images.filter(Boolean).length,
+        0
+      ),
+    [draft.items]
+  );
+  const remainingImages = Math.max(0, MAX_LANDING_IMAGES - totalImages);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id");
@@ -340,10 +413,15 @@ function StudioInner() {
     });
   }
 
+  // الصور والألوان تُحرَّر لـ activeItem (العنصر النشط في محرّر المنتجات).
   async function handleMainImage(file: File) {
     if (!file) return;
     const dataUrl = await compressImage(file);
-    setDraft((d) => ({ ...d, image: dataUrl }));
+    setDraft((d) => {
+      const items = d.items.slice();
+      items[activeItem] = { ...items[activeItem], image: dataUrl };
+      return { ...d, items };
+    });
     try {
       const result = await extractPaletteFromDataUrl(dataUrl);
       setDraft((d) => ({
@@ -360,15 +438,23 @@ function StudioInner() {
   async function handleAddImage(file: File) {
     if (!file) return;
     const dataUrl = await compressImage(file, 800);
-    setDraft((d) => ({ ...d, images: [...d.images, dataUrl] }));
+    setDraft((d) => {
+      const items = d.items.slice();
+      const it = items[activeItem];
+      // حماية الواجهة: لا تتجاوز الحد الأقصى للصور (باقي رصيد الصفحة).
+      if (it.images.length >= remainingImages) return d;
+      items[activeItem] = { ...it, images: [...it.images, dataUrl] };
+      return { ...d, items };
+    });
   }
 
   async function handleExtract() {
-    if (!draft.image) return;
+    const current = draft.items[activeItem];
+    if (!current.image) return;
     try {
-      const result = draft.image.startsWith("data:")
-        ? await extractPaletteFromDataUrl(draft.image)
-        : await extractPaletteFromUrl(draft.image);
+      const result = current.image.startsWith("data:")
+        ? await extractPaletteFromDataUrl(current.image)
+        : await extractPaletteFromUrl(current.image);
       setDraft((d) => ({ ...d, theme: result.theme, swatches: result.swatches, extracted: true }));
       setPaletteWarning("");
     } catch (err) {
@@ -387,7 +473,7 @@ function StudioInner() {
       setError(t("errName"));
       return;
     }
-    if (!draft.image.trim()) {
+    if (!draft.items[activeItem]?.image?.trim()) {
       setError(t("errImage"));
       return;
     }
@@ -409,10 +495,11 @@ function StudioInner() {
       return;
     }
     setError("");
+    const active = draft.items[activeItem];
     const content = generateAutoContent({
       name: draft.name.trim(),
-      nameEn: draft.nameEn.trim() || undefined,
-      price: Math.max(0, Number(draft.price) || 0),
+      nameEn: (active?.nameEn || "").trim() || undefined,
+      price: Math.max(0, Number(active?.price) || 0),
       brand: draft.brand.trim() || undefined,
       category: draft.category,
     });
@@ -437,7 +524,7 @@ function StudioInner() {
       setError(t("errName"));
       return;
     }
-    if (!draft.image.trim()) {
+    if (!draft.items[activeItem]?.image?.trim()) {
       setError(t("errImage"));
       return;
     }
@@ -504,7 +591,11 @@ function StudioInner() {
       return;
     }
     setError("");
-    setDraft((d) => ({ ...d, image: url }));
+    setDraft((d) => {
+      const items = d.items.slice();
+      items[activeItem] = { ...items[activeItem], image: url };
+      return { ...d, items };
+    });
     setPaletteWarning("");
     try {
       const result = await extractPaletteFromUrl(url);
@@ -532,14 +623,23 @@ function StudioInner() {
     }
   }
 
-  async function handlePublish() {
+  async function handlePublish(opts?: { newLink?: boolean }) {
     if (locked) return;
     if (!draft.name.trim()) {
       setError(t("errName"));
       return;
     }
-    if (!draft.image.trim()) {
+    if (!draft.items[activeItem]?.image?.trim()) {
       setError(t("errImage"));
+      return;
+    }
+    // قيد العميل الاحترازي: لا يتجاوز الحد الأقصى للصور/المنتجات (الخادم يفرضه أيضاً).
+    if (draft.items.length > MAX_LANDING_PRODUCTS) {
+      setError(t("errTooManyProducts"));
+      return;
+    }
+    if (totalImages > MAX_LANDING_IMAGES) {
+      setError(t("errTooManyImages"));
       return;
     }
     setError("");
@@ -555,7 +655,9 @@ function StudioInner() {
     saveProduct(product);
     setPublishing(true);
     try {
-      const res = await fetch(`/api/publish?fingerprint=${encodeURIComponent(fingerprint)}`, {
+      const qs = new URLSearchParams({ fingerprint });
+      if (opts?.newLink) qs.set("newLink", "1");
+      const res = await fetch(`/api/publish?${qs.toString()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(product),
@@ -770,12 +872,20 @@ function StudioInner() {
               {t("generatePage")}
             </button>
             <button
-              onClick={handlePublish}
+              onClick={() => handlePublish()}
               disabled={locked || publishing}
-              title={locked ? t("lockedHint") : t("publishDirect")}
+              title={locked ? t("lockedHint") : t("publishReplace")}
               className={`rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-60 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
             >
-              {publishing ? t("publishing") : t("publishDirect")}
+              {publishing ? t("publishing") : t("publishReplace")}
+            </button>
+            <button
+              onClick={() => handlePublish({ newLink: true })}
+              disabled={locked || publishing}
+              title={t("newLinkHint")}
+              className={`rounded-full border border-red-500/40 px-4 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-500/10 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+            >
+              ♻ {t("newLink")}
             </button>
           </div>
         </div>
@@ -806,21 +916,10 @@ function StudioInner() {
             <Field label={t("productName")}>
               <input className={stInput} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder={t("productNamePh")} />
             </Field>
+            <Field label={t("brandField")}>
+              <input className={stInput} value={draft.brand} onChange={(e) => setDraft({ ...draft, brand: e.target.value })} placeholder="ProSound" />
+            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("nameEn")} hint={t("nameEnHint")}>
-                <input className={stInput} value={draft.nameEn} onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })} placeholder="Pro Wireless Earbuds" />
-              </Field>
-              <Field label={t("brandField")}>
-                <input className={stInput} value={draft.brand} onChange={(e) => setDraft({ ...draft, brand: e.target.value })} placeholder="ProSound" />
-              </Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("price")}>
-                <input className={stInput} value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} placeholder="4500" inputMode="numeric" />
-              </Field>
-              <Field label={t("oldPrice")} hint={t("oldPriceHint")}>
-                <input className={stInput} value={draft.oldPrice} onChange={(e) => setDraft({ ...draft, oldPrice: e.target.value })} placeholder="5000" inputMode="numeric" />
-              </Field>
               <Field label={t("badge")}>
                 <input className={stInput} value={draft.badge} onChange={(e) => setDraft({ ...draft, badge: e.target.value })} placeholder="جديد / سريع" />
               </Field>
@@ -971,60 +1070,43 @@ function StudioInner() {
             <Field label={t("tags")} hint={t("tagsHint")}>
               <input className={stInput} value={draft.tags} onChange={(e) => setDraft({ ...draft, tags: e.target.value })} placeholder="بلوتوث 5.4, إلغاء ضوضاء, بطارية 36 ساعة" />
             </Field>
-
-            {/* محرر ألوان المنتج — يختارها الزبون للعرض فقط */}
-            <div className="grid gap-1.5">
-              <span className="text-xs font-semibold text-navy-700">{t("colorsTitle")}</span>
-              <span className="text-[10px] font-normal text-navy-900/45">{t("colorsHint")}</span>
-              <div className="grid gap-2">
-                {draft.colors.map((c, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={/^#[0-9a-fA-F]{6}$/.test(c.hex) ? c.hex : "#3b82f6"}
-                      onChange={(e) => {
-                        const colors = [...draft.colors];
-                        colors[i] = { ...colors[i], hex: e.target.value };
-                        setDraft({ ...draft, colors });
-                      }}
-                      className="h-9 w-10 shrink-0 cursor-pointer rounded-md border border-navy-900/15 bg-transparent p-0"
-                    />
-                    <input
-                      className={stInput}
-                      value={c.name}
-                      onChange={(e) => {
-                        const colors = [...draft.colors];
-                        colors[i] = { ...colors[i], name: e.target.value };
-                        setDraft({ ...draft, colors });
-                      }}
-                      placeholder="الأسود"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setDraft({ ...draft, colors: draft.colors.filter((_, j) => j !== i) })}
-                      className={stBtnGhost}
-                      aria-label={t("remove")}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setDraft({ ...draft, colors: [...draft.colors, { name: "", hex: "#3b82f6" }] })}
-                className={stBtnGhost}
-              >
-                + {t("addColor")}
-              </button>
-            </div>
           </section>
 
-          {/* الصورة */}
+          {/* محرر المنتجات المتعددة — كل منتج باسمه وسعره وصوره وألوانه */}
+          <ProductItemsEditor
+            items={draft.items}
+            activeIndex={activeItem}
+            remainingImages={remainingImages}
+            maxProducts={MAX_LANDING_PRODUCTS}
+            lang={lang}
+            dir={dir}
+            onSelect={(i) => setActiveItem(i)}
+            onChange={(items) => setDraft((d) => ({ ...d, items }))}
+            onAdd={() => {
+              setDraft((d) => {
+                if (d.items.length >= MAX_LANDING_PRODUCTS) return d;
+                return { ...d, items: [...d.items, emptyItem()] };
+              });
+              setActiveItem(draft.items.length);
+            }}
+            onRemove={(i) => {
+              setDraft((d) => {
+                if (d.items.length <= 1) return d;
+                const items = d.items.filter((_, j) => j !== i);
+                return { ...d, items };
+              });
+              setActiveItem((v) => Math.max(0, Math.min(v, draft.items.length - 2)));
+            }}
+          />
+
+          {/* صورة وألوان العنصر النشط */}
           <section className="grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-base font-bold">{t("productImage")}</h2>
-              {draft.image && (
+              <h2 className="font-display text-base font-bold">
+                {t("productImage")}
+                {draft.items.length > 1 ? ` · ${draft.items[activeItem]?.name || `#${activeItem + 1}`}` : ""}
+              </h2>
+              {draft.items[activeItem]?.image && (
                 <button onClick={handleExtract} className={stBtnGhost}>
                   {t("extractColors")}
                 </button>
@@ -1073,13 +1155,13 @@ function StudioInner() {
                 <p className="text-[11px] leading-5 text-navy-900/45">
                   رابط مباشر لصورة المنتج — يُستخدم كما هو على الصفحة، مع محاولة استخراج الألوان منه.
                 </p>
-                {draft.image && (
+                {draft.items[activeItem]?.image && (
                   <div className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-2.5">
-                    <img src={draft.image} alt={t("currentImage")} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
+                    <img src={draft.items[activeItem].image} alt={t("currentImage")} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
                     <span className="flex-1 truncate text-[11px] text-navy-900/50">{t("currentImage")}</span>
                     <button
                       onClick={() => {
-                        setDraft({ ...draft, image: "" });
+                        setDraft((d) => ({ ...d, items: updateItem(d.items, activeItem, { image: "" }) }));
                         setPaletteWarning("");
                       }}
                       className="shrink-0 text-xs font-bold text-red-600"
@@ -1091,17 +1173,17 @@ function StudioInner() {
               </div>
             ) : (
               <>
-                {draft.image ? (
+                {draft.items[activeItem]?.image ? (
                   <div className="flex items-center gap-4">
                     <div className="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl bg-ivory-100 ring-1 ring-navy-900/10">
-                      <img src={draft.image} alt={t("productImage")} className="h-full w-full object-cover" />
+                      <img src={draft.items[activeItem].image} alt={t("productImage")} className="h-full w-full object-cover" />
                     </div>
                     <div className="grid gap-2">
                       <label className={`${stBtnGhost} cursor-pointer text-center`}>
                         {t("replaceImage")}
                         <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleMainImage(e.target.files[0])} />
                       </label>
-                      <button onClick={() => setDraft({ ...draft, image: "" })} className={stBtnGhost}>
+                      <button onClick={() => setDraft((d) => ({ ...d, items: updateItem(d.items, activeItem, { image: "" }) }))} className={stBtnGhost}>
                         {t("remove")}
                       </button>
                     </div>
@@ -1117,23 +1199,98 @@ function StudioInner() {
               </>
             )}
 
-            {/* صور إضافية */}
+            {/* صور إضافية للعنصر النشط */}
             <div className="grid gap-3">
-              {draft.images.map((img, i) => (
+              <div className="flex items-center justify-between text-[11px] font-semibold text-navy-700">
+                <span>{t("galleryTitle")}</span>
+                <span className="text-navy-900/45">{t("imagesRemaining", { n: remainingImages })}</span>
+              </div>
+              {draft.items[activeItem]?.images.map((img, i) => (
                 <div key={i} className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-2">
                   <img src={img} alt={t("extraImage", { n: i + 1 })} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
                   <span className="flex-1 text-xs text-navy-900/50">{t("extraImage", { n: i + 1 })}</span>
-                  <button onClick={() => setDraft({ ...draft, images: draft.images.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">
+                  <button
+                    onClick={() =>
+                      setDraft((d) => {
+                        const it = d.items[activeItem];
+                        return { ...d, items: updateItem(d.items, activeItem, { images: it.images.filter((_, j) => j !== i) }) };
+                      })
+                    }
+                    className="text-xs font-bold text-red-600"
+                  >
                     {t("deleteItem")}
                   </button>
                 </div>
               ))}
-              {draft.images.length < 4 && (
+              {remainingImages > 0 && (
                 <label className={`${stBtnGhost} cursor-pointer text-center`}>
                   {t("addImage")}
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleAddImage(e.target.files[0])} />
                 </label>
               )}
+
+              {/* ألوان العنصر النشط — يختارها الزبون للعرض فقط */}
+              <div className="mt-2 grid gap-1.5 border-t border-navy-900/10 pt-3 dark:border-white/10">
+                <span className="text-xs font-semibold text-navy-700">{t("colorsTitle")}</span>
+                <span className="text-[10px] font-normal text-navy-900/45">{t("colorsHint")}</span>
+                <div className="grid gap-2">
+                  {(draft.items[activeItem]?.colors ?? []).map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={/^#[0-9a-fA-F]{6}$/.test(c.hex) ? c.hex : "#3b82f6"}
+                        onChange={(e) => {
+                          setDraft((d) => {
+                            const it = d.items[activeItem];
+                            const colors = it.colors.slice();
+                            colors[i] = { ...colors[i], hex: e.target.value };
+                            return { ...d, items: updateItem(d.items, activeItem, { colors }) };
+                          });
+                        }}
+                        className="h-9 w-10 shrink-0 cursor-pointer rounded-md border border-navy-900/15 bg-transparent p-0"
+                      />
+                      <input
+                        className={stInput}
+                        value={c.name}
+                        onChange={(e) => {
+                          setDraft((d) => {
+                            const it = d.items[activeItem];
+                            const colors = it.colors.slice();
+                            colors[i] = { ...colors[i], name: e.target.value };
+                            return { ...d, items: updateItem(d.items, activeItem, { colors }) };
+                          });
+                        }}
+                        placeholder="الأسود"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDraft((d) => {
+                            const it = d.items[activeItem];
+                            return { ...d, items: updateItem(d.items, activeItem, { colors: it.colors.filter((_, j) => j !== i) }) };
+                          })
+                        }
+                        className={stBtnGhost}
+                        aria-label={t("remove")}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraft((d) => {
+                      const it = d.items[activeItem];
+                      return { ...d, items: updateItem(d.items, activeItem, { colors: [...it.colors, { name: "", hex: "#3b82f6" }] }) };
+                    })
+                  }
+                  className={stBtnGhost}
+                >
+                  + {t("addColor")}
+                </button>
+              </div>
             </div>
           </section>
 
@@ -1255,12 +1412,20 @@ function StudioInner() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-base font-bold">{t("publishSection")}</h2>
               <button
-                onClick={handlePublish}
+                onClick={() => handlePublish()}
                 disabled={locked || publishing}
                 title={locked ? t("lockedHint") : t("publishBtn")}
                 className={`rounded-full bg-navy-900 px-5 py-2.5 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-60 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
               >
                 {publishing ? t("publishingBtn") : t("publishBtn")}
+              </button>
+              <button
+                onClick={() => handlePublish({ newLink: true })}
+                disabled={locked || publishing}
+                title={t("newLinkHint")}
+                className={`rounded-full border border-red-500/40 px-4 py-2.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-500/10 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+              >
+                ♻ {t("newLink")}
               </button>
             </div>
 

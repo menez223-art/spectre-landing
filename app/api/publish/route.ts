@@ -12,11 +12,58 @@ import {
 import { getDeviceOwner, isDeviceApprovedOnly, isDeviceBanned } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
 import { getSubscription } from "@/app/lib/subsStore";
+import { getKv, setKv, deleteKv } from "@/app/lib/kvStore";
+import { deployHtmlToGithubPages, hasGithubPages } from "@/app/lib/githubPages";
+import { generateLandingHtml } from "@/app/lib/generateHtml";
+import { buildWebhook } from "@/app/lib/sheetResolver";
+import {
+  countPageImages,
+  MAX_LANDING_PRODUCTS,
+  MAX_LANDING_IMAGES,
+} from "@/app/lib/types";
 
 export const dynamic = "force-dynamic";
 
 // حد أقصى لحجم جسم الطلب — صور data:URL قد تجعل الصفحة كبيرة جدًا
 const MAX_BODY_BYTES = 800_000;
+
+// مفتاح KV يربط كل مالك بسلاغه الثابت (رابط واحد لكل حساب).
+const ownerSlugKey = (owner: string) => `owner-slug/${owner}`;
+
+// يولّد سلاغاً جديداً غير مستخدم لصفحة هبوط (رابط ثابت للمالك).
+async function generateSlug(): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate =
+      typeof globalThis.crypto?.randomUUID === "function"
+        ? globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 10)
+        : Math.random().toString(36).slice(2, 12);
+    const exists = await getPublishedProduct(candidate);
+    if (!exists) return candidate;
+  }
+  return `p${Date.now().toString(36)}`;
+}
+
+// يثبّت للملاك رابطاً واحداً: إن وُجد سلاغه الثابت يُعاد استخدامه (تحديث في
+// مكانه = رابط ثابت)، وإلا يولّد سلاغاً جديداً ويخزّنه. يُرجع السلاغ النهائي.
+async function resolveOwnerSlug(owner: string): Promise<string> {
+  const existing = await getKv<string>(ownerSlugKey(owner));
+  if (typeof existing === "string" && existing.length > 0) return existing;
+  const fresh = await generateSlug();
+  await setKv(ownerSlugKey(owner), fresh);
+  return fresh;
+}
+
+// يحرر منشور المالك المثبّت (الرابط القديم) نهائياً، ثم يولّد سلاغاً جديداً
+// ويخزّنه — «رابط جديد» يحرق القديم تماماً (404 فوري) ويمهّد رابطاً جديداً.
+async function rotateOwnerSlug(owner: string): Promise<string> {
+  const old = await getKv<string>(ownerSlugKey(owner));
+  if (typeof old === "string" && old.length > 0) {
+    await deletePublishedProduct(old);
+  }
+  const fresh = await generateSlug();
+  await setKv(ownerSlugKey(owner), fresh);
+  return fresh;
+}
 
 function isValidProduct(p: unknown): p is Product {
   if (!p || typeof p !== "object") return false;
@@ -81,6 +128,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_product" }, { status: 400 });
   }
 
+  // ── قيود تخفيف حمل الروابط (خادمية — غير قابلة للالتفاف من العميل) ──
+  // عدد المنتجات في صفحة الهبوط الواحدة (وضع المتجر) محدود بـ MAX_LANDING_PRODUCTS،
+  // ومجموع صور الصفحة (رئيسية + إضافية، موزّعة على كل المنتجات) محدود بـ
+  // MAX_LANDING_IMAGES. هذه الحدود تخفّف حجم الصفحات واستهلاك السعة.
+  const products = Array.isArray((product as Product).products)
+    ? (product as Product).products!
+    : [product as Product];
+  if (products.length > MAX_LANDING_PRODUCTS) {
+    return NextResponse.json(
+      { error: "too_many_products", max: MAX_LANDING_PRODUCTS },
+      { status: 413 }
+    );
+  }
+  const imageCount = countPageImages(products);
+  if (imageCount > MAX_LANDING_IMAGES) {
+    return NextResponse.json(
+      { error: "too_many_images", max: MAX_LANDING_IMAGES, count: imageCount },
+      { status: 413 }
+    );
+  }
+
   const owner = await resolveOwner(fingerprint);
 
   // الحماية: لا يمكن نشر/إنتاج رابط جديد لمن لم يربط بريده بعد (حساب غير مكتمل).
@@ -109,9 +177,62 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "banned" }, { status: 403 });
   }
 
+  // ── الرابط الثابت لكل مالك ──
+  // كل مالك (بريده) له سلاغ واحد ثابت: النشر يعيد الكتابة فوق نفس الرابط
+  // (تحديث في المكان = رابط لا يتغيّر). طلب ?newLink=1 من الاستوديو يحرّق
+  // الرابط القديم نهائياً ويولّد رابطاً جديداً للمالك.
+  const wantNewLink = (searchParams.get("newLink") ?? "") === "1";
+  let slug: string;
   try {
-    await setPublishedProduct(product);
-    await setPublishedMeta(product.id, {
+    slug = wantNewLink ? await rotateOwnerSlug(owner) : await resolveOwnerSlug(owner);
+  } catch {
+    return NextResponse.json({ error: "storage" }, { status: 502 });
+  }
+  // نثبّت السلاغ الخادمي على المنتج (نيتجهّل أي id أرسله العميل).
+  (product as Product).id = slug;
+
+  // توجيه الاحتياط: إن كان وضع الاحتياط مفعّلاً (اقتربنا من حد السعة) ننتج
+  // صفحة HTML مستقلة ونرفعها على GitHub Pages بدل التخزين على Vercel — كي لا
+  // نستهلك سعة/استدعاءات إضافية. الطلبات تشتغل لأننا نحقن webhook مباشراً.
+  let fallbackMode = false;
+  try {
+    fallbackMode = Boolean(await getKv<boolean>("fallback_mode"));
+  } catch {
+    fallbackMode = false;
+  }
+
+  if (fallbackMode && hasGithubPages()) {
+    try {
+      const createdAt = new Date().toISOString();
+      // حقن webhook مباشر نحو Apps Script كي تشتغل الطلبات على GitHub Pages.
+      const webhook = await buildWebhook({
+        sheetKey: (product as unknown as Record<string, unknown>).sheetKey as string | null,
+        sheetEmail: (product as unknown as Record<string, unknown>).sheetEmail as string | null,
+      });
+      const html = await generateLandingHtml(
+        product as Product,
+        webhook ?? undefined,
+        createdAt
+      );
+      const dep = await deployHtmlToGithubPages(slug, html);
+      if (dep.ok && dep.url) {
+        await setPublishedMeta(slug, {
+          owner,
+          createdAt,
+          host: "github",
+        });
+        return NextResponse.json({ url: dep.url, slug, host: "github" });
+      }
+      // فشل الرفع على GitHub Pages → نسقط هادئاً إلى المسار العادي (Vercel/Supabase)
+      console.error("[publish] فشل الرفع على GitHub Pages، السقوط لـ Vercel:", dep.error);
+    } catch (err) {
+      console.error("[publish] خطأ في مسار الاحتياط:", err);
+    }
+  }
+
+  try {
+    await setPublishedProduct(product as Product);
+    await setPublishedMeta(slug, {
       owner,
       createdAt: new Date().toISOString(),
     });
@@ -121,7 +242,7 @@ export async function POST(request: Request) {
   }
 
   const origin = new URL(request.url).origin;
-  return NextResponse.json({ url: `${origin}/p/${product.id}`, slug: product.id });
+  return NextResponse.json({ url: `${origin}/p/${slug}`, slug, host: "vercel" });
 }
 
 // منشور واحد عام (?slug=) أو قائمة خاصة للمالك (?fingerprint=).
@@ -181,6 +302,14 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
     const deleted = await deletePublishedProduct(slug);
+    // حذف الرابط كلياً = تحرير ربط السلاغ الثابت للمالك، كي ينشئ رابطاً
+    // جديداً عند نشره القادم (الرابط القديم يُحرق ولا يعود صالحاً).
+    try {
+      const bound = await getKv<string>(ownerSlugKey(owner));
+      if (bound === slug) await deleteKv(ownerSlugKey(owner));
+    } catch {
+      // تجاهل فشل تحرير الربط — الحذف نفسه تم
+    }
     return NextResponse.json({ deleted });
   } catch (err) {
     console.error("[publish] فشل إلغاء النشر:", err);

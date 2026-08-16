@@ -20,6 +20,9 @@ export function hasPublishStore(): boolean {
 export interface PublishMeta {
   owner: string; // بريد المالك أو "device:<hash>" كسقوط
   createdAt: string;
+  // مكان استضافة الصفحة الحية: "vercel" (افتراضي) أو "github" (احتياط).
+  // يُستخدم لفرض شرط «أسبوع ثم تحرق» على صفحات الاحتياط فقط.
+  host?: "vercel" | "github";
   // علامة حرق/حظر مباشرة على المنشور — تُكتب عند حظر الأدمن للمستخدم
   // كي تتوقف الروابط فوراً 100% بغض النظر عن تطابق هوية الجهاز/البريد.
   banned?: boolean;

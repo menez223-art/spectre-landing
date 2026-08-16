@@ -53,7 +53,18 @@ const STAR_SVG =
 
 const ORDER_BENEFITS = ["دفع آمن عند الاستلام", "توصيل سريع لباب منزلك", "منتج أصلي بضمان الجودة"];
 
-export async function generateLandingHtml(product: Product, sheetWebhook?: string): Promise<string> {
+// رابط الموقع الرئيسي — يُحقن إجبارياً في كل صفحة هبوط منتجة.
+// قابل للتهيئة عبر NEXT_PUBLIC_SITE_URL كي يبقى صحيحاً عند نقل الملكية.
+const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-tau-five.vercel.app/";
+
+// مدة صلاحية صفحة الاحتياط (GitHub Pages): أسبوع واحد ثم تُحرق ذاتياً
+const FALLBACK_EXPIRY_DAYS = 7;
+
+export async function generateLandingHtml(
+  product: Product,
+  sheetWebhook?: string,
+  createdAt?: string
+): Promise<string> {
   const theme = product.theme;
   const webhook = sheetWebhook ?? product.sheetWebhook ?? "";
   // أسعار التوصيل المدمجة — قيم المنتج المخصصة تُغلب القيم الافتراضية
@@ -77,15 +88,33 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
     .join("\n");
 
   const featuresLayout = theme.featuresLayout === "list" ? "list" : "grid";
-  const hasDiscount = typeof product.oldPrice === "number" && product.oldPrice > product.price;
-  const discountPct =
-    hasDiscount && product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
   const brand = (product.brand ?? product.name.trim().split(/\s+/)[0] ?? "").trim();
 
-  // حلّ كل الصور إلى data URL قبل البناء
+  // ── وضع المتجر (منتجات متعددة في صفحة واحدة) ──
+  // إن وُجدت قائمة products نكون في وضع المتجر: كل عنصر منتج بسعره وصوره،
+  // والزبون يختار منتجاً فيظهر سعره وصورته ديناميكياً. غيابها = منتج مفرد
+  // (توافق عكسي كامل مع المنشورات الحالية المبنية من Product واحد).
+  const isStore = Array.isArray(product.products) && product.products.length > 0;
+  const items: Product[] = isStore ? product.products! : [product];
+  // في وضع المتجر نعرض بيانات أول منتج في الواجهة الأولية (العنوان/السعر/الصورة)،
+  // ثم يتولّى السكربت تبديلها عند اختيار الزبون منتجاً آخر.
+  const display = isStore ? items[0] : product;
+
+  // نفكّ كل صور كل عنصر مسبقاً (صورة رئيسية + إضافية) لتسريع التبديل في المتصفح.
+  const itemImages: string[][] = await Promise.all(
+    items.map(async (it) => {
+      const srcs = [it.image, ...(it.images ?? [])].filter(Boolean) as string[];
+      return Promise.all(srcs.map(toDataUrl));
+    })
+  );
+
+  // حلّ كل صور الصفحة إلى data URL قبل البناء — للتوافق المفرد.
   const images = [product.image, ...(product.images ?? [])].filter(Boolean) as string[];
   const resolvedImages = await Promise.all(images.map(toDataUrl));
-  const mainImage = resolvedImages[0] ?? "";
+  // الصورة الرئيسية للصفحة = صورة أول عنصر (متجر) أو صورة المنتج المفرد.
+  const mainImage = (isStore ? itemImages[0]?.[0] : resolvedImages[0]) ?? "";
+  // صور المعرض = صور أول منتج (متجر) أو صور المنتج المفرد.
+  const displayImages = isStore ? (itemImages[0] ?? []) : resolvedImages;
   const extrasImage = product.extras?.image ? await toDataUrl(product.extras.image) : undefined;
 
   // ---------------------------------------------------------------- TopBar
@@ -112,26 +141,30 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
         ${navItems.map((item) => `<a href="${esc(item.href)}">${esc(item.label)}</a>`).join("")}
       </nav>
       <a href="#order" class="header-cta">اطلب الآن</a>
+      <a href="${esc(SITE_HOME_URL)}" class="header-home" target="_blank" rel="noopener">Studio Store Gen</a>
     </header>`;
 
   // ---------------------------------------------------------------- Showcase
   const eyebrowHtml =
-    product.eyebrow || product.badge
-      ? `<p class="eyebrow"><span class="eyebrow-dot"></span>${esc(product.eyebrow ?? product.badge)}</p>`
+    display.eyebrow || display.badge
+      ? `<p class="eyebrow"><span class="eyebrow-dot"></span>${esc(display.eyebrow ?? display.badge)}</p>`
       : "";
-  const nameEnHtml = product.nameEn
-    ? `<p class="name-en l-text-gradient">${esc(product.nameEn)}</p>`
+  const nameEnHtml = display.nameEn
+    ? `<p class="name-en l-text-gradient">${esc(display.nameEn)}</p>`
     : "";
+  const hasDiscount = typeof display.oldPrice === "number" && display.oldPrice > display.price;
+  const discountPct =
+    hasDiscount && display.oldPrice ? Math.round((1 - display.price / display.oldPrice) * 100) : 0;
   const discountHtml =
-    hasDiscount && product.oldPrice
-      ? `<span class="price-old">${formatDZD(product.oldPrice)}</span>
+    hasDiscount && display.oldPrice
+      ? `<span class="price-old">${formatDZD(display.oldPrice)}</span>
          <span class="discount-badge">-${discountPct}%</span>`
       : "";
-  const tagsHtml = product.tags?.length
-    ? `<div class="tags-row">${product.tags.map((t) => `<span class="tag-pill">${esc(t)}</span>`).join("")}</div>`
+  const tagsHtml = display.tags?.length
+    ? `<div class="tags-row">${display.tags.map((t) => `<span class="tag-pill">${esc(t)}</span>`).join("")}</div>`
     : "";
-  const statsHtml = product.stats?.length
-    ? `<div class="stats-row">${product.stats
+  const statsHtml = display.stats?.length
+    ? `<div class="stats-row">${display.stats
         .map(
           (s, i) =>
             `${i > 0 ? `<span class="stats-divider"></span>` : ""}<span class="stat"><strong>${esc(
@@ -141,11 +174,11 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
         .join("")}</div>`
     : "";
 
-  const badgeChipHtml = product.badge ? `<span class="badge-chip">${esc(product.badge)}</span>` : "";
+  const badgeChipHtml = display.badge ? `<span class="badge-chip">${esc(display.badge)}</span>` : "";
   const mainImgHtml = mainImage
-    ? `<img id="jsMainImg" src="${esc(mainImage)}" alt="${esc(product.name)}" class="media-img">`
+    ? `<img id="jsMainImg" src="${esc(mainImage)}" alt="${esc(display.name)}" class="media-img">`
     : "";
-  const galleryThumbsHtml = resolvedImages
+  const galleryThumbsHtml = displayImages
     .map(
       (src, i) => `
       <button type="button" class="gallery-thumb${i === 0 ? " active" : ""}" data-src="${esc(src)}" aria-label="لقطة ${i + 1}">
@@ -159,12 +192,12 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
       <div class="showcase-text">
         ${eyebrowHtml}
         ${nameEnHtml}
-        <h1 class="showcase-title">${esc(product.tagline ?? product.name)}</h1>
-        ${product.description ? `<p class="showcase-desc">${esc(product.description)}</p>` : ""}
+        <h1 class="showcase-title">${esc(display.tagline ?? display.name)}</h1>
+        ${display.description ? `<p class="showcase-desc">${esc(display.description)}</p>` : ""}
         <div class="showcase-cta-row">
           <a href="#order" class="btn-primary">اطلب الآن <span>←</span></a>
           <div class="price-row">
-            <span class="price-now">${formatDZD(product.price)}</span>
+            <span class="price-now">${formatDZD(display.price)}</span>
             ${discountHtml}
           </div>
         </div>
@@ -180,13 +213,13 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
           ${badgeChipHtml}
           <div class="media-caption">
             <div>
-              ${product.nameEn ? `<p class="sub">${esc(product.nameEn)}</p>` : ""}
-              <p class="name">${esc(product.name)}</p>
+              ${display.nameEn ? `<p class="sub">${esc(display.nameEn)}</p>` : ""}
+              <p class="name">${esc(display.name)}</p>
             </div>
           </div>
         </div>
-        ${resolvedImages.length > 1
-          ? `<div class="gallery" style="grid-template-columns:repeat(${Math.min(resolvedImages.length, 4)}, minmax(0,1fr))">${galleryThumbsHtml}</div>`
+        ${displayImages.length > 1
+          ? `<div class="gallery" id="jsGallery" style="grid-template-columns:repeat(${Math.min(displayImages.length, 4)}, minmax(0,1fr))">${galleryThumbsHtml}</div>`
           : ""}
       </div>
     </section>`;
@@ -330,8 +363,10 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
         <p class="delivery-wilaya-hint" id="oWilayaHint">اختر ولايتك من القائمة ليظهر خيارا التوصيل وأسعارهما.</p>
       </div>`;
 
-  // خيارات ألوان المنتج — للعرض فقط (لا تُرسل للجدول)
-  const validColors = (product.colors ?? []).filter(
+  // خيارات ألوان المنتج النشط — للعرض فقط (لا تُرسل للجدول).
+  // في وضع المتجر نأخذ ألوان العنصر المعروض حالياً (display) لا ألوان غلاف
+  // المتجر، ونُعيد بناءها ديناميكياً عند تبديل المنتج (انظر applyItem).
+  const validColors = (display.colors ?? []).filter(
     (c) => c && c.name && /^#[0-9a-fA-F]{6}$/.test(c.hex)
   );
   const colorOptionsHtml = validColors
@@ -346,7 +381,7 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
     .join("");
   const colorFieldsetHtml =
     validColors.length > 0
-      ? `<fieldset class="span-2"><legend class="field">اللون</legend><div class="color-options">${colorOptionsHtml}</div></fieldset>`
+      ? `<fieldset class="span-2" id="jsColorFieldset"><legend class="field">اللون</legend><div class="color-options">${colorOptionsHtml}</div></fieldset>`
       : "";
 
   const orderFormHtml = `
@@ -393,15 +428,52 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
       <p class="form-note span-2">بإرسال هذا النموذج، أنت توافق على التواصل معك بخصوص طلبك. بياناتك تبقى خاصة.</p>
     </form>`;
 
+  // ── شريط اختيار المنتجات (وضع المتجر فقط) ──
+  // بطاقات منتجات قابلة للنقر؛ عند اختيار منتج تتبدّل الصورة الرئيسية والسعر
+  // والمعرض ديناميكياً (انظر السكربت). في وضع المنتج المفرد لا يظهر.
+  const productPickerHtml = isStore
+    ? `
+    <section id="products" class="section rel">
+      <div class="top-divider"></div>
+      <div class="container-landing">
+        <div class="product-picker-head">
+          <p class="product-picker-kicker">اختر منتجك</p>
+          <h2 class="product-picker-title">مجموعتنا <span class="accent">بأسعارها.</span></h2>
+        </div>
+        <div class="product-picker" id="jsProductPicker">
+          ${items
+            .map(
+              (it, i) => `
+            <button type="button" class="product-card${i === 0 ? " active" : ""}" data-index="${i}" aria-pressed="${i === 0 ? "true" : "false"}">
+              <span class="product-card-media">
+                ${itemImages[i]?.[0] ? `<img src="${esc(itemImages[i][0])}" alt="${esc(it.name)}" class="media-img">` : ""}
+                ${it.oldPrice && it.oldPrice > it.price ? `<span class="product-card-badge">-${Math.round((1 - it.price / it.oldPrice) * 100)}%</span>` : ""}
+              </span>
+              <span class="product-card-body">
+                <span class="product-card-name">${esc(it.name)}</span>
+                ${it.nameEn ? `<span class="product-card-en">${esc(it.nameEn)}</span>` : ""}
+                <span class="product-card-price">
+                  <strong>${formatDZD(it.price)}</strong>
+                  ${it.oldPrice && it.oldPrice > it.price ? `<span class="product-card-old">${formatDZD(it.oldPrice)}</span>` : ""}
+                </span>
+              </span>
+            </button>`
+            )
+            .join("")}
+        </div>
+      </div>
+    </section>`
+    : "";
+
   const orderSectionHtml = `
     <section id="order" class="section order-section">
       <div class="container-landing">
         <div class="order-grid">
           <div>
             <p class="order-kicker">اطلبه الآن</p>
-            <h2 class="order-title">احصل على ${esc(product.name)} بتوصيل سريع.</h2>
+            <h2 class="order-title">احصل على ${esc(display.name)} بتوصيل سريع.</h2>
             <p class="order-desc">اترك بياناتك وسيتصل بك فريقنا لتأكيد الطلب وعنوان التوصيل. الدفع عند الاستلام.</p>
-            <p class="order-summary">${esc(product.name)} · ${formatDZD(product.price)} · التوصيل لـ 58 ولاية</p>
+            <p class="order-summary">${esc(display.name)} · ${formatDZD(display.price)} · التوصيل لـ 58 ولاية</p>
             <div class="benefits">
               ${ORDER_BENEFITS.map((b) => `<span class="benefit"><span class="benefit-check">✓</span>${b}</span>`).join("")}
             </div>
@@ -416,6 +488,7 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
     <footer class="site-footer container-landing">
       <p>© 2026 ${esc(product.brand ?? product.name)}. صفحة مخصصة لـ ${esc(product.name)}.</p>
       <p>التوصيل لـ 58 ولاية · الدفع عند الاستلام</p>
+      <p class="footer-home"><a href="${esc(SITE_HOME_URL)}" target="_blank" rel="noopener">Studio Store Gen</a></p>
     </footer>`;
 
   // ---------------------------------------------------------------- Sticky CTA
@@ -423,8 +496,8 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
     <div class="sticky-cta cta-rise">
       <div class="container-landing sticky-inner">
         <div class="sticky-text">
-          <p class="sticky-name">${esc(product.name)}</p>
-          <p class="sticky-price">${formatDZD(product.price)}<span class="sticky-delivery">التوصيل لـ 58 ولاية</span></p>
+          <p class="sticky-name">${esc(display.name)}</p>
+          <p class="sticky-price">${formatDZD(display.price)}<span class="sticky-delivery">التوصيل لـ 58 ولاية</span></p>
         </div>
         <a href="#order" class="sticky-btn">اطلب الآن ←</a>
       </div>
@@ -450,9 +523,30 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
   var WEBHOOK = ${jsStr(webhook)};
   var SHEET_KEY = ${jsStr(product.sheetKey ?? "")};
   var SHEET_EMAIL = ${jsStr(product.sheetEmail ?? "")};
-  var PRICE = ${product.price};
-  var PRODUCT = ${jsStr(product.name)};
+
+  // ── بيانات المتجر (منتجات متعددة) ──
+  // ITEMS يحوي لكل منتج: اسمه الحقيقي، سعره، سعره القديم، وصوره (data URL).
+  // هكذا نبدّل السعر والصورة والاسم ديناميكياً عند اختيار الزبون لمنتج.
+  var IS_STORE = ${isStore ? "true" : "false"};
+  var ITEMS = ${JSON.stringify(
+    items.map((it, i) => ({
+      name: it.name,
+      nameEn: it.nameEn ?? "",
+      price: it.price,
+      oldPrice: typeof it.oldPrice === "number" ? it.oldPrice : 0,
+      images: itemImages[i] ?? [],
+      colors: (it.colors ?? []).filter((c) => c && c.name && /^#[0-9a-fA-F]{6}$/.test(c.hex)),
+    }))
+  ).replace(/</g, "\\u003c")};
+  var activeIndex = 0;
+
+  // السعر والاسم الحاليان — يتغيّران عند اختيار منتج مختلف (وضع المتجر).
+  var PRICE = ITEMS[activeIndex].price;
+  var PRODUCT = ITEMS[activeIndex].name;       // اسم المنتج المختار (يُعرض)
+  var PRODUCT_NAME = ITEMS[activeIndex].name;   // اسم المنتج الحقيقي (يُرسل للجدول)
   var MODE = ${jsStr(theme.mode)};
+  var PAGE_CREATED_AT = ${jsStr(createdAt ?? "")};
+  var PAGE_EXPIRY_DAYS = ${FALLBACK_EXPIRY_DAYS};
 
   function fmt(v) {
     try { return v.toLocaleString("fr-DZ") + " دج"; }
@@ -472,6 +566,35 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
   var deliveryInputs = form.querySelectorAll("input[name=deliveryType]");
   var priceEls = form.querySelectorAll(".delivery-price");
   var wilayaHintEl = document.getElementById("oWilayaHint");
+
+  // ── انتهاء صلاحية صفحة الاحتياط (GitHub Pages) ──
+  // بعد أسبوع من createdAt تُحرق الصفحة ذاتياً: تُستبدل لوحة الطلب برسالة
+  // تطلب من المستخدم تجديد الرابط في الاستوديو (لأنها استضافة مؤقتة).
+  var EXPIRED = false;
+  (function applyExpiry() {
+    if (!PAGE_CREATED_AT) return; // صفحات غير احتياطية لا تنتهي
+    var created = new Date(PAGE_CREATED_AT);
+    if (isNaN(created.getTime())) return;
+    var now = new Date();
+    var ageDays = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+    if (ageDays < PAGE_EXPIRY_DAYS) return;
+    EXPIRED = true;
+    var sec = document.getElementById("order");
+    if (!sec) return;
+    var grid = sec.querySelector(".order-grid");
+    if (grid) {
+      grid.innerHTML =
+        '<div class="expired-card">' +
+        '<div class="expired-icon">⏳</div>' +
+        '<h2 class="expired-title">انتهت صلاحية هذا الرابط</h2>' +
+        '<p class="expired-copy">هذا الرابط مؤقت وانتهت صلاحيته. لتجديده واستمرار استقبال الطلبات، افتح منتجك في الاستوديو وانشره من جديد.</p>' +
+        '<a class="expired-btn" href="' + ${jsStr(SITE_HOME_URL)} + '" target="_blank" rel="noopener">الذهاب إلى الاستوديو لتجديد الرابط</a>' +
+        "</div>";
+    }
+    // إخفاء شريط الطلب الثابت
+    var sticky = document.querySelector(".sticky-cta");
+    if (sticky) sticky.style.display = "none";
+  })();
 
   function wilayaName() {
     var code = Number(wilayaSel.value);
@@ -603,9 +726,11 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
   function syncColor() {
     var options = document.querySelectorAll(".color-option");
     for (var j = 0; j < options.length; j++) options[j].classList.remove("checked");
-    for (var k = 0; k < colorInputs.length; k++) {
-      if (colorInputs[k].checked) {
-        var parent = colorInputs[k].closest(".color-option");
+    // نستعلم مدخلات الألوان من DOM عند كل استدعاء (قد تُعاد بناؤها ديناميكياً)
+    var live = form.querySelectorAll("input[name=color]");
+    for (var k = 0; k < live.length; k++) {
+      if (live[k].checked) {
+        var parent = live[k].closest(".color-option");
         if (parent) parent.classList.add("checked");
         break;
       }
@@ -615,8 +740,150 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
     colorInputs[ci].addEventListener("change", syncColor);
   }
 
+  // ── وضع المتجر: تبديل المنتج المختار ديناميكياً ──
+  // عند نقر بطاقة منتج نحدّث الصورة الرئيسية + المعرض + السعر + الاسم المعروض
+  // والاسم الحقيقي المُرسَل للجدول (PRODUCT_NAME)، ثم نعيد حساب المجموع.
+  function applyItem(index) {
+    if (index < 0 || index >= ITEMS.length) return;
+    activeIndex = index;
+    var item = ITEMS[index];
+    PRICE = item.price;
+    PRODUCT = item.name;
+    PRODUCT_NAME = item.name;
+
+    // الصورة الرئيسية
+    var main = document.getElementById("jsMainImg");
+    if (main && item.images[0]) main.src = item.images[0];
+
+    // المعرض (thumbnails) — إعادة بناء وربط النقر
+    var gallery = document.getElementById("jsGallery");
+    if (item.images.length > 1) {
+      if (!gallery) {
+        // أنشئ المعرض ديناميكياً إن كان المنتج الأول بصورة واحدة فقط
+        var mediaEl = document.querySelector(".showcase-media");
+        if (mediaEl) {
+          gallery = document.createElement("div");
+          gallery.className = "gallery";
+          gallery.id = "jsGallery";
+          gallery.style.gridTemplateColumns = "repeat(" + Math.min(item.images.length, 4) + ", minmax(0,1fr))";
+          mediaEl.appendChild(gallery);
+        }
+      }
+      if (gallery) {
+        gallery.hidden = false;
+        gallery.style.gridTemplateColumns = "repeat(" + Math.min(item.images.length, 4) + ", minmax(0,1fr))";
+        gallery.innerHTML = item.images
+          .map(function (src, i) {
+            return (
+              '<button type="button" class="gallery-thumb' + (i === 0 ? " active" : "") +
+              '" data-src="' + String(src).replace(/"/g, "&quot;") + '" aria-label="لقطة ' + (i + 1) + '">' +
+              '<img src="' + String(src).replace(/"/g, "&quot;") + '" alt="لقطة ' + (i + 1) + '" class="media-img"></button>'
+            );
+          })
+          .join("");
+        bindThumbs(gallery);
+      }
+    } else if (gallery) {
+      gallery.hidden = true;
+      gallery.innerHTML = "";
+    }
+    if (item.images[0] && main) main.src = item.images[0];
+
+    // العنوان والسعر في الواجهة (showcase + sticky + قسم الطلب)
+    var titleEl = document.querySelector(".showcase-title");
+    if (titleEl) titleEl.textContent = item.name;
+    var priceNowEls = document.querySelectorAll(".price-now");
+    for (var pi = 0; pi < priceNowEls.length; pi++) priceNowEls[pi].textContent = fmt(PRICE);
+    var stickyName = document.querySelector(".sticky-name");
+    if (stickyName) stickyName.textContent = item.name;
+    var stickyPrice = document.querySelector(".sticky-price");
+    if (stickyPrice) {
+      stickyPrice.innerHTML = fmt(PRICE) + '<span class="sticky-delivery">التوصيل لـ 58 ولاية</span>';
+    }
+    var orderSummary = document.querySelector(".order-summary");
+    if (orderSummary) orderSummary.textContent = item.name + " · " + fmt(PRICE) + " · التوصيل لـ 58 ولاية";
+    var orderTitle = document.querySelector(".order-title");
+    if (orderTitle) orderTitle.textContent = "احصل على " + item.name + " بتوصيل سريع.";
+
+    // حالة البطاقات النشطة
+    var cards = document.querySelectorAll(".product-card");
+    for (var ci2 = 0; ci2 < cards.length; ci2++) {
+      var active = ci2 === index;
+      cards[ci2].classList.toggle("active", active);
+      cards[ci2].setAttribute("aria-pressed", active ? "true" : "false");
+    }
+
+    // إعادة بناء خيارات الألوان للمنتج المختار (للعرض فقط)
+    rebuildColors(item.colors || []);
+
+    updateTotals();
+  }
+
+  // بناء حقل الألوان لمجموعة ألوان محدّدة — يُستبدل محتوى #jsColorFieldset
+  // (أو يُزال إن لم توجد ألوان). يُربط كل مدخل جديد بـ syncColor.
+  function rebuildColors(colors) {
+    var fs = document.getElementById("jsColorFieldset");
+    var valid = colors.filter(function (c) {
+      return c && c.name && /^#[0-9a-fA-F]{6}$/.test(c.hex);
+    });
+    if (!fs) return;
+    if (valid.length === 0) {
+      fs.parentNode && fs.parentNode.removeChild(fs);
+      return;
+    }
+    var html = valid
+      .map(function (c, i) {
+        return (
+          '<label class="color-option' + (i === 0 ? " checked" : "") + '">' +
+          '<input type="radio" name="color" value="' + String(c.name).replace(/"/g, "&quot;") + '"' +
+          (i === 0 ? " checked" : "") + ">" +
+          '<span class="color-swatch" style="background:' + String(c.hex).replace(/"/g, "&quot;") + '"></span>' +
+          '<span class="color-name">' + String(c.name).replace(/</g, "&lt;") + "</span></label>"
+        );
+      })
+      .join("");
+    fs.innerHTML = '<legend class="field">اللون</legend><div class="color-options">' + html + "</div>";
+    var inputs = fs.querySelectorAll("input[name=color]");
+    for (var i = 0; i < inputs.length; i++) {
+      (function (inp) {
+        inp.addEventListener("change", syncColor);
+      })(inputs[i]);
+    }
+  }
+
+  // ربط نقرات معرض الصور (تُستدعى أيضاً عند إعادة بناء المعرض ديناميكياً)
+  function bindThumbs(container) {
+    var thumbs = container.querySelectorAll(".gallery-thumb");
+    var main = document.getElementById("jsMainImg");
+    for (var i = 0; i < thumbs.length; i++) {
+      (function (th) {
+        th.addEventListener("click", function () {
+          if (main) main.src = th.getAttribute("data-src");
+          for (var j = 0; j < thumbs.length; j++) thumbs[j].classList.remove("active");
+          th.classList.add("active");
+        });
+      })(thumbs[i]);
+    }
+  }
+
+  if (IS_STORE) {
+    var picker = document.getElementById("jsProductPicker");
+    if (picker) {
+      var cards = picker.querySelectorAll(".product-card");
+      for (var ci3 = 0; ci3 < cards.length; ci3++) {
+        (function (idx) {
+          cards[idx].addEventListener("click", function () { applyItem(idx); });
+        })(ci3);
+      }
+    }
+    // ربط معرض المنتج الأولي
+    var g0 = document.getElementById("jsGallery");
+    if (g0) bindThumbs(g0);
+  }
+
   form.addEventListener("submit", function (ev) {
     ev.preventDefault();
+    if (EXPIRED) return; // الصفحة محروقة — لا نرسل طلبات
     if (!form.checkValidity()) {
       form.reportValidity();
       return;
@@ -640,7 +907,8 @@ export async function generateLandingHtml(product: Product, sheetWebhook?: strin
       quantity: q,
       deliveryType: deliveryLabel(),
       totalPrice: PRICE * q + deliveryPrice(),
-      product: PRODUCT
+      product: PRODUCT,
+      productName: PRODUCT_NAME
     };
     try {
       // نمرّ عبر نقطة الوكيل الثابتة على نفس النطاق (/api/sheet/order) التي تبني
@@ -820,6 +1088,16 @@ input, select, textarea { font-family: inherit; }
   transition: background 0.2s, color 0.2s;
 }
 .header-cta:hover { background: var(--c-primary); color: var(--c-primary-text); }
+.header-home {
+  display: inline-flex; align-items: center; gap: 0.35rem; margin-inline-start: 0.75rem;
+  font-size: 0.75rem; font-weight: 700; color: var(--c-muted);
+  border-radius: 9999px; padding: 0.45rem 0.9rem; border: 1px solid var(--c-border);
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.header-home:hover { color: var(--c-accent); border-color: var(--c-accent); background: var(--c-surface); }
+.footer-home { margin-top: 0.5rem; text-align: center; }
+.footer-home a { color: var(--c-accent); font-weight: 700; text-decoration: none; }
+.footer-home a:hover { text-decoration: underline; }
 
 /* ---- Showcase ---- */
 .section { padding-top: 5rem; padding-bottom: 5rem; }
@@ -957,6 +1235,34 @@ input, select, textarea { font-family: inherit; }
 }
 .testim-author-name { font-weight: 700; color: var(--c-text); }
 
+/* ---- Product picker (store mode) ---- */
+.product-picker-head { margin-inline: auto; max-width: 42rem; text-align: center; }
+.product-picker-kicker { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.025em; color: var(--c-accent); }
+.product-picker-title { margin: 1rem 0 0; font-family: var(--font-display); font-size: 1.875rem; font-weight: 800; line-height: 1.3; color: var(--c-text); }
+@media (min-width: 640px) { .product-picker-title { font-size: 2.25rem; } }
+.product-picker-title .accent { color: var(--c-accent); }
+.product-picker { margin-top: 3rem; display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+.product-card {
+  position: relative; display: grid; gap: 1rem; text-align: start; cursor: pointer;
+  border-radius: 1.5rem; border: 1px solid var(--c-border); background: var(--c-surface);
+  padding: 1rem; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.product-card:hover { border-color: var(--c-border-strong); transform: translateY(-0.125rem); }
+.product-card.active { border-color: var(--c-primary); box-shadow: 0 0 0 2px var(--c-primary-soft), 0 12px 20px -12px var(--c-glow); }
+.product-card-media { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 1rem; background: var(--c-surface-2); box-shadow: 0 0 0 1px var(--c-border); }
+.product-card-media .media-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.product-card-badge {
+  position: absolute; top: 0.5rem; inset-inline-start: 0.5rem; border-radius: 9999px;
+  background: var(--c-primary); color: var(--c-primary-text); padding: 0.2rem 0.6rem;
+  font-size: 0.625rem; font-weight: 800;
+}
+.product-card-body { display: grid; gap: 0.35rem; }
+.product-card-name { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--c-text); }
+.product-card-en { font-size: 0.6875rem; color: var(--c-muted); }
+.product-card-price { display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.25rem; }
+.product-card-price strong { font-family: var(--font-display); font-size: 1.125rem; font-weight: 800; color: var(--c-text); }
+.product-card-old { font-size: 0.75rem; font-weight: 700; color: var(--c-muted); text-decoration: line-through; }
+
 /* ---- Order section ---- */
 .order-section { background: var(--c-bg-alt); }
 .order-grid { display: grid; gap: 3rem; }
@@ -1029,6 +1335,22 @@ input, select, textarea { font-family: inherit; }
 .form-blocked.light { border-color: rgba(245, 158, 11, 0.4); background: #fffbeb; color: #b45309; }
 .form-note { font-size: 0.6875rem; line-height: 1.25rem; color: var(--c-muted); }
 
+/* ---- Expired (fallback page burnt) ---- */
+.expired-card {
+  border-radius: 1.5rem; border: 1px solid var(--c-border-strong);
+  background: var(--c-surface); padding: 2.5rem 1.75rem; text-align: center;
+}
+.expired-icon { font-size: 2.5rem; }
+.expired-title { margin: 1rem 0 0; font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; color: var(--c-text); }
+.expired-copy { margin: 1rem auto 0; max-width: 32rem; font-size: 0.875rem; line-height: 1.75; color: var(--c-muted); }
+.expired-btn {
+  display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 1.75rem;
+  border-radius: 9999px; background-image: linear-gradient(to left, var(--c-primary), var(--c-primary-strong));
+  padding: 0.875rem 1.75rem; font-size: 0.875rem; font-weight: 700; color: var(--c-primary-text);
+  box-shadow: 0 10px 15px -3px var(--c-glow); transition: transform 0.2s, filter 0.2s;
+}
+.expired-btn:hover { transform: translateY(-1px); filter: brightness(1.06); }
+
 /* ---- Footer ---- */
 .site-footer { display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--c-border); padding-top: 2rem; padding-bottom: 2rem; font-size: 0.75rem; color: var(--c-muted); }
 @media (min-width: 640px) { .site-footer { flex-direction: row; } }
@@ -1059,6 +1381,7 @@ input, select, textarea { font-family: inherit; }
   ${featuresHtml}
   ${extrasHtml}
   ${testimonialsHtml}
+  ${productPickerHtml}
   ${orderSectionHtml}
   ${footerHtml}
 </main>

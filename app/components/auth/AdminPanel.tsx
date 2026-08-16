@@ -96,6 +96,14 @@ export function AdminPanel({ email }: { email: string }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
+  // ── حالة الاحتياط (وضع GitHub Pages + إنذار السعة) ──
+  const [bwBytes, setBwBytes] = useState<number | null>(null);
+  const [bwWarnBytes, setBwWarnBytes] = useState<number | null>(null);
+  const [bwWarning, setBwWarning] = useState(false);
+  const [fallbackMode, setFallbackMode] = useState(false);
+  const [fallbackBusy, setFallbackBusy] = useState(false);
+  const [ghConfigured, setGhConfigured] = useState<boolean | null>(null);
+
   // حالة نافذة التأكيد: أي زر وأي مستخدم
   const [confirm, setConfirm] = useState<{
     userId: string;
@@ -126,8 +134,57 @@ export function AdminPanel({ email }: { email: string }) {
 
   useEffect(() => {
     load();
+    loadFallback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadFallback() {
+    try {
+      const res = await fetch("/api/admin/fallback", { cache: "no-store" });
+      if (res.status === 403) return;
+      const data = (await res.json().catch(() => ({}))) as {
+        bytes?: number;
+        warnBytes?: number;
+        warning?: boolean;
+        fallbackMode?: boolean;
+        githubConfigured?: boolean;
+      };
+      setBwBytes(data.bytes ?? 0);
+      setBwWarnBytes(data.warnBytes ?? 0);
+      setBwWarning(Boolean(data.warning));
+      setFallbackMode(Boolean(data.fallbackMode));
+      setGhConfigured(data.githubConfigured ?? null);
+    } catch {
+      // تجاهل — القسم اختياري
+    }
+  }
+
+  async function setFallback(action: "enable" | "disable" | "clear_warning") {
+    setFallbackBusy(true);
+    try {
+      const res = await fetch("/api/admin/fallback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          fallbackMode?: boolean;
+          warning?: boolean;
+          githubConfigured?: boolean;
+        };
+        if (typeof data.fallbackMode === "boolean") setFallbackMode(data.fallbackMode);
+        if (typeof data.warning === "boolean") setBwWarning(data.warning);
+        if (action === "clear_warning") setBwWarning(false);
+        if (typeof data.githubConfigured === "boolean") setGhConfigured(data.githubConfigured);
+        if (action === "enable" || action === "disable") await loadFallback();
+      }
+    } catch {
+      // تجاهل
+    } finally {
+      setFallbackBusy(false);
+    }
+  }
 
   async function applyAction(userId: string, action: "set" | "delete" | "delete_pages" | "unban_purge" | "validity", opts?: { plan?: string; status?: string; reason?: string | null; validityUnit?: string | null; validityDays?: number | null }) {
     setBusyId(userId);
@@ -193,6 +250,109 @@ export function AdminPanel({ email }: { email: string }) {
       {error && (
         <p className="rounded-xl border border-red-400/30 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">{error}</p>
       )}
+
+      {/* ── لوحة الاحتياط وإنذار السعة ── */}
+      <section className="grid gap-3 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-base font-bold">الاحتياط وإنذار السعة</h2>
+          <button onClick={loadFallback} disabled={fallbackBusy} className={stBtnGhost}>
+            تحديث
+          </button>
+        </div>
+
+        {/* شريط السعة */}
+        <div className="grid gap-1.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-semibold text-navy-700">السعة المستهلكة (Vercel)</span>
+            <span className={bwWarning ? "font-bold text-red-600" : "font-semibold text-navy-900/70"}>
+              {bwBytes != null && bwWarnBytes != null
+                ? `${(bwBytes / 1024 ** 3).toFixed(2)} / ${(bwWarnBytes / 1024 ** 3).toFixed(0)} GB`
+                : "—"}
+            </span>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className={`h-full rounded-full transition-all ${bwWarning ? "bg-red-500" : "bg-emerald-500"}`}
+              style={{
+                width: `${
+                  bwBytes != null && bwWarnBytes
+                    ? Math.min(100, (bwBytes / bwWarnBytes) * 100).toFixed(1)
+                    : 0
+                }%`,
+              }}
+            />
+          </div>
+          <p className="text-[10px] leading-5 text-navy-900/45">
+            يُحسب عند كل زيارة لرابط منشور. عند تجاوز 90GB يُفعَّل الإنذار تلقائياً.
+          </p>
+        </div>
+
+        {/* شارة الإنذار */}
+        {bwWarning && (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-red-400/40 bg-red-50 px-3 py-2">
+            <span className="text-[11px] font-bold text-red-700">⚠ اقتربت السعة من الحد (90GB)!</span>
+            <button
+              onClick={() => setFallback("clear_warning")}
+              disabled={fallbackBusy}
+              className="rounded-lg bg-red-600 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-red-500 disabled:opacity-60"
+            >
+              مسح الإنذار
+            </button>
+          </div>
+        )}
+
+        {/* تبديل وضع الاحتياط */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-navy-900/10 bg-ivory-50 p-3">
+          <div>
+            <p className="text-[11px] font-bold text-navy-900">وضع الاحتياط (GitHub Pages)</p>
+            <p className="text-[10px] leading-5 text-navy-900/45">
+              {fallbackMode
+                ? "مُفعّل: المنتجات الجديدة تُنشر كصفحات HTML مستقلة على GitHub Pages مع صلاحية أسبوع."
+                : "معطّل: كل المنتجات تُنشر على Vercel كالمعتاد."}
+            </p>
+          </div>
+          {fallbackMode ? (
+            <button
+              onClick={() => setFallback("disable")}
+              disabled={fallbackBusy}
+              className="rounded-lg bg-navy-900 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-navy-700 disabled:opacity-60"
+            >
+              إيقاف الاحتياط
+            </button>
+          ) : (
+            <button
+              onClick={() => setFallback("enable")}
+              disabled={fallbackBusy}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60"
+            >
+              تفعيل الاحتياط
+            </button>
+          )}
+        </div>
+
+        {/* شارة توضيحية عند التفعيل — الحد التحذيري */}
+        {fallbackMode && (
+          <>
+            <div className="flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-50 px-3 py-2">
+              <span className="mt-0.5 text-[11px] font-bold text-amber-700">⚠ مؤقت</span>
+              <p className="text-[10px] leading-5 text-amber-800">
+                الروابط الجديدة تُنشر على GitHub Pages احتياطياً فقط — تنتهي صلاحيتها بعد أسبوع
+                ثم تُحرق تلقائياً وتطلب التجديد من الاستوديو. استخدم هذا الوضع عند الاقتراب من حد
+                سعة Vercel (90GB) ولا تبقِه مفعّلاً إلا عند الحاجة.
+              </p>
+            </div>
+            {ghConfigured === false && (
+              <div className="flex items-start gap-2 rounded-xl border border-red-400/40 bg-red-50 px-3 py-2">
+                <span className="mt-0.5 text-[11px] font-bold text-red-700">⚠ إعداد ناقص</span>
+                <p className="text-[10px] leading-5 text-red-800">
+                  الوضع مفعّل لكن GITHUB_TOKEN / GITHUB_REPO غير مضبوطين في .env.local — لن يُرفع
+                  أي رابط فعلياً حتى تضيفهما. عد إلى Vercel فوراً أو أضف المتغيرين.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
       {/* قائمة المستخدمين */}
       <section className="grid gap-3 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm">

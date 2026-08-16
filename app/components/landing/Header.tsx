@@ -2,6 +2,10 @@
 import type { Product } from "@/app/lib/types";
 import { useLandingLang, LangToggle } from "./LandingLang";
 
+// رابط الموقع الرئيسي — يُحقن إجبارياً في كل صفحة هبوط منتجة.
+// قابل للتهيئة عبر NEXT_PUBLIC_SITE_URL كي يبقى صحيحاً عند نقل الملكية.
+const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-tau-five.vercel.app/";
+
 export function TopBar({ product }: { product: Product }) {
   const { t } = useLandingLang();
   return (
@@ -54,6 +58,14 @@ export function Header({ product }: { product: Product }) {
           className="rounded-full border border-[var(--c-border-strong)] bg-[var(--c-surface)] px-5 py-2.5 text-xs font-bold text-[var(--c-text)] backdrop-blur transition hover:bg-[var(--c-primary)] hover:text-[var(--c-primary-text)]"
         >
           {t("orderNow")}
+        </a>
+        <a
+          href={SITE_HOME_URL}
+          target="_blank"
+          rel="noopener"
+          className="rounded-full border border-[var(--c-border)] px-3.5 py-2.5 text-xs font-bold text-[var(--c-muted)] transition hover:border-[var(--c-accent)] hover:text-[var(--c-accent)]"
+        >
+          Studio Store Gen
         </a>
       </div>
     </header>
