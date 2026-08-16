@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useDeferredValue, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import type { Product, Theme } from "@/app/lib/types";
 import { MAX_LANDING_PRODUCTS, MAX_LANDING_IMAGES } from "@/app/lib/types";
@@ -18,7 +19,17 @@ import { CATEGORIES, generateAutoContent, type Category } from "@/app/lib/autoCo
 import { DELIVERY_PRICES, WILAYAS, normalizeWilayaEntry } from "@/app/data/delivery";
 import type { WilayaPrice } from "@/app/lib/types";
 import { generateLandingHtml } from "@/app/lib/generateHtml";
-import { ProductLanding } from "@/app/components/landing/ProductLanding";
+// المعاينة الحية ثقيلة (تستخرج اللوحة/ترسم المنتج) — نحمّلها ديناميكياً
+// لتقليل JS الأولي لصفحة الاستوديو، مع هيكل بديل أثناء التحميل.
+const ProductLanding = dynamic(
+  () => import("@/app/components/landing/ProductLanding").then((m) => m.ProductLanding),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mx-auto h-64 w-full max-w-md animate-pulse rounded-2xl bg-navy-900/10 dark:bg-white/10" />
+    ),
+  }
+);
 import { AuthGate, useAuth } from "@/app/components/auth/AuthGate";
 import { apiCanProduce } from "@/app/lib/auth";
 import { LangToggle } from "@/app/components/LangToggle";
@@ -125,7 +136,7 @@ function toWilayaPricesRecord(
 
 // يحوّل عنصر مسودة واحداً إلى Product جزئي (باسمه وسعره وصوره وألوانه).
 function itemToProduct(item: ProductItemDraft): Product {
-  const name = item.name.trim() || "منتج جديد";
+  const name = item.name.trim();
   const price = Math.max(0, Number(item.price) || 0);
   const oldPriceRaw = Number(item.oldPrice) || 0;
   const images = item.images.map((s) => s.trim()).filter(Boolean);
@@ -198,15 +209,29 @@ function draftToProduct(d: Draft, preview: boolean): Product {
       : {}),
   };
 
-  // وضع المتجر: أكثر من منتج → نخزّن القائمة في products[] ونعتمد اسم/صورة
-  // الغلاف من أول عنصر؛ وإلا ندمج العنصر الوحيد مباشرة على الجذر (توافق عكسي).
+  // ── الترويسة الرئيسية للصفحة ──
+  // منتج واحد: اسم المنتج هو الترويسة (نتجاهل «عنوان المتجر» لتفادي التكرار).
+  // منتجات متعددة: «عنوان المتجر» d.name هو الترويسة؛ وإلا اسم أول منتج احتياطاً.
+  const heading = items.length > 1 ? d.name.trim() || items[0].name : items[0].name;
+
+  // الحماية: كل منتج يجب أن له اسم — في النشر الفعلي نرفض البناء إن وُجد
+  // عنصر بلا اسم (كان سابقاً يسقط إلى "منتج جديد" المضلِل). في المعاينة
+  // (preview) لا نرمي كي لا ينهار العرض — نكتفي بترويسة احتياطية.
+  if (!preview) {
+    const missingName = items.find((it) => !it.name.trim());
+    if (missingName) {
+      throw new Error("product_name_required");
+    }
+  }
+
   if (items.length > 1) {
-    return { ...base, products: items };
+    return { ...base, name: heading, products: items };
   }
   const solo = items[0];
+  // منتج واحد: اسم المنتج هو الترويسة (نتجاهل عنوان المتجر لتفادي التكرار).
   return {
     ...base,
-    name: d.name.trim() || solo.name,
+    name: solo.name,
     price: solo.price,
     image: solo.image,
     ...(solo.nameEn ? { nameEn: solo.nameEn } : {}),
@@ -382,7 +407,10 @@ function StudioInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fingerprint]);
 
-  const previewProduct = useMemo(() => draftToProduct(draft, true), [draft]);
+  // نؤجّل بناء المعاينة الحية عن المسودة الفورية كي لا يُعاد توليد
+  // ProductLanding عند كل ضربة مفتاح (يخفّف إعادة الرسم ويجعل الكتابة سلسة).
+  const deferredDraft = useDeferredValue(draft);
+  const previewProduct = useMemo(() => draftToProduct(deferredDraft, true), [deferredDraft]);
 
   // حقن هوية الجدول الثابتة (البريد + المفتاح) في المنتج عند التوليد/النشر،
   // مع إبقاء رابط الجدول الحالي كاحتياط مخبّأ. الحلّ الديناميكي للرابط الحيّ
@@ -469,8 +497,10 @@ function StudioInner() {
 
   function handleGenerate() {
     if (locked) return;
-    if (!draft.name.trim()) {
-      setError(t("errName"));
+    // اسم المنتج يُقرأ من بطاقته (وليس «عنوان المتجر» الذي يظهر فقط في متعدد).
+    const hasEmptyName = draft.items.some((it) => !it.name.trim());
+    if (hasEmptyName) {
+      setError(t("productNameRequired"));
       return;
     }
     if (!draft.items[activeItem]?.image?.trim()) {
@@ -478,7 +508,13 @@ function StudioInner() {
       return;
     }
     setError("");
-    let product = draftToProduct(draft, false);
+    let product: Product;
+    try {
+      product = draftToProduct(draft, false);
+    } catch {
+      setError(t("productNameRequired"));
+      return;
+    }
     if (!editingId && slugExists(product.id)) {
       product = { ...product, id: `${product.id}-${rand4()}` };
     }
@@ -490,14 +526,19 @@ function StudioInner() {
   // توليد المحتوى تلقائياً — يملأ الحقول التسويقية من الاسم والسعر والتصنيف
   function handleAutoGenerate() {
     if (locked) return;
-    if (!draft.name.trim()) {
-      setError(t("errName"));
+    // الاسم المرجعي لتوليد المحتوى: اسم المنتج النشط (منتج واحد) أو عنوان
+    // المتجر (متعدد). في منتج واحد نعتمد اسم البطاقة لا «عنوان المتجر».
+    const refName = draft.items.length > 1
+      ? draft.name.trim()
+      : (draft.items[activeItem]?.name.trim() || "");
+    if (!refName) {
+      setError(t("productNameRequired"));
       return;
     }
     setError("");
     const active = draft.items[activeItem];
     const content = generateAutoContent({
-      name: draft.name.trim(),
+      name: refName,
       nameEn: (active?.nameEn || "").trim() || undefined,
       price: Math.max(0, Number(active?.price) || 0),
       brand: draft.brand.trim() || undefined,
@@ -520,8 +561,9 @@ function StudioInner() {
   // تحميل صفحة الهبوط كملف HTML مستقل
   async function handleDownloadHtml() {
     if (locked) return;
-    if (!draft.name.trim()) {
-      setError(t("errName"));
+    const hasEmptyName = draft.items.some((it) => !it.name.trim());
+    if (hasEmptyName) {
+      setError(t("productNameRequired"));
       return;
     }
     if (!draft.items[activeItem]?.image?.trim()) {
@@ -545,7 +587,13 @@ function StudioInner() {
       setError(t("errPublishNetwork"));
       return;
     }
-    const product = withSheetWebhook(draftToProduct(draft, false));
+    let product: Product;
+    try {
+      product = withSheetWebhook(draftToProduct(draft, false));
+    } catch {
+      setError(t("productNameRequired"));
+      return;
+    }
     try {
       const html = await generateLandingHtml(product);
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
@@ -625,8 +673,10 @@ function StudioInner() {
 
   async function handlePublish(opts?: { newLink?: boolean }) {
     if (locked) return;
-    if (!draft.name.trim()) {
-      setError(t("errName"));
+    // اسم المنتج يُقرأ من بطاقته (وليس «عنوان المتجر» المخفي في منتج واحد).
+    const hasEmptyName = draft.items.some((it) => !it.name.trim());
+    if (hasEmptyName) {
+      setError(t("productNameRequired"));
       return;
     }
     if (!draft.items[activeItem]?.image?.trim()) {
@@ -647,7 +697,13 @@ function StudioInner() {
       setError(t("errSession"));
       return;
     }
-    let product = draftToProduct(draft, false);
+    let product: Product;
+    try {
+      product = draftToProduct(draft, false);
+    } catch {
+      setError(t("productNameRequired"));
+      return;
+    }
     if (!editingId && slugExists(product.id)) {
       product = { ...product, id: `${product.id}-${rand4()}` };
     }
@@ -832,61 +888,68 @@ function StudioInner() {
             </span>
           </div>
 
-          {/* اليسار: الإجراءات مرتّبة — أدوات ثم نشر */}
+          {/* اليسار: الإجراءات مرتّبة — أدوات ثم نشر.
+              مجموعتان منفصلتان (أيقونات | إجراءات) بفاصل واضح لتفادي الازدحام. */}
           <div className="flex flex-wrap items-center gap-2">
-            <ThemeToggle />
-            <LangToggle />
-            {user && (
-              <button onClick={openSettings} className={stBtnIcon} title={t("settings")} aria-label={t("settings")}>
-                ⚙
-              </button>
-            )}
-            {user && (
-              <button onClick={logout} className={stBtnIcon} title={`${t("logout")} · ${user}`} aria-label={t("logout")}>
-                ⎋
-              </button>
-            )}
+            {/* مجموعة الأيقونات: ثيم / لغة / إعدادات / خروج */}
+            <div className="flex items-center gap-1.5">
+              <ThemeToggle />
+              <LangToggle />
+              {user && (
+                <button onClick={openSettings} className={stBtnIcon} title={t("settings")} aria-label={t("settings")}>
+                  ⚙
+                </button>
+              )}
+              {user && (
+                <button onClick={logout} className={stBtnIcon} title={`${t("logout")} · ${user}`} aria-label={t("logout")}>
+                  ⎋
+                </button>
+              )}
+            </div>
             <div className="mx-0.5 hidden h-6 w-px bg-navy-900/10 sm:block" />
-            <button
-              onClick={handleAutoGenerate}
-              disabled={locked}
-              title={locked ? t("lockedHint") : t("generateContent")}
-              className={`rounded-full bg-navy-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-navy-400 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-            >
-              {t("generateContent")}
-            </button>
-            <button
-              onClick={handleDownloadHtml}
-              disabled={locked}
-              title={locked ? t("lockedHint") : t("downloadHtml")}
-              className={`${stBtnGhost} ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-            >
-              {t("downloadHtml")}
-            </button>
-            <button
-              onClick={handleGenerate}
-              disabled={locked}
-              title={locked ? t("lockedHint") : t("generatePage")}
-              className={`${stBtnGhost} ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-            >
-              {t("generatePage")}
-            </button>
-            <button
-              onClick={() => handlePublish()}
-              disabled={locked || publishing}
-              title={locked ? t("lockedHint") : t("publishReplace")}
-              className={`rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-60 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-            >
-              {publishing ? t("publishing") : t("publishReplace")}
-            </button>
-            <button
-              onClick={() => handlePublish({ newLink: true })}
-              disabled={locked || publishing}
-              title={t("newLinkHint")}
-              className={`rounded-full border border-red-500/40 px-4 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-500/10 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-            >
-              ♻ {t("newLink")}
-            </button>
+            {/* مجموعة الإجراءات: توليد المحتوى · تحميل HTML · توليد الصفحة · نشر · رابط جديد */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleAutoGenerate}
+                disabled={locked}
+                title={locked ? t("lockedHint") : t("generateContent")}
+                className={`rounded-full bg-navy-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-navy-400 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+              >
+                {t("generateContent")}
+              </button>
+              <button
+                onClick={handleDownloadHtml}
+                disabled={locked}
+                title={locked ? t("lockedHint") : t("downloadHtml")}
+                className={`${stBtnGhost} ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+              >
+                {t("downloadHtml")}
+              </button>
+              <button
+                onClick={handleGenerate}
+                disabled={locked}
+                title={locked ? t("lockedHint") : t("generatePage")}
+                className={`${stBtnGhost} ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+              >
+                {t("generatePage")}
+              </button>
+              <button
+                onClick={() => handlePublish()}
+                disabled={locked || publishing}
+                title={locked ? t("lockedHint") : t("publishReplace")}
+                className={`rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-60 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+              >
+                {publishing ? t("publishing") : t("publishReplace")}
+              </button>
+              <button
+                onClick={() => handlePublish({ newLink: true })}
+                disabled={locked || publishing}
+                title={t("newLinkHint")}
+                className={`rounded-full border border-red-500/40 px-4 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-500/10 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+              >
+                ♻ {t("newLink")}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -913,9 +976,13 @@ function StudioInner() {
           {/* المعلومات الأساسية */}
           <section className="grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
             <h2 className="font-display text-base font-bold">{t("productInfo")}</h2>
-            <Field label={t("productName")}>
-              <input className={stInput} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder={t("productNamePh")} />
-            </Field>
+            {/* عنوان المتجر: يظهر فقط في وضع المتجر (منتجات متعددة).
+                في منتج واحد نعتمد اسم المنتج كترويسة تلقائياً لتفادي التكرار. */}
+            {draft.items.length > 1 && (
+              <Field label={t("storeTitle")} hint={t("storeTitleHint")}>
+                <input className={stInput} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="متجر الأحذية برو" />
+              </Field>
+            )}
             <Field label={t("brandField")}>
               <input className={stInput} value={draft.brand} onChange={(e) => setDraft({ ...draft, brand: e.target.value })} placeholder="ProSound" />
             </Field>
@@ -1072,8 +1139,10 @@ function StudioInner() {
             </Field>
           </section>
 
-          {/* محرر المنتجات المتعددة — كل منتج باسمه وسعره وصوره وألوانه */}
+          {/* لوحة المنتجات الموحّدة: البطاقات + الحقول + الصورة + الألوان */}
+          <section className="grid gap-5 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
           <ProductItemsEditor
+            bare
             items={draft.items}
             activeIndex={activeItem}
             remainingImages={remainingImages}
@@ -1099,8 +1168,8 @@ function StudioInner() {
             }}
           />
 
-          {/* صورة وألوان العنصر النشط */}
-          <section className="grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
+          {/* صورة وألوان العنصر النشط (مدمجة داخل لوحة المنتجات) */}
+          <div className="mt-2 grid gap-4 border-t border-navy-900/10 pt-5 dark:border-white/10">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-base font-bold">
                 {t("productImage")}
@@ -1292,6 +1361,7 @@ function StudioInner() {
                 </button>
               </div>
             </div>
+          </div>
           </section>
 
           {/* خيارات متقدمة — الألوان / المميزات / الإحصائيات / الآراء */}
@@ -1504,7 +1574,7 @@ function StudioInner() {
           <div className="overflow-hidden rounded-3xl border border-navy-900/10 bg-white shadow-sm dark:border-white/10 dark:bg-[#11161d]">
             <div className="flex items-center justify-between border-b border-navy-900/10 px-5 py-3 text-xs font-bold text-navy-700 dark:border-white/10 dark:text-ivory-50">
               <span>{t("preview")}</span>
-              <span dir="ltr" className="text-navy-900/45">/p/{draftToProduct(draft, false).id}</span>
+              <span dir="ltr" className="text-navy-900/45">/p/{previewProduct.id}</span>
             </div>
             <div className="max-h-[78vh] overflow-y-auto bg-slate-100">
               <div className="mx-auto max-w-3xl">

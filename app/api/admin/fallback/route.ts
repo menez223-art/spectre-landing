@@ -89,6 +89,17 @@ export async function POST(request: Request) {
     }
     if (action === "clear_warning") {
       await clearBandwidthWarning();
+      // رجوع تلقائي لـ Vercel: عند مسح الإنذار صراحةً من المشرف (عادة بداية
+      // شهر جديد) نطفئ وضع الاحتياط إن كانت السعة فعلاً دون الحد — كي تعود
+      // المنشورات الجديدة للخدمة على Vercel. لا يمسّ نظام الحظر.
+      try {
+        const bytes = await getBandwidthBytes();
+        if (bytes < BANDWIDTH_WARN_BYTES) {
+          await setKv(FALLBACK_MODE_KEY, false);
+        }
+      } catch {
+        // تجاهل — يبقى الوضع كما هو عند فشل القراءة
+      }
       return NextResponse.json({ ok: true, warning: false });
     }
     return NextResponse.json({ error: "unknown_action" }, { status: 400 });

@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { PRODUCTS } from "@/app/data/products";
 import { formatDZD } from "@/app/data/delivery";
 import { getPublishedProduct, getPublishedOwner, getPublishedMeta } from "@/app/lib/publishStore";
@@ -7,6 +8,7 @@ import { recomputeStatus } from "@/app/lib/subsStore";
 import { resolveOwnerEmail } from "@/app/lib/profileStore";
 import { withResolvedWebhook } from "@/app/lib/sheetResolver";
 import { bumpBandwidth } from "@/app/lib/statsStore";
+import { githubPagesUrl } from "@/app/lib/githubPages";
 import { ProductPage } from "@/app/components/landing/ProductPage";
 
 // السلاگز غير المدرجة في generateStaticParams (مثل المنتجات المنشورة) تُعرض عند الطلب
@@ -88,24 +90,40 @@ export default async function ProductSlugPage({ params }: { params: { slug: stri
   // فرع مبكر للمنتجات الثابتة — لا اتصال بالتخزين أثناء بنائها (تبقى SSG)
   if (staticProduct) return <ProductPage slug={params.slug} staticProduct={staticProduct} />;
 
+  // حماية قطعية أولاً: علامة «banned» المكتوبة مباشرة على ملف المنشور
+  // (عند حظر الأدمن) — يجب أن تُعالَج قبل أي توجيه/عرض، بغض النظر عن مكان الاستضافة.
+  let meta: Awaited<ReturnType<typeof getPublishedMeta>> = null;
+  try {
+    meta = await getPublishedMeta(params.slug);
+  } catch {
+    // تعذّر القراءة — نعتبر الصفحة محجوبة احتياطياً (fail-closed)
+    return renderBlocked(params.slug, "banned");
+  }
+  if (meta?.banned) {
+    return renderBlocked(params.slug, "banned");
+  }
+
+  // توجيه الاحتياط: إن كان المنشور مُستضافاً على GitHub Pages (وضع الاحتياط
+  // مفعّل وقت نشره) نعيد توجيه الزائر إلى رابطه هناك — كي لا نستهلك سعة/استدعاءات
+  // Vercel. الرابط الجديد يُسلَّم للمستخدم عند إعادة النشر؛ لا نصوص توضيحية.
+  if (meta?.host === "github") {
+    const ghUrl = githubPagesUrl(params.slug);
+    if (ghUrl) redirect(ghUrl);
+    // github غير مضبوط رغم host=github → نسقط لهذا الفرع ونعرض العادي أدناه
+  }
+
   const published = await getPublishedCached(params.slug);
   // المنشور محجوب/موقوف؟ نمنع عرضه لأي زائر. نتحقق من حالة اشتراك المالك خادمياً.
+  // ملاحظة: حماية «banned» المباشرة على المنشور عولجت أعلاه (قبل التوجيه) — نعيد
+  // هنا فحص حالة اشتراك المالك فقط، دون جلب الميتا مجدداً.
   if (published) {
     let owner: string | null = null;
-    let meta = null as Awaited<ReturnType<typeof getPublishedMeta>>;
     try {
       owner = await getPublishedOwner(params.slug);
-      meta = await getPublishedMeta(params.slug);
     } catch {
-      // تعذّر قراءة الملكية/الحرق — نحترق احتياطياً: نعتبر الصفحة محجوبة
+      // تعذّر قراءة الملكية — نحترق احتياطياً: نعتبر الصفحة محجوبة
       // (fail-closed) كي لا تُعرض صفحة مستخدم قد يكون محظوراً. هذا يمنع
       // التفاف الحظر عبر تعطيل التخزين مؤقتاً.
-      return renderBlocked(params.slug, "banned");
-    }
-
-    // حماية قطعية: إن كانت علامة «banned» مكتوبة مباشرة على ملف المنشور
-    // (عند حظر الأدمن) نحجب الصفحة فوراً — بغض النظر عن هوية الجهاز/البريد.
-    if (meta?.banned) {
       return renderBlocked(params.slug, "banned");
     }
 

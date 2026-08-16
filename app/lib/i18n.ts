@@ -39,6 +39,18 @@ const AR = {
   footer2: "التوصيل لـ 58 ولاية · الدفع عند الاستلام",
   subsEyebrow: "باقاتنا",
   subsTitle: "باقات الاشتراكات",
+  subsCta: "عرض الباقات على فيسبوك ←",
+
+  // ── كيف يعمل ──
+  howEyebrow: "كيف يعمل",
+  howTitle: "ثلاث خطوات وصفحتك جاهزة",
+  howSub: "بدون برمجة ولا إعدادات معقّدة — المنصة تولّد لك كل شيء.",
+  step1Title: "أدخل بيانات منتجك",
+  step1Copy: "اكتب الاسم، ارفع الصورة، وحدّد السعر. استخراج الألوان من الصورة تلقائي.",
+  step2Title: "نولّد صفحتك",
+  step2Copy: "الاستوديو يبني صفحة كاملة: عرض المنتج، المميزات، وآراء الزبائن بألوان متناسقة.",
+  step3Title: "تصل الطلبات",
+  step3Copy: "نموذج طلب ذكي (الولاية والبلدية)، توصيل لـ 58 ولاية، والدفع عند الاستلام.",
 
   // ── الفهرس (CatalogLocal) ──
   emptyTitle: "لا توجد صفحات بعد",
@@ -134,6 +146,9 @@ const AR = {
   warningNoSheet: "⚠ لم تربط جدول Google Sheets بعد — الطلبات من صفحاتك لن تُسجَّل.",
   linkSheetNow: "ربط الجدول الآن",
   productInfo: "معلومات المنتج",
+  storeTitle: "عنوان المتجر",
+  storeTitleHint: "يظهر كترويسة رئيسية للصفحة في وضع المتجر (منتجات متعددة). في منتج واحد يُعتمد اسمه تلقائياً.",
+  productNameRequired: "اكتب اسم المنتج داخل بطاقته قبل النشر (كل منتج يجب أن له اسم).",
   productName: "اسم المنتج *",
   productNamePh: "مثال: سماعات لاسلكية برو",
   nameEn: "الاسم الإنجليزي",
@@ -318,10 +333,10 @@ const EN: Record<keyof typeof AR, string> = {
   backToDashboard: "Back to home",
 
   heroBadge: "Landing page studio — Algeria",
-  heroTitle1: "Create a landing page",
-  heroTitle2: "in seconds.",
+  heroTitle1: "Your store,",
+  heroTitle2: "ready in seconds.",
   heroSub:
-    "Enter the product name, image, and price — the studio generates a full page with an order system: wilaya and commune, delivery to 58 wilayas, and cash on delivery.",
+    "Just your product name, image, and price. The studio handles the rest: wilaya & commune selection, 58-wilaya delivery, and payment on delivery.",
   ctaStart: "Start now",
   ctaBrowse: "Browse products",
   tryDemo: "Try it free",
@@ -342,6 +357,18 @@ const EN: Record<keyof typeof AR, string> = {
   footer2: "Delivery to 58 wilayas · Cash on delivery",
   subsEyebrow: "Our plans",
   subsTitle: "Subscription plans",
+  subsCta: "View plans on Facebook ←",
+
+  // ── How it works ──
+  howEyebrow: "How it works",
+  howTitle: "Three steps and your page is ready",
+  howSub: "No coding, no complex setup — the platform generates everything for you.",
+  step1Title: "Enter your product details",
+  step1Copy: "Type the name, upload the image, set the price. Colors are extracted from the image automatically.",
+  step2Title: "We build your page",
+  step2Copy: "The studio generates a full page: product showcase, features, and customer reviews with matching colors.",
+  step3Title: "Orders come in",
+  step3Copy: "A smart order form (wilaya & commune), delivery to 58 wilayas, and cash on delivery.",
 
   emptyTitle: "No pages yet",
   emptySub:
@@ -435,6 +462,9 @@ const EN: Record<keyof typeof AR, string> = {
   warningNoSheet: "⚠ You haven't linked a Google Sheet yet — orders from your pages won't be recorded.",
   linkSheetNow: "Link sheet now",
   productInfo: "Product info",
+  storeTitle: "Store title",
+  storeTitleHint: "Shown as the main heading in store mode (multiple products). For a single product, its name is used automatically.",
+  productNameRequired: "Type the product name inside its card before publishing (every product needs a name).",
   productName: "Product name *",
   productNamePh: "e.g. Pro wireless earbuds",
   nameEn: "English name",

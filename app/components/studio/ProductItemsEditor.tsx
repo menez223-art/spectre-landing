@@ -29,6 +29,9 @@ interface Props {
   onChange: (items: ProductItemDraft[]) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
+  // عند true لا نرسم الحدود/الظل الخارجي — نُضمَّ مع قسم الصورة/الألوان
+  // في لوحة واحدة (دمج بصري لتقليل اللوحات المتناثرة في الستوديو).
+  bare?: boolean;
 }
 
 function fmtPrice(raw: string): string {
@@ -48,6 +51,7 @@ export function ProductItemsEditor({
   onChange,
   onAdd,
   onRemove,
+  bare = false,
 }: Props) {
   const t = (key: I18nKey, vars?: Record<string, string | number>) => translate(lang, key, vars);
 
@@ -60,7 +64,7 @@ export function ProductItemsEditor({
   const canAdd = items.length < maxProducts;
 
   return (
-    <section className="grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
+    <section className={bare ? "grid gap-4" : "grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]"}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-base font-bold">{t("productsTitle")}</h2>
         <span className="text-[11px] font-semibold text-navy-900/45">

@@ -29,8 +29,16 @@ export async function bumpBandwidth(bytes: number): Promise<void> {
     const current = await getBandwidthBytes();
     const next = current + bytes;
     await setKv(BANDWIDTH_KEY, next);
+    const crossed = current < BANDWIDTH_WARN_BYTES && next >= BANDWIDTH_WARN_BYTES;
     if (next >= BANDWIDTH_WARN_BYTES) {
       await setKv(WARNING_KEY, true);
+    }
+    // تحويل تلقائي إلى وضع الاحتياط عند أول تجاوز لسقف السعة: تنتقل
+    // المنشورات الجديدة تلقائياً إلى GitHub Pages فلا تستهلك سعة Vercel.
+    // نفعّله مرة واحدة عند تجاوز الحد (crossed) لا عند كل زيارة، لتفادي
+    // كتابات Supabase زائدة. لا يمسّ هذا بأي شكل نظام الحظر/السماح.
+    if (crossed) {
+      await setKv("fallback_mode", true);
     }
   } catch {
     // تعذّر التسجيل — نتجاهل كي لا نعطّل عرض الصفحة

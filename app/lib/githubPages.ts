@@ -28,6 +28,12 @@ export function hasGithubPages(): boolean {
   return Boolean(TOKEN && REPO.includes("/"));
 }
 
+// يبني الرابط العام لصفحة احتياطية منشورة من السلاگ، أو null إن لم يُضبط GitHub.
+export function githubPagesUrl(slug: string): string | null {
+  if (!hasGithubPages()) return null;
+  return `${siteBase()}/${PATH_PREFIX}${slug}.html`;
+}
+
 export interface GithubPagesResult {
   url: string;
   ok: boolean;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Product, Theme } from "@/app/lib/types";
 import { defaultTheme, normalizeTheme } from "@/app/lib/theme";
 import {
@@ -195,7 +195,6 @@ function ColorField({
 // نافذة "وضع الكيست" — نموذج منتج مطابق 100% للستوديو، معاينة حيّة حقيقية،
 // وأزرار التحميل/الحفظ/النشر معطّلة (تفتح رسالة توجيهية لفتح الستوديو).
 export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const router = useRouter();
   const { t } = useLocale();
   const [draft, setDraft] = useState<DemoDraft>(emptyDemo);
   const [imageTab, setImageTab] = useState<"upload" | "url">("upload");
@@ -886,12 +885,13 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                   {t("publishDirect")}
                 </button>
               </div>
-              <button
-                onClick={() => router.push("/studio")}
+              <Link
+                href="/studio"
+                prefetch
                 className="rounded-full bg-navy-900 px-4 py-3 text-xs font-bold text-ivory-50 transition hover:bg-navy-700"
               >
                 {t("demoOpenStudio")} ←
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -918,12 +918,13 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
               </div>
               <div className="grid gap-4 p-6">
                 <p className="text-sm leading-7 text-navy-800 dark:text-ivory-50/80">{t("demoNoticeBody")}</p>
-                <button
-                  onClick={() => router.push("/studio")}
+                <Link
+                  href="/studio"
+                  prefetch
                   className="rounded-full bg-navy-900 px-5 py-3 text-sm font-bold text-ivory-50 transition hover:bg-navy-700"
                 >
                   {t("demoOpenStudio")} ←
-                </button>
+                </Link>
                 <button onClick={() => setShowNotice(false)} className={ghostBtn}>
                   {t("demoClose")}
                 </button>
