@@ -3,16 +3,24 @@
 // كل الحسابات تُحسب خادميًا — لا تُصدَّق من العميل أبدًا.
 
 import { deleteKv, getKv, listKv, setKv } from "./kvStore";
+import { KV_PREFIXES } from "./utils/constants";
+import { nowISO } from "./utils/date";
 
 if (typeof window !== "undefined") {
   throw new Error("subsStore.ts is server-only");
 }
 
-const SUB_PREFIX = "subs/";
+const SUB_PREFIX = KV_PREFIXES.SUBSCRIPTIONS;
 
-export type Plan = "free" | "pro" | "enterprise";
+export type Plan = "basic" | "pro";
 export type SubStatus = "active" | "suspended" | "banned" | "expired";
 export type ValidityUnit = "day" | "always" | null;
+
+// حدود كل خطة (نموذج التسعير الجديد 2026-08-17)
+export const PLAN_QUOTAS: Record<Plan, { maxProducts: number; maxImages: number }> = {
+  basic: { maxProducts: 1, maxImages: 2 },          // 2000 د.ج — منتج واحد، صورتان
+  pro: { maxProducts: 5, maxImages: 5 },            // 4000 د.ج — 5 منتجات، 5 صور إجمالاً
+};
 
 export interface Subscription {
   userId: string; // البريد المربوط أو "device:<hash>"
@@ -27,6 +35,12 @@ export interface Subscription {
   validityDays: number | null; // عدد الأيام (للوحدة day)
   validityStartsAt: string | null; // بداية نافذة الصلاحية الحالية
   validityExpiresAt: string | null; // تاريخ انتهاء الصلاحية المطلق (يُحسب عند التحديد)
+  // إشعار للعميل من الأدمن (مثلاً «حدّث رابطك») — يُعرض كلفتة داخل
+  // الاستوديو. هذا حقل بيانات إضافي لا علاقة له بنظام الحظر/السماح.
+  notice?: string | null;
+  // حدود النشر حسب الخطة
+  maxProducts: number;
+  maxImages: number;
 }
 
 function subKey(userId: string): string {
@@ -55,22 +69,31 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
 
 // إنشاء/تحديث اشتراك — يُستخدم من لوحة المشرف فقط (مصرّح الخادم).
 export async function setSubscription(sub: Subscription): Promise<void> {
-  await setKv(subKey(sub.userId), { ...sub, updatedAt: new Date().toISOString() });
+  // ضمان وجود حقول الحصص بناءً على الخطة إن لم تكن مضبوطة
+  const quota = PLAN_QUOTAS[sub.plan] ?? PLAN_QUOTAS.basic;
+  const withQuota: Subscription = {
+    ...sub,
+    maxProducts: sub.maxProducts ?? quota.maxProducts,
+    maxImages: sub.maxImages ?? quota.maxImages,
+    updatedAt: nowISO(),
+  };
+  await setKv(subKey(sub.userId), withQuota);
 }
 
 export async function deleteSubscription(userId: string): Promise<void> {
   await deleteKv(subKey(userId));
 }
 
-// يضمن وجود صف اشتراك للمستخدم — إن لم يوجد أنشأ صفًا مجانياً نشطاً (لكي يظهر في لوحة الأدمن).
-// مُراعاة البريد الإداري: لا نُنشئ صفًا للأدمن كي لا يحظر نفسه بالخطأ.
+// يضمن وجود صف اشتراك للمستخدم — إن لم يوجد أنشأ صفًا أساسياً نشطاً (لكي يظهر في لوحة الأدمن).
+// لا خطة مجانية — الخطة الأساسية (basic) هي الافتراضية.
 export async function ensureSubscription(userId: string): Promise<Subscription> {
   const existing = await getSubscription(userId);
   if (existing) return existing;
-  const now = new Date().toISOString();
+  const now = nowISO();
+  const basicQuota = PLAN_QUOTAS.basic;
   const sub: Subscription = {
     userId,
-    plan: "free",
+    plan: "basic",
     status: "active",
     startsAt: now,
     expiresAt: null,
@@ -80,6 +103,9 @@ export async function ensureSubscription(userId: string): Promise<Subscription> 
     validityDays: null,
     validityStartsAt: null,
     validityExpiresAt: null,
+    notice: null,
+    maxProducts: basicQuota.maxProducts,
+    maxImages: basicQuota.maxImages,
   };
   await setSubscription(sub);
   return sub;
@@ -125,7 +151,22 @@ export async function recomputeStatus(userId: string): Promise<Subscription | nu
   if (!sub) return null;
 
   // الحظر/الحذف يدويان يبقيان كما هما (لا تداخل مع منطق الصلاحية)
-  if (sub.status === "banned" || sub.status === "expired") return sub;
+  if (sub.status === "banned") return sub;
+
+  // اشتراك منتهٍ (expired) عبر الحقل القديم expiresAt أو عبر انتهاء الصلاحية:
+  // نوحّده إلى suspended كي تُحبَس روابطه فوراً في /p/[slug] (الذي يمنع
+  // suspended وليس expired). هذا يسدّ فجوة كانت تبقي الروابط شغّالة
+  // بعد انتهاء الاشتراك — كما طلب المستخدم (توقّف تلقائي + حبس الروابط).
+  if (sub.status === "expired") {
+    const suspended: Subscription = {
+      ...sub,
+      status: "suspended",
+      reason: (sub.reason ?? "") || "انتهت صلاحية الاشتراك — توقيف تلقائي.",
+      updatedAt: new Date().toISOString(),
+    };
+    await setKv(subKey(userId), suspended);
+    return suspended;
+  }
 
   const now = Date.now();
   const ve = sub.validityExpiresAt ? new Date(sub.validityExpiresAt).getTime() : null;
@@ -229,7 +270,15 @@ export async function migrateSubscription(fromUserId: string, toUserId: string):
     await deleteSubscription(fromUserId); // البريد له صف أصلاً — احذف المكرّر
     return;
   }
-  const migrated: Subscription = { ...from, userId: toUserId, updatedAt: new Date().toISOString() };
+  // الحفاظ على حقول الحصص عند الهجرة
+  const quota = PLAN_QUOTAS[from.plan] ?? PLAN_QUOTAS.basic;
+  const migrated: Subscription = {
+    ...from,
+    userId: toUserId,
+    maxProducts: from.maxProducts ?? quota.maxProducts,
+    maxImages: from.maxImages ?? quota.maxImages,
+    updatedAt: new Date().toISOString(),
+  };
   await setSubscription(migrated);
   await deleteSubscription(fromUserId);
 }

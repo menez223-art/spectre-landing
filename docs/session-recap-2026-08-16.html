@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ملخص جلسة Spectre</title>
+<style>
+  :root{
+    --ground:#f7f5f0;
+    --surface:#ffffff;
+    --surface-2:#f0ede6;
+    --ink:#0c1d33;
+    --ink-soft:#3c4a5c;
+    --ink-faint:#6b788a;
+    --line:#e2ddd2;
+    --navy:#0c1d33;
+    --navy-soft:#27425f;
+    --emerald:#0f9d72;
+    --emerald-soft:#e3f5ee;
+    --rose:#e11d48;
+    --rose-soft:#fde7ec;
+    --gold:#b8860b;
+    --shadow:0 1px 2px rgba(12,29,51,.06),0 8px 24px rgba(12,29,51,.06);
+  }
+  :root[data-theme="dark"]{
+    --ground:#0d1117;
+    --surface:#11161d;
+    --surface-2:#161d27;
+    --ink:#eef2f7;
+    --ink-soft:#b6c2d2;
+    --ink-faint:#7e8ca0;
+    --line:#222c3a;
+    --navy:#0a1422;
+    --navy-soft:#3a5675;
+    --emerald:#34d399;
+    --emerald-soft:#10261e;
+    --rose:#fb7185;
+    --rose-soft:#2a141c;
+    --gold:#e0b34d;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0d1117;--surface:#11161d;--surface-2:#161d27;
+      --ink:#eef2f7;--ink-soft:#b6c2d2;--ink-faint:#7e8ca0;--line:#222c3a;
+      --navy:#0a1422;--navy-soft:#3a5675;
+      --emerald:#34d399;--emerald-soft:#10261e;
+      --rose:#fb7185;--rose-soft:#2a141c;--gold:#e0b34d;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--ground);color:var(--ink);
+    font-family:"Segoe UI",Tahoma,system-ui,-apple-system,"Helvetica Neue",sans-serif;
+    line-height:1.6;font-size:15px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:40px 22px 64px;}
+  header.recap{
+    display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+    gap:14px;border-bottom:2px solid var(--line);padding-bottom:18px;margin-bottom:26px;
+  }
+  .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;}
+  h1{font-size:30px;line-height:1.15;margin:6px 0 0;font-weight:800;letter-spacing:-.01em;text-wrap:balance;}
+  .meta{font-size:13px;color:var(--ink-soft);text-align:left;}
+  .meta b{color:var(--ink);}
+
+  /* status bar */
+  .statusbar{
+    display:flex;flex-wrap:wrap;gap:10px;margin-bottom:30px;
+  }
+  .chip{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;
+    border:1px solid var(--line);background:var(--surface);
+  }
+  .dot{width:9px;height:9px;border-radius:50%;flex:none;}
+  .dot.ok{background:var(--emerald);}
+  .dot.work{background:var(--gold);}
+  .dot.fix{background:var(--rose);}
+  .chip b{font-variant-numeric:tabular-nums;}
+
+  .lead{color:var(--ink-soft);max-width:62ch;margin:0 0 28px;}
+
+  /* table */
+  .tablecard{
+    background:var(--surface);border:1px solid var(--line);border-radius:18px;
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;min-width:640px;}
+  thead th{
+    text-align:right;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:800;padding:14px 16px;
+    background:var(--surface-2);border-bottom:1px solid var(--line);
+  }
+  tbody td{padding:15px 16px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:var(--surface-2);}
+  .num{
+    font-variant-numeric:tabular-nums;font-weight:800;color:var(--navy-soft);
+    font-size:14px;width:34px;
+  }
+  .task{font-weight:700;color:var(--ink);}
+  .task small{display:block;font-weight:500;color:var(--ink-faint);font-size:12.5px;margin-top:3px;}
+  .file{font-family:"Cascadia Code",ui-monospace,Consolas,monospace;font-size:12px;color:var(--ink-soft);}
+  .state{
+    display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:13px;
+    padding:4px 10px;border-radius:8px;white-space:nowrap;
+  }
+  .state.ok{color:var(--emerald);background:var(--emerald-soft);}
+  .verify{font-size:12.5px;color:var(--ink-soft);}
+
+  footer.recap{
+    margin-top:30px;padding-top:18px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--ink-faint);display:flex;flex-wrap:wrap;gap:6px 18px;
+  }
+  footer b{color:var(--ink-soft);}
+  a{color:var(--navy-soft);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="recap">
+    <div>
+      <div class="eyebrow">Spectre · جلسة عمل</div>
+      <h1>ملخّص ما تم إنجازه في الجلسة</h1>
+    </div>
+    <div class="meta">
+      التاريخ: <b>2026-08-16</b><br/>
+      النطاق: <b>الصفحة الرئيسية + الاستوديو + النشر</b>
+    </div>
+  </header>
+
+  <div class="statusbar">
+    <span class="chip"><span class="dot ok"></span> مكتملة <b>6 / 6</b></span>
+    <span class="chip"><span class="dot fix"></span> أعطال مُصلَحة <b>1</b></span>
+    <span class="chip"><span class="dot work"></span> التحقق <b>tsc + build + live</b></span>
+  </div>
+
+  <p class="lead">
+    أُعيد تنظيم الصفحة الرئيسية بالكامل (Hero نظيف، شريط إحصائيات، قسم «كيف يعمل»،
+    بطاقة اشتراكات بزر فيسبوك، ونافذة دخول أدمن)، ثُم رُتّبت أزرار الاستوديو في مجموعتين
+    بفاصل دون حذف أي زر، وأُصلح تلف ذاكرة التخزين المؤقت، وذُكرت التغييرات ونُشرت على
+    Vercel وتُحقّق منها مباشرة.
+  </p>
+
+  <div class="tablecard">
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المهمة</th>
+            <th>الملف / الإجراء</th>
+            <th>الحالة</th>
+            <th>التحقق</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num">1</td>
+            <td class="task">إعادة هيكلة الصفحة الرئيسية
+              <small>Hero نظيف + شريط إحصائيات + «كيف يعمل» + بطاقة اشتراكات بـ CTA فيسبوك + modal أدمن</small>
+            </td>
+            <td class="file">app/page.tsx<br/>app/lib/i18n.ts</td>
+            <td><span class="state ok">✓ مكتمل</span></td>
+            <td class="verify">tsc نظيف · build exit 0 · 9/9 عنصر حيّ</td>
+          </tr>
+          <tr>
+            <td class="num">2</td>
+            <td class="task">تجميع أزرار شريط الاستوديو
+              <small>أيقونات | فاصل | إجراءات — بلا حذف أي زر</small>
+            </td>
+            <td class="file">app/studio/page.tsx</td>
+            <td><span class="state ok">✓ مكتمل</span></td>
+            <td class="verify">tsc نظيف · build OK</td>
+          </tr>
+          <tr>
+            <td class="num">3</td>
+            <td class="task">إصلاح تلف ذاكرة <code>.next</code>
+              <small>500 بسبب تشغيل build أثناء dev — حُذفت .next وأُعيد التشغيل على 3000</small>
+            </td>
+            <td class="file">حذف .next + إعادة تشغيل</td>
+            <td><span class="state ok">✓ مكتمل</span></td>
+            <td class="verify">localhost:3000 → 200</td>
+          </tr>
+          <tr>
+            <td class="num">4</td>
+            <td class="task">الالتزام (Commit)
+              <small>15 ملفاً · 831 إدراج · 153 حذف</small>
+            </td>
+            <td class="file">git commit 0879c6b</td>
+            <td><span class="state ok">✓ مكتمل</span></td>
+            <td class="verify">—</td>
+          </tr>
+          <tr>
+            <td class="num">5</td>
+            <td class="task">النشر على Vercel + التجربة
+              <small>--prod --scope team (رُفض بدون scope)</small>
+            </td>
+            <td class="file">dpl_DLvsA2XcCaHazXrGFz9krKFK9g43</td>
+            <td><span class="state ok">✓ مكتمل</span></td>
+            <td class="verify">https://spectre-tau-five.vercel.app → 200</td>
+          </tr>
+          <tr>
+            <td class="num">6</td>
+            <td class="task">تحديث نقطة التوقف
+              <small>توثيق الجهدين (هـ + و) والقيود الأمنية</small>
+            </td>
+            <td class="file">docs/CHECKPOINT.md</td>
+            <td><span class="state ok">✓ مكتمل</span></td>
+            <td class="verify">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer class="recap">
+    <span><b>القيد الأمني:</b> نظام الحظر/السماح والملفات السرية لم يُمَسّا.</span>
+    <span><b>اللغة الافتراضية للإنتاج:</b> الإنجليزية (لهذا ظهر "How it works").</span>
+    <span><b>الخادم المحلي:</b> يعمل على المنفذ 3000.</span>
+  </footer>
+
+</div>
+</body>
+</html>

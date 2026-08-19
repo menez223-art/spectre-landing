@@ -136,8 +136,10 @@ export default async function ProductSlugPage({ params }: { params: { slug: stri
       for (const id of Array.from(idsToCheck)) {
         try {
           const sub = await recomputeStatus(id);
-          if (sub && (sub.status === "banned" || sub.status === "suspended")) {
-            blocked = { status: sub.status };
+          // نمنع أيضاً الحالة expired كي لا تبقى روابط اشتراك منتهٍ شغّالة
+          // (دفاعاً عن تعديل subsStore الذي يحوّل expired→suspended).
+          if (sub && (sub.status === "banned" || sub.status === "suspended" || sub.status === "expired")) {
+            blocked = { status: sub.status === "expired" ? "suspended" : sub.status };
             break;
           }
         } catch {

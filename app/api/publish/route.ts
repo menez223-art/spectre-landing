@@ -11,7 +11,7 @@ import {
 } from "@/app/lib/publishStore";
 import { getDeviceOwner, isDeviceApprovedOnly, isDeviceBanned } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
-import { getSubscription } from "@/app/lib/subsStore";
+import { getSubscription, PLAN_QUOTAS, type Plan } from "@/app/lib/subsStore";
 import { getKv, setKv, deleteKv } from "@/app/lib/kvStore";
 import { deployHtmlToGithubPages, hasGithubPages } from "@/app/lib/githubPages";
 import { generateLandingHtml } from "@/app/lib/generateHtml";
@@ -168,6 +168,37 @@ export async function POST(request: Request) {
     if (sub && (sub.status === "suspended" || sub.status === "banned")) {
       return NextResponse.json(
         { error: sub.status === "banned" ? "banned" : "suspended" },
+        { status: 403 }
+      );
+    }
+
+    // ── فحص الحصص حسب الخطة (نموذج التسعير الجديد) ──
+    // لا توجد خطة مجانية — يجب أن يكون هناك اشتراك (basic أو pro)
+    if (!sub) {
+      return NextResponse.json(
+        { error: "quota_exceeded", reason: "يجب الاشتراك لنشر صفحات هبوط." },
+        { status: 403 }
+      );
+    }
+
+    // كل مالك له *صفحة واحدة* (سلاگ ثابت يُعاد استخدامه عند التحديث، وطلب
+    // «رابط جديد» يحرق القديم قبل إنشاء غيره)، فالنشر يستبدل الصفحة في مكانها.
+    // لذا تُقاس الحصة على الصفحة الجديدة نفسها: عدد منتجاتها وعدد صورها — لا
+    // نراكمها فوق الصفحة القائمة. المراكمة (current + new) كانت تمنع *تحديث*
+    // الصفحة: إعادة نشر نفس الصفحة تُحسب مرتين فيُحبَس المشترك الأساسي بعد أول
+    // نشر. لا ثغرة هنا لأن المالك لا يملك أكثر من صفحة واحدة في أي لحظة.
+    const newProductCount = products.length;
+    if (newProductCount > sub.maxProducts) {
+      return NextResponse.json(
+        { error: "quota_exceeded", reason: `خطتك الحالية (${sub.plan}) تسمح بـ ${sub.maxProducts} منتج فقط. للمزيد رقِّ خطتك إلى Pro.` },
+        { status: 403 }
+      );
+    }
+
+    const newImages = countPageImages(products);
+    if (newImages > sub.maxImages) {
+      return NextResponse.json(
+        { error: "quota_exceeded", reason: `خطتك الحالية (${sub.plan}) تسمح بـ ${sub.maxImages} صورة فقط. للمزيد رقِّ خطتك إلى Pro.` },
         { status: 403 }
       );
     }

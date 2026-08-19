@@ -83,11 +83,14 @@ export function getAdminSession(): string | null {
 }
 
 // خيارات الكوكي الآمن.
+// ملاحظة: لا نفرض Secure إلا في الإنتاج (https). على http:// (التطوير/المحلي)
+// يرفض المتصفح تخزين الكوكي الآمن، فتضيع جلسة الأدمن وترجع الصفحة بلا نهاية.
 export function adminCookieOptions() {
+  const isProd = process.env.NODE_ENV === "production";
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: true,
+    secure: isProd,
     path: "/",
     maxAge: SESSION_MAX_AGE,
   };

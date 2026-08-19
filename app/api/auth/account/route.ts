@@ -103,6 +103,7 @@ export async function GET(request: Request) {
         ? {
             ...sub,
             remainingDays: remainingDays(sub),
+            notice: sub.notice ?? null,
           }
         : null,
     });

@@ -3,21 +3,23 @@
 // حتى لا تُفيد قراءة الملفات العامة أحدًا في انتحال جهاز معتمد.
 // هذا البديل المجاني والمستقر عن Vercel Blob: لا فواتير ولا تعليق تلقائي.
 
-import { createHash } from "crypto";
 import { deleteKv, getKv, listKv, setKv } from "./kvStore";
 import { MASTER_USERNAME } from "./credentials";
+import { KV_KEYS, KV_PREFIXES, RESOURCE_LIMITS, TIME_CONSTANTS } from "./utils/constants";
+import { pepperFingerprint, getDeviceOwner, generateCode } from "./utils/security";
+import { nowISO, createExpiryDate } from "./utils/date";
 
 if (typeof window !== "undefined") {
   throw new Error("authStore.ts is server-only");
 }
 
-const ACCOUNT_PATH = "studio-auth/account.json";
-// كل جهاز معتمد يُخزَّن في صف KV مستقل (ذرّي — لا ضياع تحديثات عند التزامن).
-// هذا يُصلح ثغرة lost update في كائن account.json الموحّد: أي كاتبين متزامنين
-// (إضافة جهاز + حظر/إزالة من الأدمن) كانا يطمس أحدهما الآخر.
-const DEVICE_PREFIX = "studio-auth/devices/";
-const CODE_TTL_MS = 15 * 60 * 1000; // صلاحية الرمز: 15 دقيقة
-export const MAX_TRIES = 5;
+// إعادة تصدير للتوافق مع الكود الموجود
+export { pepperFingerprint, getDeviceOwner, generateCode };
+
+const ACCOUNT_PATH = KV_KEYS.ACCOUNT;
+const DEVICE_PREFIX = KV_PREFIXES.DEVICES;
+const CODE_TTL_MS = TIME_CONSTANTS.CODE_TTL_MS;
+export const MAX_TRIES = RESOURCE_LIMITS.MAX_AUTH_TRIES;
 
 export interface AccountRecord {
   username: string;
@@ -34,20 +36,8 @@ export interface PendingCode {
   tries: number;
 }
 
-// ── pepper: إخفاء البصمات المخزّنة ──
-export function pepperFingerprint(fp: string): string {
-  const pepper = process.env.DEVICE_PEPPER || "";
-  if (!pepper) console.warn("[authStore] DEVICE_PEPPER غير معرّف — التخزين أضعف");
-  return createHash("sha256").update(fp + "|" + pepper).digest("hex");
-}
-
-// هوية سقوط للجهاز عند غياب بريد — تُستخدم كمالك للصفحات المنشورة
-export function getDeviceOwner(rawFp: string): string {
-  return "device:" + pepperFingerprint(rawFp).slice(0, 24);
-}
-
 function pendingKey(fp: string): string {
-  return `studio-auth/pending/${fp}.json`;
+  return `${KV_PREFIXES.PENDING_CODES}${fp}.json`;
 }
 
 // ── الحساب ──
@@ -68,7 +58,7 @@ export async function ensureAccount(): Promise<AccountRecord> {
   const acc: AccountRecord = {
     username: MASTER_USERNAME,
     devices: [],
-    createdAt: new Date().toISOString(),
+    createdAt: nowISO(),
   };
   await setKv(ACCOUNT_PATH, acc);
   return acc;
@@ -191,7 +181,7 @@ export async function addApprovedDevice(rawFp: string): Promise<void> {
   const fp = pepperFingerprint(rawFp);
   // صف مستقل = كتابة ذرّية، لا تتأثر بكتابة متزامنة على account.json
   try {
-    await setKv(deviceKey(fp), { fingerprint: fp, createdAt: new Date().toISOString() });
+    await setKv(deviceKey(fp), { fingerprint: fp, createdAt: nowISO() });
   } catch {
     // فشل نادر → احتياط على المصفوفة القديمة
     try {
@@ -235,18 +225,13 @@ export async function getPendingCode(rawFp: string): Promise<PendingCode | null>
   }
 }
 
-export function generateCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
 export async function createPendingCode(rawFp: string): Promise<string | null> {
-  const now = Date.now();
   const pending: PendingCode = {
     code: generateCode(),
     fingerprint: pepperFingerprint(rawFp),
     username: MASTER_USERNAME,
-    createdAt: new Date(now).toISOString(),
-    expiresAt: new Date(now + CODE_TTL_MS).toISOString(),
+    createdAt: nowISO(),
+    expiresAt: createExpiryDate(CODE_TTL_MS),
     tries: 0,
   };
   try {
@@ -276,9 +261,21 @@ export async function deletePendingCode(rawFp: string): Promise<void> {
   }
 }
 
+// قائمة كل الرموز المعلّقة (للبحث عبر متصفحات مختلفة)
+export async function listPendingCodes(): Promise<PendingCode[]> {
+  try {
+    const rows = await listKv(KV_PREFIXES.PENDING_CODES);
+    return rows
+      .map((row) => row.value as PendingCode | null)
+      .filter((p): p is PendingCode => Boolean(p) && typeof p?.code === "string");
+  } catch {
+    return [];
+  }
+}
+
 // ── رموز ربط البريد (المصادقة المزدوجة) ──
 // مفتاح ببريد المستخدم (غير مُعدَّل بـ pepper) كي نعثر عليه مباشرةً عند التأكيد.
-const LINK_PENDING_PREFIX = "studio-auth/link-pending/";
+const LINK_PENDING_PREFIX = KV_PREFIXES.LINK_PENDING;
 
 export interface LinkPendingCode {
   email: string; // البريد المطلوب ربطه
@@ -297,7 +294,6 @@ function linkPendingKey(email: string): string {
 }
 
 export async function createLinkPendingCode(email: string, fingerprint: string): Promise<string | null> {
-  const now = Date.now();
   const pending: LinkPendingCode = {
     email: email.toLowerCase(),
     fingerprint,
@@ -306,8 +302,8 @@ export async function createLinkPendingCode(email: string, fingerprint: string):
     adminVerified: false,
     adminTries: 0,
     emailTries: 0,
-    createdAt: new Date(now).toISOString(),
-    expiresAt: new Date(now + CODE_TTL_MS).toISOString(),
+    createdAt: nowISO(),
+    expiresAt: createExpiryDate(CODE_TTL_MS),
   };
   try {
     await setKv(linkPendingKey(email), pending);
@@ -369,7 +365,7 @@ export async function deleteLinkPendingCode(email: string): Promise<void> {
 
 // ── رموز الربط اليدوي (كود مشرف لمرة واحدة أول جهاز) ──
 // مفتاح بصمة الجهاز (مُعدَّلة بـ pepper) كي نعثر عليه عند التأكيد.
-const MANUAL_PENDING_PREFIX = "studio-auth/manual-pending/";
+const MANUAL_PENDING_PREFIX = KV_PREFIXES.MANUAL_PENDING;
 
 export interface ManualPendingCode {
   fingerprint: string; // بصمة مُعدَّلة بالـ pepper
@@ -384,13 +380,12 @@ function manualPendingKey(rawFp: string): string {
 }
 
 export async function createManualPendingCode(rawFp: string): Promise<string | null> {
-  const now = Date.now();
   const pending: ManualPendingCode = {
     fingerprint: pepperFingerprint(rawFp),
     code: generateCode(),
     tries: 0,
-    createdAt: new Date(now).toISOString(),
-    expiresAt: new Date(now + CODE_TTL_MS).toISOString(),
+    createdAt: nowISO(),
+    expiresAt: createExpiryDate(CODE_TTL_MS),
   };
   try {
     await setKv(manualPendingKey(rawFp), pending);

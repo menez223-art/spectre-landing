@@ -100,7 +100,14 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200"
       : "bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-200";
 
+  // لافتة إشعار من الأدمن للمستخدم (مثلاً «حدّث رابطك») — تظهر أعلى لوحة
+  // الإعدادات إن وُجدت. لا علاقة لها بالحظر/الاشتراك — مجرد رسالة من المشرف.
+  // ⚠️ يجب أن تُعرَّف الحالة قبل أي return مشروط كي لا نكسر قواعد ترتيب الـHooks.
+  const [dismissedNotice, setDismissedNotice] = useState(false);
+
   if (!open) return null;
+
+  const notice = !dismissedNotice ? (subscription?.notice ?? null) : null;
 
   const sheetUrl = account?.sheetUrl ?? null; // رابط السكربت (webhook لاستقبال الطلبات)
   // رابط فتح الجدول الفعلي: نبنيه من sheetId عند الربط التلقائي فقط.
@@ -255,6 +262,25 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         </div>
 
         <div className="grid gap-6 px-6 py-6">
+          {/* ── لافتة إشعار الأدمن للمستخدم ── */}
+          {notice && (
+            <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+              <span aria-hidden className="mt-0.5 text-amber-600">⚠</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">رسالة من الإدارة</p>
+                <p className="mt-0.5 text-[12px] font-semibold leading-5 text-amber-900">{notice}</p>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-[11px] font-semibold text-amber-700/70 transition hover:text-amber-900"
+                aria-label="إغلاق الإشعار مؤقتاً"
+                onClick={() => setDismissedNotice(true)}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* ── الحالة ── */}
           <div className="flex flex-wrap items-center gap-3">
             <span className="font-display text-sm font-extrabold text-navy-900">{t("sheetLabel")}</span>

@@ -24,3 +24,10 @@ prod.html
 root.html
 *.tsbuildinfo
 memory/
+
+# أسرار/بقايا اختبارات — لا تُلتزم أبداً
+cookies.txt
+*.backup
+test-results/
+scripts/audit-shots/
+playwright-report/

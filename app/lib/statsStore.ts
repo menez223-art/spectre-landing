@@ -4,12 +4,13 @@
 // الأدمن عبر لوحة /admin قبل نفاد السعة فعلياً.
 
 import { getKv, setKv } from "./kvStore";
+import { KV_KEYS, BANDWIDTH_LIMITS } from "./utils/constants";
 
-const BANDWIDTH_KEY = "stats/bandwidth";
-const WARNING_KEY = "fallback_warning";
+const BANDWIDTH_KEY = KV_KEYS.BANDWIDTH;
+const WARNING_KEY = KV_KEYS.FALLBACK_WARNING;
 
 // حد الإنذار: 90GB (من أصل 100GB على خطة Vercel Hobby المجانية).
-export const BANDWIDTH_WARN_BYTES = 90 * 1024 * 1024 * 1024;
+export const BANDWIDTH_WARN_BYTES = BANDWIDTH_LIMITS.WARN_BYTES;
 
 export async function getBandwidthBytes(): Promise<number> {
   try {

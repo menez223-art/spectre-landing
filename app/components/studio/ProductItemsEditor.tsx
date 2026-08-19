@@ -23,6 +23,8 @@ interface Props {
   activeIndex: number;
   remainingImages: number;
   maxProducts: number;
+  // لفتة تُعرض أسفل زر الإضافة عند بلوغ حدّ الخطة (مثلاً «خطتك تسمح بمنتج واحد»).
+  atLimitNote?: string;
   lang: Lang;
   dir: "rtl" | "ltr";
   onSelect: (index: number) => void;
@@ -45,6 +47,7 @@ export function ProductItemsEditor({
   activeIndex,
   remainingImages,
   maxProducts,
+  atLimitNote,
   lang,
   dir,
   onSelect,
@@ -151,6 +154,14 @@ export function ProductItemsEditor({
       >
         + {t("addProduct")}
       </button>
+      {!canAdd && atLimitNote ? (
+        <p
+          className="rounded-xl border border-amber-400/30 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+          dir="auto"
+        >
+          {atLimitNote}
+        </p>
+      ) : null}
 
       {/* حقول العنصر النشط */}
       <div className="grid gap-3 border-t border-navy-900/10 pt-4 dark:border-white/10">

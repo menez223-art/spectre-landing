@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   MASTER_USERNAME,
@@ -26,6 +26,7 @@ import { purgeLegacySamples } from "@/app/lib/storage";
 import { useLocale } from "../LocaleProvider";
 import { SettingsPanel } from "./SettingsPanel";
 import { ThemeToggle } from "../ThemeToggle";
+import { useSubscriptionSync } from "@/app/hooks/useSubscriptionSync";
 
 interface AuthContextValue {
   user: string | null;
@@ -38,6 +39,8 @@ interface AuthContextValue {
   refreshAccount: () => Promise<void>;
   // يجلب اشتراك المستخدم الحقيقي من قاعدة الأدمن فوراً (متزامناً مع لوحة الأدمن)
   refreshSubscription: () => Promise<void>;
+  // يحدّث الاشتراك محلياً (يستخدمه useSubscriptionSync عبر Realtime)
+  setSubscription: (sub: AccountSubscription | null | ((prev: AccountSubscription | null) => AccountSubscription | null)) => void;
   linkEmail: (email: string, adminCode?: string, emailCode?: string) => Promise<LinkEmailResult>;
   setWebhook: (url: string, adminCode?: string) => Promise<WebhookResult>;
   clearLink: () => Promise<boolean>;
@@ -53,6 +56,7 @@ const AuthContext = createContext<AuthContextValue>({
   openSettings: () => {},
   refreshAccount: async () => {},
   refreshSubscription: async () => {},
+  setSubscription: () => {},
   linkEmail: async () => ({ status: "error" }),
 
   setWebhook: async () => ({ status: "error" }),
@@ -271,11 +275,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [denied, setDenied] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  async function refreshAccount(fp: string | null = fingerprint) {
+  const refreshAccount = useCallback(async (fp: string | null = fingerprint) => {
     if (!fp) return;
     const profile = await apiGetProfile(fp);
     setAccount(profile);
-  }
+  }, [fingerprint]);
 
   useEffect(() => {
     clearLegacyAuthStorage();
@@ -386,7 +390,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   // يجلب اشتراك المستخدم الحقيقي من الخادم (مرتبط بقاعدة الأدمن) فوراً.
   // يُستدعى عند فتح لوحة الإعدادات كي ينعكس أي تحديث للأدمن (أيام/صلاحية)
   // مباشرةً على الزبون دون انتظار إعادة تحميل الصفحة.
-  async function refreshSubscription(): Promise<void> {
+  const refreshSubscription = useCallback(async (): Promise<void> => {
     if (!fingerprint) return;
     try {
       const res = await apiCheckDevice(fingerprint);
@@ -394,7 +398,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     } catch {
       // فشل الشبكة — نُبقي آخر قيمة (الجلسة المحلية تبقى الموثوقة)
     }
-  }
+  }, [fingerprint]);
 
   // مزامنة الحظر/التوقيف مع الخادم دورياً: نسحب الحالة القطعية من بوابة
   // /api/auth/can-produce (fail-closed) ونعكسها فوراً على العميل، كي يظهر
@@ -418,7 +422,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         if (res.suspended) {
           setSubscription((prev) => ({
             userId: prev?.userId ?? res.subscription?.userId ?? "",
-            plan: prev?.plan ?? "free",
+            plan: prev?.plan ?? "basic",
             status: res.blocked ? "banned" : "suspended",
             expiresAt: prev?.expiresAt ?? null,
             reason: res.reason ?? prev?.reason ?? null,
@@ -445,6 +449,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fingerprint]);
 
+  // مزامنة الاشتراكات فورياً عبر Supabase Realtime
+  // يستمع لتغييرات مفاتيح subs/% في جدول kv ويحدّث حالة الاشتراك محلياً
+  useSubscriptionSync();
+
   async function handleLinkEmail(
     email: string,
     adminCode?: string
@@ -468,6 +476,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (ok) await refreshAccount(fingerprint);
     return ok;
   }
+
+  // مغلّف refreshAccount كـ useCallback — يجب أن يكون قبل أي return مشروط
+  // كي لا نكسر قواعد ترتيب الـHooks (تحذير React السابق كان بسببه).
+  const wrappedRefreshAccount = useCallback(
+    () => refreshAccount(fingerprint),
+    [refreshAccount, fingerprint]
+  );
 
   if (!loaded) {
     return (
@@ -500,13 +515,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           // كي ينعكس تعديل الأدمن (الأيام/الصلاحية) مباشرةً على الزبون.
           refreshSubscription();
         },
-        refreshAccount: () => refreshAccount(fingerprint),
+        refreshAccount: wrappedRefreshAccount,
         refreshSubscription,
+        setSubscription,
         linkEmail: handleLinkEmail,
         setWebhook: handleSetWebhook,
         clearLink: handleClearLink,
       }}
     >
+      {subscription?.notice ? (
+        <div className="sticky top-0 z-40 flex items-center gap-2 border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-[13px] font-bold text-amber-900">
+          <span aria-hidden="true">⚠️</span>
+          <span className="flex-1">{subscription.notice}</span>
+        </div>
+      ) : null}
       {children}
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </AuthContext.Provider>

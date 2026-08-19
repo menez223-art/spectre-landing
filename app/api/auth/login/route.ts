@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { MASTER_USERNAME, MASTER_PASSWORD } from "@/app/lib/credentials";
 import {
   addApprovedDevice,
@@ -10,8 +9,18 @@ import {
   isDeviceBanned,
 } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
-import { getSubscription, recomputeStatus } from "@/app/lib/subsStore";
+import { recomputeStatus } from "@/app/lib/subsStore";
 import { hasEmailConfig, sendVerificationCodeEmail } from "@/app/lib/email";
+import {
+  errorResponse,
+  extractJsonBody,
+  successResponse,
+  unauthorizedResponse,
+  forbiddenResponse,
+  HTTP_STATUS,
+} from "@/app/lib/utils/api";
+import { isNonEmptyString } from "@/app/lib/utils/validation";
+import { isExpired, nowISO } from "@/app/lib/utils/date";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +39,9 @@ interface LoginBody {
 // - اقتراح 2: مستخدم محظور (إيميل/جهاز) يُمنع تمامًا برسالة «banned» — يُستثنى
 //   المشرف (ADMIN_EMAIL) دائمًا كي يبقى الدخول متاحًا لإدارة النظام.
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as LoginBody | null;
-  if (!body || typeof body !== "object") {
-    return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  const body = await extractJsonBody<LoginBody>(request);
+  if (!body) {
+    return errorResponse("bad_request", HTTP_STATUS.BAD_REQUEST);
   }
 
   const username = String(body.username ?? "").trim();
@@ -40,10 +49,10 @@ export async function POST(request: Request) {
   const fingerprint = String(body.fingerprint ?? "").trim();
 
   if (username.toLowerCase() !== MASTER_USERNAME || password !== MASTER_PASSWORD) {
-    return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
+    return unauthorizedResponse("invalid_credentials");
   }
-  if (!fingerprint || fingerprint.length < 8) {
-    return NextResponse.json({ error: "missing_fingerprint" }, { status: 400 });
+  if (!isNonEmptyString(fingerprint) || fingerprint.length < 8) {
+    return errorResponse("missing_fingerprint", HTTP_STATUS.BAD_REQUEST);
   }
 
   // فحص الحظر الشامل (اقتراح 2): إيميل محظور أو صفّ جهاز محظور → يُمنع الدخول.
@@ -60,14 +69,14 @@ export async function POST(request: Request) {
       // فشل القراءة → نفترض غير محظور (لا نمنع الدخول بسبب خطأ تخزين)
     }
     if (deviceBanned) {
-      return NextResponse.json({ error: "banned" }, { status: 403 });
+      return forbiddenResponse("banned");
     }
     // حظر الاشتراك (إيميل محظور أو هوية الجهاز محظورة) عبر مفتاح الكنسي.
     const subUserId = email ?? getDeviceOwner(fingerprint);
     try {
       const sub = await recomputeStatus(subUserId);
       if (sub && sub.status === "banned") {
-        return NextResponse.json({ error: "banned" }, { status: 403 });
+        return forbiddenResponse("banned");
       }
     } catch {
       // فشل القراءة → نفترض غير محظور (لا نمنع الدخول بسبب خطأ تخزين)
@@ -80,41 +89,37 @@ export async function POST(request: Request) {
     // أول جهاز يُعتمد تلقائيًا
     if (account.devices.length === 0) {
       await addApprovedDevice(fingerprint);
-      return NextResponse.json({ ok: true, approved: true, username: MASTER_USERNAME });
+      return successResponse({ approved: true, username: MASTER_USERNAME });
     }
 
     // جهاز معتمد → دخول مباشر
     if (await isDeviceApproved(fingerprint)) {
-      return NextResponse.json({ ok: true, approved: true, username: MASTER_USERNAME });
+      return successResponse({ approved: true, username: MASTER_USERNAME });
     }
 
     // جهاز جديد: رمز معلّق وصالح → لا نرسل بريدًا جديدًا (تفادي تكرار الإزعاج)
     const pending = await getPendingCode(fingerprint);
-    if (pending && new Date(pending.expiresAt).getTime() > Date.now()) {
-      return NextResponse.json({ ok: true, approved: false, codeRequestedAt: pending.createdAt });
+    if (pending && !isExpired(pending.expiresAt)) {
+      return successResponse({ approved: false, codeRequestedAt: pending.createdAt });
     }
 
     // لا رمز أو منتهٍ → ننشئ رمزًا ونرسله لبريد المشرف
     const code = await createPendingCode(fingerprint);
     if (!code) {
-      return NextResponse.json({ error: "storage" }, { status: 502 });
+      return errorResponse("storage", 502);
     }
 
     if (!hasEmailConfig()) {
-      return NextResponse.json({ error: "email_config" }, { status: 503 });
+      return errorResponse("email_config", 503);
     }
     const sent = await sendVerificationCodeEmail(code);
     if (!sent.ok) {
-      return NextResponse.json({ error: "email_failed" }, { status: 502 });
+      return errorResponse("email_failed", 502);
     }
 
-    return NextResponse.json({
-      ok: true,
-      approved: false,
-      codeRequestedAt: new Date().toISOString(),
-    });
+    return successResponse({ approved: false, codeRequestedAt: nowISO() });
   } catch (err) {
     console.error("[auth/login] خطأ:", err);
-    return NextResponse.json({ error: "storage" }, { status: 502 });
+    return errorResponse("storage", 502);
   }
 }

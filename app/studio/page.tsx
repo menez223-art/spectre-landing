@@ -378,7 +378,24 @@ function StudioInner() {
       ),
     [draft.items]
   );
-  const remainingImages = Math.max(0, MAX_LANDING_IMAGES - totalImages);
+  // ── حدود الخطة الفعّالة ──
+  // الحد الأدنى بين حدّ الخطة (من صف الاشتراك) والسقف العام للنظام. مشترك بلا
+  // حقول حصص (صف قديم) يسقط إلى السقف العام. هذه الحدود للعرض وتعطيل الأزرار
+  // فقط — الحارس القاطع يبقى خادمياً في /api/publish (fail-closed).
+  const effectiveMaxProducts = Math.min(subscription?.maxProducts ?? MAX_LANDING_PRODUCTS, MAX_LANDING_PRODUCTS);
+  const effectiveMaxImages = Math.min(subscription?.maxImages ?? MAX_LANDING_IMAGES, MAX_LANDING_IMAGES);
+  const remainingImages = Math.max(0, effectiveMaxImages - totalImages);
+  const atProductLimit = draft.items.length >= effectiveMaxProducts;
+  const planCode = subscription?.plan ?? "basic";
+  // اسم الخطة المعروض (مترجَم) للفتة العلوية.
+  const planName = subscription ? (subscription.plan === "pro" ? t("planPro") : t("planBasic")) : "";
+  // حجب كامل للاستوديو عند توقّف/انتهاء الاشتراك: مدّة = 0 أو حالة موقوف/منتهٍ.
+  // (الحجب عند الدخول ابتداءً تتكفّل به AuthGate؛ هذا يغطّي الانتهاء أثناء الجلسة.)
+  const subBlocked =
+    subscription != null &&
+    (subscription.status === "suspended" ||
+      subscription.status === "expired" ||
+      subscription.remainingDays === 0);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id");
@@ -465,15 +482,20 @@ function StudioInner() {
 
   async function handleAddImage(file: File) {
     if (!file) return;
+    // حدّ الصور حسب الخطة: عند بلوغ سقف صور الصفحة نُظهر رسالة واضحة بدل
+    // التجاهل الصامت («خطتك تسمح بصورتين فقط» للأساسية).
+    if (remainingImages <= 0) {
+      setError(t("planLimitImages", { plan: planCode, max: effectiveMaxImages }));
+      return;
+    }
     const dataUrl = await compressImage(file, 800);
     setDraft((d) => {
       const items = d.items.slice();
       const it = items[activeItem];
-      // حماية الواجهة: لا تتجاوز الحد الأقصى للصور (باقي رصيد الصفحة).
-      if (it.images.length >= remainingImages) return d;
       items[activeItem] = { ...it, images: [...it.images, dataUrl] };
       return { ...d, items };
     });
+    setError("");
   }
 
   async function handleExtract() {
@@ -718,8 +740,11 @@ function StudioInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(product),
       });
-      const data = (await res.json().catch(() => ({}))) as { url?: string; slug?: string; error?: string };
-      if (res.status === 403 && (data.error === "incomplete" || data.error === "banned" || data.error === "suspended")) {
+      const data = (await res.json().catch(() => ({}))) as { url?: string; slug?: string; error?: string; reason?: string };
+      if (res.status === 403 && data.error === "quota_exceeded") {
+        // تجاوز حصّة الخطة (منتجات/صور) — نعرض سبب الخادم الصريح إن وُجد.
+        setError(data.reason || t("planLimitProducts", { plan: planCode, max: effectiveMaxProducts }));
+      } else if (res.status === 403 && (data.error === "incomplete" || data.error === "banned" || data.error === "suspended")) {
         setError(t("errPublishLocked"));
       } else if (res.status === 503 && data.error === "config") {
         setError(t("errPublishConfig"));
@@ -798,6 +823,42 @@ function StudioInner() {
     }
   }
 
+  // حجب كامل: عند توقّف/انتهاء الاشتراك يُمنع الدخول للاستوديو تماماً (لا نشر
+  // ولا تحرير) — رسالة واضحة وزرّا الإعدادات/الخروج فقط. الحارس القاطع خادمي.
+  if (subBlocked) {
+    const isExpiry = !subscription?.reason || subscription.reason.includes("انتهت صلاحية");
+    return (
+      <div className="grid min-h-screen place-items-center bg-ivory-50 px-6 text-navy-900 dark:bg-[#0d1117] dark:text-ivory-50">
+        <div className="w-full max-w-md rounded-3xl border border-red-300/40 bg-white p-8 text-center shadow-2xl dark:border-red-500/30 dark:bg-[#161b22]">
+          <span className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-red-100 text-3xl dark:bg-red-900/40">⏳</span>
+          <h1 className="mb-2 text-xl font-extrabold">{t("subBlockTitle")}</h1>
+          <p className="text-sm leading-7 text-navy-900/75 dark:text-ivory-50/75" dir="auto">
+            {isExpiry ? t("subExpiredBlock") : t("subSuspendedBlock")}
+          </p>
+          {!isExpiry && subscription?.reason ? (
+            <p className="mt-2 text-xs text-navy-900/50 dark:text-ivory-50/50" dir="auto">
+              {subscription.reason}
+            </p>
+          ) : null}
+          <div className="mt-6 flex justify-center gap-3">
+            <button
+              onClick={openSettings}
+              className="rounded-full border border-navy-900/15 px-5 py-2.5 text-sm font-bold text-navy-700 transition hover:bg-navy-900/5 dark:border-white/15 dark:text-ivory-50"
+            >
+              {t("settings")}
+            </button>
+            <button
+              onClick={logout}
+              className="rounded-full bg-navy-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-navy-400"
+            >
+              {t("logout")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-ivory-50 text-navy-900 dark:bg-[#0d1117] dark:text-ivory-50">
       {/* شريط علوي للحظر — يظهر فوراً في أعلى الصفحة عند حظر الأدمن للحساب */}
@@ -868,7 +929,7 @@ function StudioInner() {
         </div>
       )}
       {/* شريط علوي */}
-      <header className="sticky top-0 z-30 border-b border-navy-900/10 bg-white/85 backdrop-blur dark:border-white/10 dark:bg-[#0d1117]/85">
+      <header className="sticky top-0 z-30 border-b border-navy-900/10 bg-ivory-50/80 backdrop-blur-xl dark:border-white/10 dark:bg-[#0d1117]/80">
         <div className="container-landing flex flex-wrap items-center justify-between gap-3 py-3">
           {/* اليمين: رجوع + العلامة + عنوان الصفحة */}
           <div className="flex items-center gap-3">
@@ -886,13 +947,32 @@ function StudioInner() {
             <span className="hidden max-w-[12rem] truncate text-xs text-navy-900/50 md:block">
               {editingId ? t("editing", { id: editingId }) : t("studioTitle")}
             </span>
+            {/* لفتة الخطة والأيام المتبقية — تُظهر للمستخدم خطته والمدة المتبقية. */}
+            {subscription && planName ? (
+              <span
+                className="hidden items-center gap-1.5 rounded-full border border-navy-900/10 bg-white/60 px-2.5 py-1 text-[11px] font-bold sm:inline-flex dark:border-white/10 dark:bg-white/5"
+                title={
+                  subscription.remainingDays == null
+                    ? t("subPermanent")
+                    : t("subRemaining", { n: subscription.remainingDays })
+                }
+              >
+                <span className="text-navy-900/90 dark:text-ivory-50">{planName}</span>
+                <span className="text-navy-900/25 dark:text-white/20">·</span>
+                <span className="text-navy-900/55 dark:text-ivory-50/60">
+                  {subscription.remainingDays == null
+                    ? t("subPermanent")
+                    : t("subRemaining", { n: subscription.remainingDays })}
+                </span>
+              </span>
+            ) : null}
           </div>
 
           {/* اليسار: الإجراءات مرتّبة — أدوات ثم نشر.
               مجموعتان منفصلتان (أيقونات | إجراءات) بفاصل واضح لتفادي الازدحام. */}
           <div className="flex flex-wrap items-center gap-2">
             {/* مجموعة الأيقونات: ثيم / لغة / إعدادات / خروج */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 rounded-xl border border-navy-900/10 bg-white/50 p-1 dark:border-white/10 dark:bg-white/5">
               <ThemeToggle />
               <LangToggle />
               {user && (
@@ -913,7 +993,7 @@ function StudioInner() {
                 onClick={handleAutoGenerate}
                 disabled={locked}
                 title={locked ? t("lockedHint") : t("generateContent")}
-                className={`rounded-full bg-navy-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-navy-400 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+                className={`rounded-xl bg-navy-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-navy-400 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
               >
                 {t("generateContent")}
               </button>
@@ -937,7 +1017,7 @@ function StudioInner() {
                 onClick={() => handlePublish()}
                 disabled={locked || publishing}
                 title={locked ? t("lockedHint") : t("publishReplace")}
-                className={`rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-60 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+                className={`rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl hover:shadow-blue-500/50 disabled:opacity-60 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
               >
                 {publishing ? t("publishing") : t("publishReplace")}
               </button>
@@ -1146,17 +1226,24 @@ function StudioInner() {
             items={draft.items}
             activeIndex={activeItem}
             remainingImages={remainingImages}
-            maxProducts={MAX_LANDING_PRODUCTS}
+            maxProducts={effectiveMaxProducts}
+            atLimitNote={atProductLimit ? t("planLimitProducts", { plan: planCode, max: effectiveMaxProducts }) : undefined}
             lang={lang}
             dir={dir}
             onSelect={(i) => setActiveItem(i)}
             onChange={(items) => setDraft((d) => ({ ...d, items }))}
             onAdd={() => {
+              // حدّ المنتجات حسب الخطة: رسالة واضحة عند بلوغ السقف بدل التجاهل.
+              if (draft.items.length >= effectiveMaxProducts) {
+                setError(t("planLimitProducts", { plan: planCode, max: effectiveMaxProducts }));
+                return;
+              }
               setDraft((d) => {
-                if (d.items.length >= MAX_LANDING_PRODUCTS) return d;
+                if (d.items.length >= effectiveMaxProducts) return d;
                 return { ...d, items: [...d.items, emptyItem()] };
               });
               setActiveItem(draft.items.length);
+              setError("");
             }}
             onRemove={(i) => {
               setDraft((d) => {
@@ -1291,11 +1378,18 @@ function StudioInner() {
                   </button>
                 </div>
               ))}
-              {remainingImages > 0 && (
+              {remainingImages > 0 ? (
                 <label className={`${stBtnGhost} cursor-pointer text-center`}>
                   {t("addImage")}
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleAddImage(e.target.files[0])} />
                 </label>
+              ) : (
+                <p
+                  className="rounded-xl border border-amber-400/30 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+                  dir="auto"
+                >
+                  {t("planLimitImages", { plan: planCode, max: effectiveMaxImages })}
+                </p>
               )}
 
               {/* ألوان العنصر النشط — يختارها الزبون للعرض فقط */}

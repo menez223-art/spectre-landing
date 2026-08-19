@@ -19,6 +19,7 @@ import {
   type SubStatus,
   type Subscription,
   type ValidityUnit,
+  PLAN_QUOTAS,
 } from "@/app/lib/subsStore";
 import { countPublishedOwned, deleteAllPublishedOwned, reassignOwner, burnPublishedOwned, unburnPublishedOwned, burnAllForEmail, unburnAllForEmail, deleteAllForEmail } from "@/app/lib/publishStore";
 
@@ -82,13 +83,14 @@ export async function GET(request: Request) {
 interface Body {
   fingerprint?: unknown;
   userId?: unknown;
-  action?: unknown; // set | delete | validity
+  action?: unknown; // set | delete | validity | notify
   plan?: unknown;
   status?: unknown;
   expiresAt?: unknown;
   reason?: unknown;
   validityUnit?: unknown; // "day" | "always" | null
   validityDays?: unknown; // number (>0 لـ day)
+  notice?: unknown; // string | null — رسالة للإشعار للعميل
 }
 
 // تعديل اشتراك (تعليق/حظر/تفعيل/تغيير خطة)
@@ -220,12 +222,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, subscription: live ?? updated, remainingDays: remainingDays(live ?? updated) });
     }
 
+    // إشعار للعميل: يكتب رسالة (أو يمسحها بـ notice=null) تظهر له كلفتة
+    // داخل الاستوديو. لا علاقة له بنظام الحظر/السماح — بيانات إضافية فقط.
+    if (action === "notify") {
+      const existing = await getSubscription(userId);
+      if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
+      const notice = body.notice != null ? String(body.notice).slice(0, 280) : null;
+      const updated: Subscription = { ...existing, notice, updatedAt: new Date().toISOString() };
+      await setSubscription(updated);
+      return NextResponse.json({ ok: true, subscription: updated });
+    }
+
     // تحديث/إنشاء
     const existing = await getSubscription(userId);
-    const plan = (String(body.plan ?? existing?.plan ?? "free")) as Plan;
+    const plan = (String(body.plan ?? existing?.plan ?? "basic")) as Plan;
     const status = (String(body.status ?? existing?.status ?? "active")) as SubStatus;
     const expiresAt = body.expiresAt != null ? String(body.expiresAt) : (existing?.expiresAt ?? null);
     const reason = body.reason != null ? String(body.reason) : (existing?.reason ?? null);
+
+    // تحديد الحصص بناءً على الخطة
+    const quota = PLAN_QUOTAS[plan] ?? PLAN_QUOTAS.basic;
 
     const sub: Subscription = {
       userId,
@@ -239,7 +255,28 @@ export async function POST(request: Request) {
       validityDays: existing?.validityDays ?? null,
       validityStartsAt: existing?.validityStartsAt ?? null,
       validityExpiresAt: existing?.validityExpiresAt ?? null,
+      maxProducts: quota.maxProducts,
+      maxImages: quota.maxImages,
     };
+
+    // ضبط مدة صلاحية تلقائية عند ترقية إلى خطة مدفوعة:
+    // إن لم تكن الصلاحية مضبوطة مسبقاً (null/لا expiry) نضع تلقائياً
+    // validityUnit:"day" + validityDays:30 كي يتوقّف الاشتراك ويُحبَس
+    // روابطه تلقائياً عند انتهاء المدة — دون اعتماد على تذكّر الأدمن
+    // الضبط اليدوي. هذا يطبّق فقط على الترقية (basic/pro) لا على
+    // الحظر/التفعيل اليدوي. لا يمسّ نظام الحظر/السماح إطلاقاً.
+    const isPaidUpgrade = (plan === "basic" || plan === "pro") && status !== "banned";
+    const hasNoValidity =
+      sub.validityUnit == null ||
+      (sub.validityUnit === "day" && (sub.validityExpiresAt == null || new Date(sub.validityExpiresAt).getTime() < Date.now()));
+    if (isPaidUpgrade && hasNoValidity) {
+      const autoDays = 30;
+      sub.validityUnit = "day";
+      sub.validityDays = autoDays;
+      sub.validityStartsAt = new Date().toISOString();
+      sub.validityExpiresAt = new Date(Date.now() + autoDays * 24 * 60 * 60 * 1000).toISOString();
+    }
+
     await setSubscription(sub);
 
     // إن كان التحديث أعاد المستخدم إلى «نشط» (إلغاء حظر/توقيف) نرفع علامة
