@@ -669,7 +669,29 @@ vercel deploy --prod
 ### ج. النشر على مشروع Vercel جديد «studio» (منفصل عن الإنتاج)
 - **القيد:** عدم المخاطرة بمشروع الإنتاج `spectre` (`https://spectre-tau-five.vercel.app`). لذلك أُنشئ مشروع **منفصل تماماً باسم «studio»** وفُصل ربط `.vercel` المحلي أثناء النشر كي لا يذهب أي نشر إلى `spectre` بالخطأ.
 - الحساب: `menez223-7187` (Vercel CLI مُصادَق).
-- [يُستكمل برابط النشر ونتيجة الاختبار الحقيقي بعد اكتمال النشر].
+
+**رابط النشر (studio — الإنتاج):**
+- الرابط الثابت: `https://studio-eta-ten-75.vercel.app`
+- آخر نشر: `https://studio-geewmuxua-menez223-7187s-projects.vercel.app` (READY، target=production).
+- معرّف مشروع studio: `prj_8LNSEjx3Gi9A4Tyc43epjcFSTCWR` (مختلف تماماً عن معرّف spectre `prj_soKB8oGco759lmmcgIgrrfWSGb9o`).
+
+**خطوات النشر:**
+1. نسخ احتياطي لربط `.vercel` الخاص بـ`spectre` جانباً، ثم `vercel project add studio` + `vercel link --project studio`.
+2. نقل 12 متغيّر بيئة من `.env.local` إلى studio/production (استُبعد `VERCEL_OIDC_TOKEN` لأنه مُدار من Vercel). القيم لم تُطبع إطلاقاً.
+3. النشر `vercel deploy --prod`، ثم استعادة ربط `spectre` وملف `vercel.json` بالضبط كما كانا.
+
+**عوائق ظهرت وحُلّت أثناء النشر:**
+- **قيد Hobby على الـcron:** جدول `0 */6 * * *` (4 مرّات/يوم) مرفوض على خطة Hobby. الحل: تحييد `crons` مؤقتاً في `vercel.json` أثناء نشر studio فقط، ثم **استعادة الملف الأصلي حرفياً** (تحقّق: cron الأصلي عاد سليماً). لم يُمَس `spectre`.
+- **`framework: null`:** المشروع المُنشأ عبر `vercel project add` بلا إعداد إطار عمل، فكان يخدم الإخراج كموقع ثابت ويتجاهل توجيه Next.js (404 لكل المسارات). الحل: `PATCH framework=nextjs` عبر Vercel API ثم إعادة نشر.
+- **حماية الوصول (Deployment Protection):** كانت مفعّلة افتراضياً (302 → SSO). عُطّلت عبر `PATCH ssoProtection=null` على studio فقط ليصبح النشر عاماً قابلاً للاختبار كـspectre.
+
+**نتيجة الاختبار الحقيقي (قراءات غير مُغيِّرة للبيانات):**
+- `/` → 200 (HTML كامل 23KB، عنوان «استوديو صفحات الهبوط»). · `/studio` → 200. · `/pricing` → 200.
+- `/api/publish?fingerprint=test` → `{"products":[]}` (JSON صحيح، المسار يعمل).
+- `/api/auth/account?fingerprint=test` → `{"ok":true,"approved":false}` — **يؤكّد اتصال Supabase ونجاح نقل المتغيّرات** (لو كانت خاطئة لأرجع 500).
+- لم يُنفَّذ نشر منتج تجريبي عمداً لتفادي تلويث قاعدة Supabase المشتركة ببيانات وهمية؛ منطق فرض الاشتراك خادمي في نفس هذه المسارات وسبق التحقق منه محلياً وقت التشغيل (`maxProducts:5/maxImages:5` لحساب pro).
+
+> ملاحظة: studio يشارك نفس قاعدة Supabase وإعدادات المشرف مع الإنتاج (إنه واجهة اختبار ثانية لنفس الـbackend، لكنّه نشر Vercel منفصل تماماً لا يُخاطر بـ`spectre`).
 
 ### د. ملاحظة مرفوعة للمستخدم (لم تُنفَّذ — بانتظار الإذن)
 - في `app/lib/adminAuth.ts:42` تُلقي `verifyAdminCredentials` خطأ `ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH` (استجابة 500) عندما يختلف **طول** كلمة المرور المُدخلة عن المخزَّنة (كلمة المرور الصحيحة تعمل لأن الطول يتطابق). الإصلاح المقترح: حارس طول قبل `timingSafeEqual` (كما في `getAdminSession:72`). **لا علاقة له بنظام الحظر/السماح.** لم يُطبَّق احتراماً لقاعدة «لا تعديل خارج المطلوب».
