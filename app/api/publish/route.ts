@@ -25,7 +25,7 @@ import {
 export const dynamic = "force-dynamic";
 
 // حد أقصى لحجم جسم الطلب — صور data:URL قد تجعل الصفحة كبيرة جدًا
-const MAX_BODY_BYTES = 800_000;
+const MAX_BODY_BYTES = 1_200_000; // ≈ 1.2 ميغابايت
 
 // مفتاح KV يربط كل مالك بسلاغه الثابت (رابط واحد لكل حساب).
 const ownerSlugKey = (owner: string) => `owner-slug/${owner}`;
