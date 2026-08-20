@@ -23,6 +23,10 @@ import { generateLandingHtml } from "@/app/lib/generateHtml";
 import { deployHtmlToGithubPages, hasGithubPages } from "@/app/lib/githubPages";
 
 export const dynamic = "force-dynamic";
+// الفحص الأوتوماتيكي (auto) قد يمرّ على عدة روابط ويعيد النشر على GitHub Pages
+// (استقصاء قد يصل ~40ث لكل رابط متعافٍ) — نمنح المسار المهلة القصوى على Hobby
+// كي يكمل الـ cron دون قطع. Vercel يقصّها تلقائياً لحد الخطة إن لزم.
+export const maxDuration = 60;
 
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").toLowerCase();
 const HEALTH_KEY = "stats/link-health";
@@ -152,11 +156,76 @@ async function redeployFallback(slug: string) {
   }
 }
 
-// GET: يعيد آخر تقرير محفوظ (إن وُجد) دون إعادة الفحص — للعرض السريع في اللوحة.
+// فحص يدوي (action=run): يشغّل فحصاً كاملاً، يحفظ التقرير، ويرجعه.
+async function runManualAction(request: Request): Promise<NextResponse> {
+  try {
+    const origin = new URL(request.url).origin;
+    const report = await runHealthCheck(origin);
+    await setKv(HEALTH_KEY, report);
+    return NextResponse.json({ ok: true, fresh: true, report });
+  } catch {
+    return NextResponse.json({ error: "storage" }, { status: 502 });
+  }
+}
+
+// فحص أوتوماتيكي (action=auto، عبر جدولة Vercel Cron): فحص كامل + عند الفشل
+// إشعار داخلي للمالك (النقطة 2) + تعافٍ أوتوماتيكي بإعادة النشر على GitHub Pages
+// وتحويل الرابط إليها (النقطة 3). لا علاقة له بنظام الحظر/السماح.
+async function runAutoAction(request: Request): Promise<NextResponse> {
+  const origin = new URL(request.url).origin;
+  const report = await runHealthCheck(origin);
+  await setKv(HEALTH_KEY, report);
+
+  const githubAvailable = hasGithubPages();
+  const recovered: string[] = [];
+
+  for (const entry of report.entries) {
+    if (entry.status !== "error") continue;
+    try {
+      const owner = await getPublishedOwner(entry.slug);
+      if (!owner) continue;
+      const email = (await resolveOwnerEmail(owner)) ?? owner;
+      const sub = await getSubscription(email);
+      if (!sub) continue;
+
+      // النقطة 2 — إشعار داخلي فقط (لا إيميل): نطلب من المالك تحديث رابطه.
+      const notice =
+        "⚠️ رابط صفحتك لم يستجب أثناء الفحص الأخير. يرجى تحديث رابطك من الاستوديو (زر «رابط جديد»).";
+      await setSubscription({ ...sub, notice, updatedAt: new Date().toISOString() });
+
+      // النقطة 3 — تعافٍ أوتوماتيكي: إن توفّر احتياط GitHub نعيد النشر هناك
+      // ونحوّل الرابط إليه كي يبقى زوار المستخدم يصلون إلى صفحته.
+      if (githubAvailable) {
+        const dep = await redeployFallback(entry.slug);
+        if (dep.ok) {
+          const existingMeta = (await getPublishedMeta(entry.slug)) ?? {
+            owner,
+            createdAt: entry.checkedAt,
+          };
+          await setPublishedMeta(entry.slug, { ...existingMeta, host: "github" });
+          recovered.push(entry.slug);
+        }
+      }
+    } catch {
+      // نتجاهل خطأ رابط واحد ونكمل البقية
+    }
+  }
+
+  return NextResponse.json({ ok: true, fresh: true, report, recovered });
+}
+
+// GET: بلا action يعيد آخر تقرير محفوظ (عرض سريع في اللوحة). لكن Vercel Cron
+// يستدعي هذا المسار عبر GET حاملاً ?action=auto (من vercel.json) — لا POST —
+// لذا ندعم تشغيل الفحص هنا أيضاً، وإلا لن تعمل المراقبة المجدولة إطلاقاً
+// (كانت تعيد التقرير القديم فقط دون أي فحص فعلي).
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const fingerprint = (searchParams.get("fingerprint") ?? "").trim();
   if (!(await assertAdmin(request, fingerprint || undefined))) return forbidden();
+
+  const action = searchParams.get("action");
+  if (action === "auto") return runAutoAction(request);
+  if (action === "run") return runManualAction(request);
 
   try {
     const saved = await getKv<LinkHealthReport>(HEALTH_KEY);
@@ -210,59 +279,12 @@ export async function POST(request: Request) {
     }
   }
 
-  if (action === "auto") {
-    const origin = new URL(request.url).origin;
-    const report = await runHealthCheck(origin);
-    await setKv(HEALTH_KEY, report);
-
-    const githubAvailable = hasGithubPages();
-    const recovered: string[] = [];
-
-    for (const entry of report.entries) {
-      if (entry.status !== "error") continue;
-      try {
-        const owner = await getPublishedOwner(entry.slug);
-        if (!owner) continue;
-        const email = (await resolveOwnerEmail(owner)) ?? owner;
-        const sub = await getSubscription(email);
-        if (!sub) continue;
-
-        // النقطة 2 — إشعار داخلي فقط (لا إيميل): نطلب من المالك تحديث رابطه.
-        const notice =
-          "⚠️ رابط صفحتك لم يستجب أثناء الفحص الأخير. يرجى تحديث رابطك من الاستوديو (زر «رابط جديد»).";
-        await setSubscription({ ...sub, notice, updatedAt: new Date().toISOString() });
-
-        // النقطة 3 — تعافٍ أوتوماتيكي: إن توفّر احتياط GitHub نعيد النشر هناك
-        // ونحوّل الرابط إليه كي يبقى زوار المستخدم يصلون إلى صفحته.
-        if (githubAvailable) {
-          const dep = await redeployFallback(entry.slug);
-          if (dep.ok) {
-            const existingMeta = (await getPublishedMeta(entry.slug)) ?? {
-              owner,
-              createdAt: entry.checkedAt,
-            };
-            await setPublishedMeta(entry.slug, { ...existingMeta, host: "github" });
-            recovered.push(entry.slug);
-          }
-        }
-      } catch {
-        // نتجاهل خطأ رابط واحد ونكمل البقية
-      }
-    }
-
-    return NextResponse.json({ ok: true, fresh: true, report, recovered });
-  }
+  // auto و run يشغّلان نفس المنطق المشترك (يعمل من POST ومن GET/الجدولة).
+  if (action === "auto") return runAutoAction(request);
 
   if (action !== "run") {
     return NextResponse.json({ error: "unknown_action" }, { status: 400 });
   }
 
-  try {
-    const origin = new URL(request.url).origin;
-    const report = await runHealthCheck(origin);
-    await setKv(HEALTH_KEY, report);
-    return NextResponse.json({ ok: true, fresh: true, report });
-  } catch {
-    return NextResponse.json({ error: "storage" }, { status: 502 });
-  }
+  return runManualAction(request);
 }

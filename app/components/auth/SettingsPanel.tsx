@@ -82,19 +82,46 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     return null;
   }
 
-  // يحدّد نص ولون تفاصيل الاشتراك بناءً على بيانات الخادم — مبسّط:
-  // مشترك (نشط) = شارة خضراء «مشترك»، وغير ذلك يُعرض سبب المنع/الانتهاء.
-  function subDetail(): { text: string; tone: "green" | "red" | "gray" } {
-    if (!subscription) return { text: t("subNone"), tone: "gray" };
+  // النص الزمني للاشتراك النشط: خطة يومية → «متبقٍ N يوم» (يُحسب حيّاً من
+  // الطابع المطلق فيتزامن مع عدّاد الأدمن)، وإلا اشتراك دائم. احتياط عند
+  // تعذّر حساب الأيام: «مشترك».
+  function subTimeText(): string {
+    if (subscription?.validityUnit === "day") {
+      const rem = liveRemainingDays();
+      return rem != null ? t("subRemaining", { n: rem }) : t("subActive");
+    }
+    return t("subPermanent");
+  }
+
+  // يحدّد تفاصيل خانة الاشتراك ولونها بنفس بيانات الأدمن:
+  //   • نشط  → نوع الخطة (أساسية/محترفة) + الوقت المتبقي، بلون الخطة:
+  //            المحترفة (pro) بنفسجي، والأساسية (basic) أخضر.
+  //   • محظور/موقوف/منتهٍ → سبب المنع بلون أحمر.
+  //   • بلا اشتراك → رمادي.
+  function subDetail(): {
+    planText: string;
+    timeText: string;
+    tone: "purple" | "green" | "red" | "gray";
+    isPlan: boolean;
+  } {
+    if (!subscription) return { planText: "", timeText: t("subNone"), tone: "gray", isPlan: false };
     if (subscription.status === "banned")
-      return { text: subscription.reason ?? t("subBanned"), tone: "red" };
+      return { planText: "", timeText: subscription.reason ?? t("subBanned"), tone: "red", isPlan: false };
     if (subscription.status === "suspended" || subscription.status === "expired")
-      return { text: subscription.reason ?? t("subExpired"), tone: "red" };
-    return { text: t("subActive"), tone: "green" };
+      return { planText: "", timeText: subscription.reason ?? t("subExpired"), tone: "red", isPlan: false };
+    const isPro = subscription.plan === "pro";
+    return {
+      planText: isPro ? t("planPro") : t("planBasic"),
+      timeText: subTimeText(),
+      tone: isPro ? "purple" : "green",
+      isPlan: true,
+    };
   }
   const sub = subDetail();
   const subToneCls =
-    sub.tone === "green"
+    sub.tone === "purple"
+      ? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
+      : sub.tone === "green"
       ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
       : sub.tone === "red"
       ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200"
@@ -305,14 +332,32 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 <span aria-hidden className="text-sm">★</span>
                 {t("subBtn")}
               </span>
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${subToneCls}`}>
-                {sub.text}
-              </span>
+              {sub.isPlan ? (
+                <span className="flex items-center gap-1.5">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${subToneCls}`}>
+                    {sub.planText}
+                  </span>
+                  <span className="text-[10px] font-bold text-navy-700 dark:text-ivory-50/80">
+                    {sub.timeText}
+                  </span>
+                </span>
+              ) : (
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${subToneCls}`}>
+                  {sub.timeText}
+                </span>
+              )}
             </button>
             {showSub && (
               <div className={`rounded-2xl p-4 ${subToneCls}`}>
                 <p className="text-[10px] font-bold uppercase tracking-wide opacity-70">{t("subBtn")}</p>
-                <p className="mt-1 text-base font-extrabold leading-7">{sub.text}</p>
+                {sub.isPlan ? (
+                  <>
+                    <p className="mt-1 text-base font-extrabold leading-7">{sub.planText}</p>
+                    <p className="text-xs font-bold opacity-80">{sub.timeText}</p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-base font-extrabold leading-7">{sub.timeText}</p>
+                )}
               </div>
             )}
           </div>
