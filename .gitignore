@@ -1,0 +1,33 @@
+node_modules
+.next
+out
+.env*.local
+.env
+.DS_Store
+
+.vercel
+.env*
+env_dump.json
+*.log
+dev-server.log
+.claude
+.agents
+graphify-out
+link
+
+# ملفات مؤقتة من اختبارات curl
+exyz_dump_*.html
+live.html
+page2.html
+page3.html
+prod.html
+root.html
+*.tsbuildinfo
+memory/
+
+# أسرار/بقايا اختبارات — لا تُلتزم أبداً
+cookies.txt
+*.backup
+test-results/
+scripts/audit-shots/
+playwright-report/
