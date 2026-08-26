@@ -3,7 +3,7 @@ import type { Product } from "@/app/lib/types";
 import { useLandingLang } from "./LandingLang";
 
 // رابط الموقع الرئيسي — يُحقن إجبارياً في كل صفحة هبوط منتجة.
-const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-tau-five.vercel.app/";
+const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-dz.vercel.app/";
 
 export function Footer({ product }: { product: Product }) {
   const { t } = useLandingLang();

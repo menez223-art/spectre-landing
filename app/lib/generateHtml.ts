@@ -55,7 +55,7 @@ const ORDER_BENEFITS = ["دفع آمن عند الاستلام", "توصيل س�
 
 // رابط الموقع الرئيسي — يُحقن إجبارياً في كل صفحة هبوط منتجة.
 // قابل للتهيئة عبر NEXT_PUBLIC_SITE_URL كي يبقى صحيحاً عند نقل الملكية.
-const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-tau-five.vercel.app/";
+const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-dz.vercel.app/";
 
 // مدة صلاحية صفحة الاحتياط (GitHub Pages): أسبوع واحد ثم تُحرق ذاتياً
 const FALLBACK_EXPIRY_DAYS = 7;
@@ -1075,7 +1075,8 @@ input, select, textarea { font-family: inherit; }
 .topbar { padding: 0.625rem 0; text-align: center; font-size: 0.75rem; font-weight: 600; background: var(--c-promo-bg); color: var(--c-promo-text); }
 
 /* ---- Header ---- */
-.site-header { display: flex; align-items: center; justify-content: space-between; padding-top: 1.75rem; padding-bottom: 1.75rem; }
+.site-header { display: flex; align-items: center; justify-content: space-between; padding-top: 1rem; padding-bottom: 1rem; }
+@media (min-width: 640px) { .site-header { padding-top: 1.75rem; padding-bottom: 1.75rem; } }
 .brand { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.025em; color: var(--c-text); }
 .brand span { color: var(--c-accent); }
 .nav { display: none; align-items: center; gap: 2rem; font-size: 0.875rem; color: var(--c-muted); }
@@ -1089,10 +1090,13 @@ input, select, textarea { font-family: inherit; }
 }
 .header-cta:hover { background: var(--c-primary); color: var(--c-primary-text); }
 .header-home {
-  display: inline-flex; align-items: center; gap: 0.35rem; margin-inline-start: 0.75rem;
-  font-size: 0.75rem; font-weight: 700; color: var(--c-muted);
-  border-radius: 9999px; padding: 0.45rem 0.9rem; border: 1px solid var(--c-border);
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  display: none;
+}
+@media (min-width: 640px) {
+  .header-home { display: inline-flex; align-items: center; gap: 0.35rem; margin-inline-start: 0.75rem;
+    font-size: 0.75rem; font-weight: 700; color: var(--c-muted);
+    border-radius: 9999px; padding: 0.45rem 0.9rem; border: 1px solid var(--c-border);
+    transition: color 0.2s, border-color 0.2s, background 0.2s; }
 }
 .header-home:hover { color: var(--c-accent); border-color: var(--c-accent); background: var(--c-surface); }
 .footer-home { margin-top: 0.5rem; text-align: center; }
@@ -1285,7 +1289,7 @@ input, select, textarea { font-family: inherit; }
   background: var(--c-input-bg); color: var(--c-input-text);
   padding: 0.75rem 1rem; font-size: 0.875rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
 }
-.input::placeholder { color: var(--c-placeholder); }
+@media (max-width: 639px) { .input { font-size: 16px; } } .input::placeholder { color: var(--c-placeholder); }
 .input:focus { border-color: var(--c-primary); box-shadow: 0 0 0 2px var(--c-primary-soft); }
 .input:disabled { opacity: 0.5; cursor: not-allowed; }
 .span-2 { grid-column: 1 / -1; }
@@ -1360,7 +1364,7 @@ input, select, textarea { font-family: inherit; }
   position: fixed; inset-inline: 0; bottom: 0; z-index: 50; border-top: 1px solid var(--c-border);
   background: var(--c-sticky-bg); backdrop-filter: blur(12px); padding-bottom: env(safe-area-inset-bottom);
 }
-@media (min-width: 1024px) { .sticky-cta { display: none; } }
+@media (min-width: 1024px) { .sticky-cta { display: none; } } @media (max-width: 1023px) { body { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); } }
 .sticky-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .sticky-text { min-width: 0; }
 .sticky-name { margin: 0; font-size: 0.6875rem; font-weight: 600; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

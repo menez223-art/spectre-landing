@@ -8,6 +8,24 @@ import type { Plan, Subscription, SubStatus, ValidityUnit } from "@/app/lib/subs
 interface SubRow extends Subscription {
   pages?: number;
   remainingDays?: number | null;
+  storeName?: string | null; // الاسم الودّي الذي اختاره صاحب المتجر (اختياري)
+  whatsapp?: string | null; // رقم واتساب استلام الطلبات — للتواصل السريع
+}
+
+// صفّ منتج في قسم إشراف المتجر (من /api/admin/products)
+interface ProductRow {
+  slug: string;
+  id: string;
+  name: string;
+  price: number;
+  oldPrice: number | null;
+  image: string | null;
+  badge: string | null;
+  eyebrow: string | null;
+  owner: string | null;
+  listed: boolean;
+  hidden: boolean;
+  banned: boolean;
 }
 
 interface Stats {
@@ -16,7 +34,7 @@ interface Stats {
   suspended: number;
   banned: number;
   expired: number;
-  byPlan: { basic: number; pro: number };
+  byPlan: { basic: number; pro: number; gold: number };
   revenue: number;
   expiringSoon: number;
 }
@@ -25,11 +43,13 @@ interface Stats {
 const PLAN_LABELS: Record<Plan, string> = {
   basic: "أساسي",
   pro: "متقدم",
+  gold: "الذهبية",
 };
 
 const PLAN_PRICES: Record<Plan, number> = {
   basic: 2000,
   pro: 4000,
+  gold: 6000,
 };
 
 const STATUS_LABELS: Record<SubStatus, string> = {
@@ -52,6 +72,12 @@ const PLAN_COLORS: Record<Plan, { bg: string; border: string; text: string; badg
     border: "border-purple-200 dark:border-purple-800",
     text: "text-purple-700 dark:text-purple-300",
     badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  },
+  gold: {
+    bg: "bg-amber-50 dark:bg-amber-900/20",
+    border: "border-amber-200 dark:border-amber-800",
+    text: "text-amber-700 dark:text-amber-300",
+    badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   },
 };
 
@@ -122,7 +148,7 @@ const Icons: Record<string, React.FC<{ className?: string }>> = {
 };
 // ── مكونات واجهة مشتركة ──
 const stInput =
-  "w-full rounded-lg border border-navy-900/15 bg-white dark:bg-navy-800 px-3 py-2 text-xs text-navy-900 dark:text-white outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15";
+  "w-full rounded-lg border border-navy-900/15 bg-white dark:bg-navy-800 px-3 py-2 text-[16px] text-navy-900 dark:text-white outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm";
 const stBtnGhost =
   "rounded-lg border border-navy-900/15 px-3 py-1.5 text-[11px] font-bold text-navy-700 dark:text-navy-300 transition hover:border-navy-500 hover:text-navy-900 dark:hover:text-white";
 const stBtnPrimary =
@@ -156,9 +182,9 @@ function ConfirmDialog({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-navy-950/50 px-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-navy-950/60 px-4 backdrop-blur-sm" onClick={onCancel}>
       <div
-        className="w-full max-w-sm rounded-3xl border border-navy-900/10 bg-white dark:bg-navy-900 p-6 shadow-2xl"
+        className="liquid-glass liquid-glass--rounded w-full max-w-sm overflow-hidden rounded-2xl p-4 shadow-2xl sm:rounded-3xl sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="font-display text-base font-bold text-navy-900 dark:text-white">{title}</h3>
@@ -175,6 +201,83 @@ function ConfirmDialog({
             }`}
           >
             {loading ? "…" : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── نافذة تعديل منتج (إشراف المتجر) ──
+function ProductEditModal({
+  product,
+  busy,
+  onSave,
+  onClose,
+}: {
+  product: ProductRow;
+  busy: boolean;
+  onSave: (patch: Record<string, unknown>) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(product.name);
+  const [price, setPrice] = useState(String(product.price));
+  const [oldPrice, setOldPrice] = useState(product.oldPrice != null ? String(product.oldPrice) : "");
+  const [badge, setBadge] = useState(product.badge ?? "");
+  const [eyebrow, setEyebrow] = useState(product.eyebrow ?? "");
+
+  function submit() {
+    const p = Number(price);
+    const op = oldPrice.trim() === "" ? null : Number(oldPrice);
+    onSave({
+      name: name.trim() || product.name,
+      price: Number.isFinite(p) ? p : product.price,
+      oldPrice: op === null ? null : Number.isFinite(op) ? op : null,
+      badge: badge.trim() === "" ? null : badge.trim(),
+      eyebrow: eyebrow.trim() === "" ? null : eyebrow.trim(),
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-navy-950/60 px-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="liquid-glass liquid-glass--rounded w-full max-w-md overflow-hidden rounded-2xl p-4 shadow-2xl sm:rounded-3xl sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="font-display text-base font-bold text-navy-900 dark:text-white">تعديل المنتج</h3>
+        <p className="mt-1 text-[11px] text-navy-900/45 dark:text-navy-300/45">
+          يُطبَّق التعديل على الصفحة المنشورة فوراً. يبقى الثيم وباقي البيانات كما هي.
+        </p>
+        <div className="mt-4 grid gap-3">
+          <label className="grid gap-1">
+            <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">الاسم</span>
+            <input className={stInput} value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="grid gap-1">
+              <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">السعر (د.ج)</span>
+              <input className={stInput} type="number" dir="ltr" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">السعر القديم (اختياري)</span>
+              <input className={stInput} type="number" dir="ltr" value={oldPrice} onChange={(e) => setOldPrice(e.target.value.replace(/\D/g, ""))} />
+            </label>
+          </div>
+          <label className="grid gap-1">
+            <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">الشارة (Badge)</span>
+            <input className={stInput} value={badge} onChange={(e) => setBadge(e.target.value)} />
+          </label>
+          <label className="grid gap-1">
+            <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">العنوان الفرعي (Eyebrow)</span>
+            <input className={stInput} value={eyebrow} onChange={(e) => setEyebrow(e.target.value)} />
+          </label>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className={stBtnGhost} disabled={busy}>
+            إلغاء
+          </button>
+          <button onClick={submit} className={stBtnPrimary} disabled={busy}>
+            {busy ? "…" : "حفظ"}
           </button>
         </div>
       </div>
@@ -282,10 +385,27 @@ function SubscriptionCard({
             className="w-4 h-4 rounded border-navy-900/15 text-navy-500 focus:ring-2 focus:ring-navy-500/20 cursor-pointer"
           />
           <div className="min-w-0 flex-1">
+            {row.storeName ? (
+              <p className="truncate text-sm font-bold text-navy-900 dark:text-white">🛍️ {row.storeName}</p>
+            ) : null}
             <code dir="ltr" className="block min-w-0 truncate text-[11px] font-semibold text-navy-900 dark:text-white">{row.userId}</code>
-            {row.pages !== undefined && (
-              <span className="text-[10px] text-navy-900/45 dark:text-navy-300/45">{row.pages} صفحة منشورة</span>
-            )}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              {row.whatsapp ? (
+                <a
+                  href={`https://wa.me/${row.whatsapp.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  dir="ltr"
+                  className="text-[10px] font-bold text-emerald-600 hover:underline dark:text-emerald-400"
+                  title="تواصل سريع عبر واتساب"
+                >
+                  💬 {row.whatsapp}
+                </a>
+              ) : null}
+              {row.pages !== undefined && (
+                <span className="text-[10px] text-navy-900/45 dark:text-navy-300/45">{row.pages} صفحة منشورة</span>
+              )}
+            </div>
           </div>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_COLORS[row.status]}`}>
@@ -302,10 +422,11 @@ function SubscriptionCard({
               value={editPlan}
               onChange={(e) => setEditPlan(e.target.value as Plan)}
               disabled={saving || busy}
-              className="rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-1.5 text-[11px] font-semibold text-navy-900 dark:text-white disabled:opacity-50"
+              className="rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-1.5 text-[16px] font-semibold text-navy-900 dark:text-white disabled:opacity-50 sm:text-[11px]"
             >
               <option value="basic">أساسي (2000 د.ج)</option>
               <option value="pro">متقدم (4000 د.ج)</option>
+              <option value="gold">الذهبية (6000 د.ج)</option>
             </select>
 
             <label className="text-[10px] font-semibold text-navy-700 dark:text-navy-300 ml-3">الأيام المتبقية:</label>
@@ -316,7 +437,7 @@ function SubscriptionCard({
               value={editDays}
               onChange={(e) => setEditDays(e.target.value)}
               disabled={saving || busy}
-              className="w-20 rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-1.5 text-[11px] font-semibold text-navy-900 dark:text-white disabled:opacity-50"
+              className="w-20 rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-1.5 text-[16px] font-semibold text-navy-900 dark:text-white disabled:opacity-50 sm:text-[11px]"
               placeholder="30"
             />
             <span className="text-[10px] text-navy-700 dark:text-navy-300">يوم</span>
@@ -469,9 +590,10 @@ function StatsDashboard({ stats }: { stats: Stats }) {
   const total = stats.total || 1;
   const basicPct = Math.round((stats.byPlan.basic / total) * 100);
   const proPct = Math.round((stats.byPlan.pro / total) * 100);
+  const goldPct = Math.round((stats.byPlan.gold / total) * 100);
 
   return (
-    <section className="grid gap-4 rounded-3xl border border-navy-900/10 bg-white dark:bg-navy-900 p-5 shadow-sm">
+    <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
       <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">📊 ملخص الاشتراكات</h2>
 
       {/* بطاقات الإحصائيات الرئيسية */}
@@ -517,6 +639,13 @@ function StatsDashboard({ stats }: { stats: Stats }) {
             <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${proPct}%` }} />
           </div>
           <span className="w-14 text-right text-[11px] font-bold text-purple-700">{stats.byPlan.pro} ({proPct}%)</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="w-20 text-[11px] font-semibold text-amber-600">الذهبية</span>
+          <div className="flex-1 h-3 rounded-full bg-amber-100 overflow-hidden">
+            <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${goldPct}%` }} />
+          </div>
+          <span className="w-14 text-right text-[11px] font-bold text-amber-700">{stats.byPlan.gold} ({goldPct}%)</span>
         </div>
       </div>
     </section>
@@ -636,7 +765,7 @@ function SearchFilterBar({
           placeholder="بحث بالبريد أو المعرف..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-3 py-2 rounded-lg border border-navy-900/15 bg-white dark:bg-navy-800 text-sm text-navy-900 dark:text-white outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15"
+          className="w-full pl-10 pr-3 py-2 rounded-lg border border-navy-900/15 bg-white dark:bg-navy-800 text-[16px] text-navy-900 dark:text-white outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm"
         />
       </div>
       <select
@@ -658,6 +787,7 @@ function SearchFilterBar({
         <option value="all">كل الخطط</option>
         <option value="basic">أساسي</option>
         <option value="pro">متقدم</option>
+        <option value="gold">الذهبية</option>
       </select>
       <button onClick={onRefresh} disabled={loading} className={stBtnGhost}>
         <Icons.Refresh className="inline mr-1" /> تحديث
@@ -714,13 +844,20 @@ export function AdminPanel({ email }: { email: string }) {
   const [notifyBusy, setNotifyBusy] = useState(false);
   const [notifyMsg, setNotifyMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // ── إدارة منتجات المتجر (إشراف) ──
+  const [products, setProducts] = useState<ProductRow[]>([]);
+  const [productsBusy, setProductsBusy] = useState(false);
+  const [productBusySlug, setProductBusySlug] = useState<string | null>(null);
+  const [editProduct, setEditProduct] = useState<ProductRow | null>(null);
+  const [productDeleteTarget, setProductDeleteTarget] = useState<ProductRow | null>(null);
+
   // ── الإحصائيات المحسوبة ──
   const stats: Stats = useMemo(() => {
     const total = rows.length;
-    const byPlan = { basic: 0, pro: 0 };
+    const byPlan = { basic: 0, pro: 0, gold: 0 };
     let active = 0, suspended = 0, banned = 0, expired = 0, revenue = 0, expiringSoon = 0;
     rows.forEach((r) => {
-      if (r.plan === "basic" || r.plan === "pro") byPlan[r.plan]++;
+      byPlan[r.plan]++;
       if (r.status === "active") active++;
       if (r.status === "suspended") suspended++;
       if (r.status === "banned") banned++;
@@ -764,7 +901,7 @@ export function AdminPanel({ email }: { email: string }) {
     // الترتيب
     result.sort((a, b) => {
       if (sortBy === "plan") {
-        const order = { basic: 0, pro: 1 };
+        const order = { basic: 0, pro: 1, gold: 2 };
         return order[a.plan] - order[b.plan];
       }
       if (sortBy === "created") {
@@ -778,9 +915,9 @@ export function AdminPanel({ email }: { email: string }) {
 
   // عدد حسب الخطة للتبويبات
   const tabCounts = useMemo(() => {
-    const counts = { all: rows.length, basic: 0, pro: 0 };
+    const counts = { all: rows.length, basic: 0, pro: 0, gold: 0 };
     rows.forEach((r) => {
-      if (r.plan === "basic" || r.plan === "pro") counts[r.plan]++;
+      counts[r.plan]++;
     });
     return counts;
   }, [rows]);
@@ -816,6 +953,37 @@ export function AdminPanel({ email }: { email: string }) {
     }
   }
 
+  // منتجات المتجر (إشراف) — قائمة + أفعال edit/hide/unhide عبر /api/admin/products.
+  async function loadProducts() {
+    setProductsBusy(true);
+    try {
+      const res = await fetch("/api/admin/products", { cache: "no-store" });
+      if (res.status === 401 || res.status === 403) return;
+      const data = (await res.json().catch(() => ({}))) as { products?: ProductRow[] };
+      setProducts(data.products ?? []);
+    } catch {
+      // تجاهل — القسم اختياري
+    } finally {
+      setProductsBusy(false);
+    }
+  }
+
+  async function applyProductAction(slug: string, action: "hide" | "unhide" | "edit" | "delete", patch?: Record<string, unknown>) {
+    setProductBusySlug(slug);
+    try {
+      const res = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "edit" ? { action, slug, product: patch } : { action, slug }),
+      });
+      if (res.ok) await loadProducts();
+    } catch {
+      // تجاهل
+    } finally {
+      setProductBusySlug(null);
+    }
+  }
+
   async function load() {
     setLoading(true);
     setError("");
@@ -839,6 +1007,7 @@ export function AdminPanel({ email }: { email: string }) {
     load();
     loadFallback();
     loadHealth();
+    loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 async function loadFallback() {
@@ -1129,7 +1298,7 @@ async function loadFallback() {
       <SmartWarnings rows={rows} />
 
       {/* ── شريط البحث والفلترة ── */}
-      <section className="rounded-3xl border border-navy-900/10 bg-white dark:bg-navy-900 p-5 shadow-sm">
+      <section className="liquid-glass liquid-glass--rounded overflow-hidden rounded-2xl p-4 sm:rounded-3xl sm:p-5">
         <SearchFilterBar
           search={searchQuery}
           setSearch={setSearchQuery}
@@ -1143,7 +1312,7 @@ async function loadFallback() {
 
         {/* أزرار التبويبات (Tabs) */}
         <div className="mt-3 flex flex-wrap gap-2" role="tablist">
-          {(["all", "basic", "pro"] as const).map((tab) => (
+          {(["all", "basic", "pro", "gold"] as const).map((tab) => (
             <button
               key={tab}
               role="tab"
@@ -1162,7 +1331,7 @@ async function loadFallback() {
       </section>
 
       {/* ── قائمة المستخدمين (Cards) ── */}
-      <section className="grid gap-3 rounded-3xl border border-navy-900/10 bg-white dark:bg-navy-900 p-5 shadow-sm">
+      <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">المستخدمون ({filteredRows.length} / {rows.length})</h2>
           <div className="flex items-center gap-2">
@@ -1269,7 +1438,7 @@ async function loadFallback() {
       </section>
 
       {/* ── رصد صحة الروابط ── */}
-      <section className="grid gap-3 rounded-3xl border border-navy-900/10 bg-white dark:bg-navy-900 p-5 shadow-sm">
+      <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">رصد صحة الروابط</h2>
           <button onClick={runHealth} disabled={healthBusy} className={stBtnGhost}>
@@ -1330,6 +1499,81 @@ async function loadFallback() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+      </section>
+
+      {/* ── إدارة منتجات المتجر ── */}
+      <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">إدارة منتجات المتجر</h2>
+          <button onClick={loadProducts} disabled={productsBusy} className={stBtnGhost}>
+            {productsBusy ? "جارٍ التحميل…" : "تحديث"}
+          </button>
+        </div>
+        <p className="text-[11px] leading-5 text-navy-900/45 dark:text-navy-300/45">
+          تعديل بيانات أي منتج منشور، أو إخفاؤه من المتجر العام. الإخفاء يزيله من المتجر فقط — تبقى صفحته{" "}
+          <code dir="ltr">/p/&lt;slug&gt;</code> تعمل بشكل طبيعي.
+        </p>
+
+        {products.length === 0 && !productsBusy ? (
+          <p className="py-6 text-center text-[11px] text-navy-900/45 dark:text-navy-300/45">لا توجد منتجات منشورة بعد.</p>
+        ) : (
+          <div className="grid max-h-[32rem] gap-2 overflow-auto">
+            {products.map((p) => (
+              <div
+                key={p.slug}
+                className="flex flex-wrap items-center gap-3 rounded-2xl border border-navy-900/10 dark:border-navy-700/50 bg-ivory-50 dark:bg-navy-800 p-3"
+              >
+                {p.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.image} alt={p.name} className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                ) : (
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-navy-100 dark:bg-navy-700">
+                    <Icons.Image />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-bold text-navy-900 dark:text-white">{p.name}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-navy-900/50 dark:text-navy-300/50">
+                    <span dir="ltr" className="font-semibold">{p.price.toLocaleString()} د.ج</span>
+                    {p.owner && <span className="truncate font-mono">{p.owner}</span>}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {p.listed ? (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">مُدرَج</span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-navy-700 dark:text-navy-300">خاص</span>
+                  )}
+                  {p.hidden && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">مخفي</span>
+                  )}
+                  {p.banned && (
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-300">محظور</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <a href={`/p/${p.slug}`} target="_blank" rel="noopener" className={stBtnGhost}>فتح</a>
+                  <button onClick={() => setEditProduct(p)} disabled={productBusySlug === p.slug} className={stBtnPrimary}>تعديل</button>
+                  {p.hidden ? (
+                    <button onClick={() => applyProductAction(p.slug, "unhide")} disabled={productBusySlug === p.slug} className={stBtnSuccess}>إظهار</button>
+                  ) : (
+                    <button onClick={() => applyProductAction(p.slug, "hide")} disabled={productBusySlug === p.slug} className={stBtnWarning}>إخفاء</button>
+                  )}
+                  {/* حذف المنتج نهائياً — لا يمكن التراجع. يظهر بجانب رابط «فتح» مباشرة. */}
+                  <button
+                    onClick={() => setProductDeleteTarget(p)}
+                    disabled={productBusySlug === p.slug}
+                    className="rounded-full border border-red-500/40 px-2.5 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 sm:px-4 sm:py-2 sm:text-xs dark:hover:bg-red-500/10"
+                    title="حذف المنتج نهائياً"
+                    aria-label="حذف المنتج نهائياً"
+                  >
+                    🗑
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -1395,7 +1639,7 @@ async function loadFallback() {
       />
 
       {/* ── لوحة الاحتياط وإنذار السعة ── */}
-      <section className="grid gap-3 rounded-3xl border border-navy-900/10 bg-white dark:bg-navy-900 p-5 shadow-sm">
+      <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base font-bold">الاحتياط وإنذار السعة</h2>
           <button onClick={loadFallback} disabled={fallbackBusy} className={stBtnGhost}>
@@ -1496,6 +1740,41 @@ async function loadFallback() {
           </>
         )}
       </section>
+
+      {/* ── نافذة تعديل منتج المتجر ── */}
+      {editProduct && (
+        <ProductEditModal
+          product={editProduct}
+          busy={productBusySlug === editProduct.slug}
+          onSave={(patch) => {
+            const slug = editProduct.slug;
+            setEditProduct(null);
+            applyProductAction(slug, "edit", patch);
+          }}
+          onClose={() => setEditProduct(null)}
+        />
+      )}
+
+      {/* ── تأكيد حذف المنتج نهائياً — يطلب موافقة صريحة لأن الفعل لا يمكن التراجع عنه. ── */}
+      <ConfirmDialog
+        open={productDeleteTarget !== null}
+        title="حذف المنتج نهائياً"
+        message={
+          productDeleteTarget
+            ? `سيتم حذف «${productDeleteTarget.name}» (/${productDeleteTarget.slug}) من المتجر وصفحته العامة نهائياً. لا يمكن التراجع عن هذه العملية.`
+            : ""
+        }
+        confirmLabel="حذف نهائي"
+        danger
+        loading={productBusySlug === productDeleteTarget?.slug}
+        onConfirm={async () => {
+          if (!productDeleteTarget) return;
+          const slug = productDeleteTarget.slug;
+          setProductDeleteTarget(null);
+          await applyProductAction(slug, "delete");
+        }}
+        onCancel={() => setProductDeleteTarget(null)}
+      />
     </div>
   );
 }

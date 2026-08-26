@@ -10,15 +10,29 @@ export const TIME_CONSTANTS = {
 
 // ── حدود السعة والحصص ──
 export const BANDWIDTH_LIMITS = {
-  WARN_BYTES: 90 * 1024 * 1024 * 1024, // حد الإنذار: 90GB
+  WARN_BYTES: 90 * 1024 * 1024 * 1024, // حد الإنذار التراكمي: 90GB (نقل CDN فيرصل Hobby=100GB)
   MAX_BYTES: 100 * 1024 * 1024 * 1024, // الحد الأقصى: 100GB
+  // إنذار شهري استباقي: 3GB. السقف الحاكم فعلياً على الخطط المجانية هو خروج
+  // Supabase الشهري (~5GB) لا نقل فيرصل — التبديل الاستباقي لوضع الاحتياط
+  // (GitHub Pages) عند 3GB يُبقي تجربة الزوار سلسة قبل ملامسة الجدار.
+  MONTHLY_WARN_BYTES: 3 * 1024 * 1024 * 1024,
 } as const;
 
 export const RESOURCE_LIMITS = {
-  MAX_LANDING_PRODUCTS: 5, // حد المنتجات لكل صفحة
-  MAX_LANDING_IMAGES: 5, // حد الصور لكل صفحة
+  MAX_LANDING_PRODUCTS: 10, // حد المنتجات لكل صفحة (سقف نظامي — الحصة الفعلية بالخطة)
+  MAX_LANDING_IMAGES: 10, // حد الصور لكل صفحة (سقف نظامي — الحصة الفعلية بالخطة)
   MAX_AUTH_TRIES: 5, // حد محاولات التحقق
 } as const;
+
+// حدّ حجم ملف المصدر للصورة حسب الخطة (بايت، قبل الضغط) — يُطبَّق عميلياً في
+// الاستوديو قبل استدعاء الضغط. الضغط التلقائي يبقى بعده فيظل المخزَّن صغيراً؛
+// الحماية النهائية لحجم الجسم المرفوع هي MAX_BODY_BYTES في مسار النشر.
+export const IMAGE_MAX_BYTES_BY_PLAN: Record<string, number> = {
+  basic: 2_000_000, // ~2MB
+  pro: 4_000_000, // ~4MB
+  gold: 10_000_000, // ~10MB
+};
+export const IMAGE_MAX_BYTES_DEFAULT = 2_000_000; // سقوط آمن لأي خطة مجهولة
 
 // ── بادئات التخزين في KV ──
 export const KV_PREFIXES = {
@@ -51,7 +65,7 @@ export const STORAGE_KEYS = {
 
 // ── الروابط والعناوين ──
 export const URLS = {
-  SITE_HOME: process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-tau-five.vercel.app/",
+  SITE_HOME: process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-dz.vercel.app/",
   FACEBOOK_PRICING: "https://www.facebook.com/share/1Ep7pL32L4/",
 } as const;
 

@@ -4,7 +4,7 @@ import { useLandingLang, LangToggle } from "./LandingLang";
 
 // رابط الموقع الرئيسي — يُحقن إجبارياً في كل صفحة هبوط منتجة.
 // قابل للتهيئة عبر NEXT_PUBLIC_SITE_URL كي يبقى صحيحاً عند نقل الملكية.
-const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-tau-five.vercel.app/";
+const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-dz.vercel.app/";
 
 export function TopBar({ product }: { product: Product }) {
   const { t } = useLandingLang();
@@ -39,7 +39,7 @@ export function Header({ product }: { product: Product }) {
   navItems.push({ label: t("navOrder"), href: "#order" });
 
   return (
-    <header className="container-landing flex items-center justify-between py-7">
+    <header className="container-landing flex items-center justify-between py-4 sm:py-7">
       <a href="#top" className="font-display text-2xl font-extrabold tracking-tight text-[var(--c-text)]">
         {brand}
         <span className="text-[var(--c-accent)]">.</span>
@@ -63,7 +63,7 @@ export function Header({ product }: { product: Product }) {
           href={SITE_HOME_URL}
           target="_blank"
           rel="noopener"
-          className="rounded-full border border-[var(--c-border)] px-3.5 py-2.5 text-xs font-bold text-[var(--c-muted)] transition hover:border-[var(--c-accent)] hover:text-[var(--c-accent)]"
+          className="hidden rounded-full border border-[var(--c-border)] px-3.5 py-2.5 text-xs font-bold text-[var(--c-muted)] transition hover:border-[var(--c-accent)] hover:text-[var(--c-accent)] sm:inline-flex"
         >
           Studio Store Gen
         </a>

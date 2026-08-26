@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import { PRODUCTS } from "@/app/data/products";
-// الكتالوج يُرسم أسفل الصفحة — نحمّله كسولاً مع هيكل بديل كي لا يثقل
+import { useState } from "react";
+
+// الوضع التجريبي (نافذة منبثقة عند الطلب فقط) — يسحب قالب الهبوط كاملاً،
+// فيُحمَّل كسولاً كي لا يثقل حزمة الرئيسية التي يفتحها كل زائر أولاً.
+const GuestStudio = dynamic(
+  () => import("@/app/components/auth/GuestStudio").then((m) => m.GuestStudio),
+  { ssr: false }
+);
+
+// المتجر العام يُرسم أسفل الصفحة — نحمّله كسولاً مع هيكل بديل كي لا يثقل
 // الرسم الأولي للرئيسية (البطل + قسم الاشتراكات يظهران فوراً).
-const CatalogLocal = dynamic(
-  () => import("@/app/components/catalog/CatalogLocal").then((m) => m.CatalogLocal),
+const PublicStore = dynamic(
+  () => import("@/app/components/catalog/PublicStore").then((m) => m.PublicStore),
   {
     ssr: false,
     loading: () => (
@@ -17,29 +24,11 @@ const CatalogLocal = dynamic(
     ),
   }
 );
-import { LangToggle } from "@/app/components/LangToggle";
-import { ThemeToggle } from "@/app/components/ThemeToggle";
-import { ThemeSelector } from "@/app/components/ThemeSelector";
-import { AdminLoginBox } from "@/app/components/AdminLoginBox";
-import { GuestStudio } from "@/app/components/auth/GuestStudio";
 import { useLocale } from "@/app/components/LocaleProvider";
-
-// انتقال سلس إلى الاستوديو: نُعلّق صنف الانتقال على <html> قبل التنقّل،
-// فيتلاشى التعتيم تدريجياً أثناء تحميل صفحة الاستوديو. نستعمل <Link prefetch>
-// كي يحمّل Next.js حزمة المسار مسبقاً فيصبح التنقّل فورياً.
-function StudioLink({ className, children }: { className: string; children: React.ReactNode }) {
-  const handleClick = () => {
-    const root = document.documentElement;
-    root.classList.add("page-enter", "page-enter-active");
-    requestAnimationFrame(() => root.classList.remove("page-enter"));
-    setTimeout(() => root.classList.remove("page-enter-active"), 120);
-  };
-  return (
-    <Link href="/studio" prefetch onClick={handleClick} className={className}>
-      {children}
-    </Link>
-  );
-}
+import { PageHeader } from "@/app/components/PageHeader";
+import { PageFooter } from "@/app/components/PageFooter";
+import { AdminLoginModal } from "@/app/components/AdminLoginModal";
+import { StudioLink } from "@/app/components/StudioLink";
 
 // الرئيسية — فهرس منتجات + مدخل الاستوديو
 export default function Home() {
@@ -47,82 +36,9 @@ export default function Home() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showGuest, setShowGuest] = useState(false);
 
-  // إن احتوت الرابط ?admin=1 (أعيد توجيه الأدمن بلا جلسة) نفتح صندوق الدخول في modal.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("admin") === "1") {
-      setShowAdmin(true);
-    }
-  }, []);
-
-  // إغلاق modal الأدمن بمفتاح Escape + منع تمرير الخلفية أثناء فتحه.
-  useEffect(() => {
-    if (!showAdmin) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowAdmin(false);
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [showAdmin]);
-
   return (
     <main className="min-h-screen bg-ivory-50 text-navy-900 dark:bg-[#0d1117] dark:text-ivory-50">
-      {/* شريط «بسم الله» — نص عربي ثابت لا يتأثر بمبدّل اللغة */}
-      <div
-        lang="ar"
-        translate="no"
-        className="border-b border-navy-900/10 bg-navy-900 py-1.5 text-center dark:border-white/10"
-      >
-        <p className="font-display text-sm font-bold tracking-wide text-ivory-50/90">
-          بسم الله
-        </p>
-      </div>
-
-      {/* الترويسة */}
-      <header className="sticky top-0 z-50 border-b border-navy-900/10 bg-ivory-50/70 backdrop-blur-xl backdrop-saturate-150 dark:border-white/10 dark:bg-[#0d1117]/70">
-        <div className="container-landing flex items-center justify-between gap-3 py-4">
-          {/* الشعار */}
-          <div className="flex items-center gap-4">
-            <Link href="/" className="group flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-xl theme-gradient font-display text-lg font-bold text-white theme-shadow transition group-hover:theme-shadow-lg">
-                S
-              </div>
-              <span className="font-display text-2xl font-extrabold tracking-tight text-navy-900 dark:text-ivory-50">
-                {t("brand")}
-              </span>
-            </Link>
-          </div>
-          <nav className="hidden items-center gap-8 text-sm font-semibold text-navy-700 dark:text-ivory-200 md:flex" aria-label={t("products")}>
-            <a href="#catalog" className="transition hover:text-navy-400 dark:hover:text-blue-400">{t("products")}</a>
-            <Link href="/studio" className="transition hover:text-navy-400 dark:hover:text-blue-400">{t("studio")}</Link>
-          </nav>
-          <div className="flex items-center gap-2">
-            <ThemeSelector />
-            <ThemeToggle />
-            <LangToggle />
-            <Link
-              href="/pricing"
-              className="hidden rounded-xl border border-navy-900/10 bg-white/50 px-4 py-2 text-sm font-semibold text-navy-700 backdrop-blur transition hover:border-navy-900/20 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-ivory-50 sm:block"
-            >
-              الخطط والأسعار
-            </Link>
-            <button
-              onClick={() => setShowAdmin((v) => !v)}
-              className="rounded-xl border border-navy-900/10 bg-white/50 px-4 py-2 text-sm font-semibold text-navy-700 backdrop-blur transition hover:border-navy-900/20 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-ivory-50"
-            >
-              {t("adminLoginTitle")}
-            </button>
-            <StudioLink className="rounded-xl theme-gradient px-6 py-2 text-sm font-bold text-white theme-shadow transition hover:theme-shadow-lg">
-              {t("newPage")}
-            </StudioLink>
-          </div>
-        </div>
-      </header>
+      <PageHeader showAdminButton onAdminClick={() => setShowAdmin(true)} hideOnScroll />
 
       {/* البطل */}
       <section className="relative overflow-hidden bg-navy-900 text-ivory-50">
@@ -145,8 +61,8 @@ export default function Home() {
             <p className="mt-6 max-w-lg text-base leading-7 text-ivory-200/85">
               {t("heroSub")}
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-4">
-              <StudioLink className="group relative overflow-hidden rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-8 py-4 text-sm font-bold text-white shadow-xl shadow-emerald-500/40 transition hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/60">
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+              <StudioLink className="liquid-glass liquid-glass--pill group relative inline-flex w-full justify-center overflow-hidden rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-8 py-4 text-sm font-bold text-white shadow-xl shadow-emerald-500/40 transition hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/60 sm:w-auto">
                 <span className="relative z-10 flex items-center gap-2">
                   {t("ctaStart")}
                   <svg className="h-5 w-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,13 +73,13 @@ export default function Home() {
               </StudioLink>
               <a
                 href="#catalog"
-                className="group rounded-full border-2 border-ivory-50/20 bg-ivory-50/5 px-8 py-4 text-sm font-bold text-ivory-50 backdrop-blur-sm transition hover:border-ivory-50/50 hover:bg-ivory-50/10"
+                className="liquid-glass liquid-glass--pill group inline-flex w-full items-center justify-center overflow-hidden rounded-full border-2 border-ivory-50/20 px-8 py-4 text-sm font-bold text-ivory-50 transition hover:border-ivory-50/50 sm:w-auto"
               >
                 {t("ctaBrowse")}
               </a>
               <button
                 onClick={() => setShowGuest(true)}
-                className="rounded-full border border-emerald-300/50 bg-emerald-400/15 px-6 py-4 text-sm font-bold text-emerald-100 transition hover:border-emerald-200/70 hover:bg-emerald-400/25"
+                className="liquid-glass liquid-glass--pill inline-flex w-full items-center justify-center overflow-hidden rounded-full border border-emerald-300/50 px-6 py-4 text-sm font-bold text-emerald-100 transition hover:border-emerald-200/70 sm:w-auto"
               >
                 ✨ {t("tryDemo")}
               </button>
@@ -171,8 +87,8 @@ export default function Home() {
             <p className="mt-3 text-xs leading-5 text-ivory-200/60">{t("tryDemoSub")}</p>
           </div>
 
-          {/* شريط الإحصائيات المفصول — بطاقات أنيقة مع تأثيرات hover */}
-          <div className="mt-12 grid max-w-xl grid-cols-3 gap-4">
+          {/* شريط الإحصائيات المفصول — بطاقات زجاج سائل مع تأثيرات hover */}
+          <div className="mt-12 grid max-w-xl grid-cols-3 gap-3 sm:gap-4">
             {[
               { icon: "∞", value: t("statPages"), label: t("statPagesLabel") },
               { icon: "📍", value: t("statWilayas"), label: t("statWilayasLabel") },
@@ -180,13 +96,13 @@ export default function Home() {
             ].map((stat, i) => (
               <div
                 key={i}
-                className="group relative overflow-hidden rounded-2xl border border-ivory-50/10 bg-ivory-50/5 backdrop-blur-sm p-6 text-center transition hover:border-ivory-50/30 hover:bg-ivory-50/10"
+                className="liquid-glass liquid-glass--rounded group relative overflow-hidden rounded-2xl p-4 text-center transition hover:-translate-y-1 sm:p-6"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 opacity-0 transition-opacity group-hover:opacity-100" />
                 <div className="relative">
-                  <div className="mb-2 text-3xl">{stat.icon}</div>
-                  <div className="font-display text-2xl font-extrabold text-ivory-50 sm:text-3xl">{stat.value}</div>
-                  <div className="mt-1 text-[11px] font-semibold text-ivory-200/70">{stat.label}</div>
+                  <div className="mb-2 text-2xl sm:text-3xl">{stat.icon}</div>
+                  <div className="font-display text-xl font-extrabold text-ivory-50 sm:text-3xl">{stat.value}</div>
+                  <div className="mt-1 text-[10px] font-semibold leading-4 text-ivory-200/70 sm:text-[11px]">{stat.label}</div>
                 </div>
               </div>
             ))}
@@ -217,7 +133,7 @@ export default function Home() {
                 {i < 2 && (
                   <div className="absolute right-0 top-12 hidden h-0.5 w-full bg-gradient-to-r from-navy-900/20 to-transparent lg:block dark:from-white/20" />
                 )}
-                <div className="relative rounded-3xl border border-navy-900/10 bg-white p-8 shadow-xl shadow-navy-900/5 transition hover:-translate-y-2 hover:shadow-2xl hover:shadow-navy-900/10 dark:border-white/10 dark:bg-[#161b22] dark:shadow-black/20">
+                <div className="liquid-glass liquid-glass--rounded relative overflow-hidden rounded-3xl p-8 shadow-xl shadow-navy-900/5 transition hover:-translate-y-2 hover:shadow-2xl hover:shadow-navy-900/10 dark:shadow-black/20">
                   {/* رقم الخطوة بتدرّج لوني */}
                   <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 font-display text-2xl font-bold text-white shadow-lg shadow-emerald-500/50">
                     {step.n}
@@ -246,13 +162,13 @@ export default function Home() {
           </StudioLink>
         </div>
 
-        <CatalogLocal staticProducts={PRODUCTS} />
+        <PublicStore />
       </section>
 
       {/* قسم الاشتراكات — بطاقة مع صورة fb.png وزر CTA فيسبوك + زر الخطط */}
       <section className="relative overflow-hidden py-16 lg:py-20" style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(var(--theme-primary-rgb), 0.08), rgba(var(--theme-secondary-rgb), 0.08))' }}>
         <div className="container-landing">
-          <div className="grid gap-8 rounded-[2rem] lg:grid-cols-[1fr_0.9fr] lg:items-center">
+          <div className="liquid-glass liquid-glass--rounded grid gap-8 overflow-hidden rounded-[2rem] p-6 sm:p-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
             <div className="grid gap-4">
               <span className="inline-block w-fit rounded-full px-4 py-2 text-sm font-bold theme-gradient bg-clip-text text-transparent dark:from-emerald-400 dark:to-teal-300" style={{ WebkitTextFillColor: 'var(--theme-primary)' }}>
                 {t("subsEyebrow")}
@@ -296,42 +212,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* التذييل */}
-      <footer className="border-t border-navy-900/10 dark:border-white/10">
-        <div className="container-landing flex flex-col justify-between gap-3 py-8 text-xs text-navy-900/50 sm:flex-row dark:text-ivory-50/50">
-          <p>{t("footer1")}</p>
-          <p>{t("footer2")}</p>
-        </div>
-      </footer>
+      <PageFooter />
 
       {/* نافذة الوضع التجريبي (Guest Mode) — بدون تسجيل دخول */}
       <GuestStudio open={showGuest} onClose={() => setShowGuest(false)} />
 
-      {/* نافذة دخول الأدمن (modal) — تحتوي AdminLoginBox كما هو */}
-      {showAdmin && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/60 p-4 backdrop-blur-sm"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowAdmin(false);
-          }}
-        >
-          <div className="w-full max-w-md rounded-3xl border border-navy-900/10 bg-ivory-50 p-6 shadow-2xl dark:border-white/10 dark:bg-[#11161d]">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-display text-lg font-bold text-navy-900 dark:text-ivory-50">
-                {t("adminLoginTitle")}
-              </h3>
-              <button
-                onClick={() => setShowAdmin(false)}
-                aria-label={t("close")}
-                className="grid h-8 w-8 place-items-center rounded-full text-navy-500 transition hover:bg-navy-900/5 hover:text-navy-900 dark:text-ivory-50/60 dark:hover:bg-white/10"
-              >
-                ✕
-              </button>
-            </div>
-            <AdminLoginBox />
-          </div>
-        </div>
-      )}
+      {/* نافذة دخول الأدمن (modal) — AdminLoginModal الزجاجي */}
+      <AdminLoginModal open={showAdmin} onClose={() => setShowAdmin(false)} />
     </main>
   );
 }
