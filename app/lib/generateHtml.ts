@@ -141,7 +141,7 @@ export async function generateLandingHtml(
         ${navItems.map((item) => `<a href="${esc(item.href)}">${esc(item.label)}</a>`).join("")}
       </nav>
       <a href="#order" class="header-cta">اطلب الآن</a>
-      <a href="${esc(SITE_HOME_URL)}" class="header-home" target="_blank" rel="noopener">Studio Store Gen</a>
+      <a href="${esc(SITE_HOME_URL)}" class="header-home" target="_blank" rel="noopener"><span aria-hidden="true">✨</span> Studio Store Gen</a>
     </header>`;
 
   // ---------------------------------------------------------------- Showcase
@@ -1090,13 +1090,16 @@ input, select, textarea { font-family: inherit; }
 }
 .header-cta:hover { background: var(--c-primary); color: var(--c-primary-text); }
 .header-home {
-  display: none;
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  margin-inline-start: 0.5rem;
+  font-size: 0.7rem; font-weight: 700; color: var(--c-muted);
+  border-radius: 9999px; padding: 0.35rem 0.7rem; border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
 @media (min-width: 640px) {
-  .header-home { display: inline-flex; align-items: center; gap: 0.35rem; margin-inline-start: 0.75rem;
-    font-size: 0.75rem; font-weight: 700; color: var(--c-muted);
-    border-radius: 9999px; padding: 0.45rem 0.9rem; border: 1px solid var(--c-border);
-    transition: color 0.2s, border-color 0.2s, background 0.2s; }
+  .header-home { gap: 0.35rem; margin-inline-start: 0.75rem;
+    font-size: 0.75rem; padding: 0.45rem 0.9rem; }
 }
 .header-home:hover { color: var(--c-accent); border-color: var(--c-accent); background: var(--c-surface); }
 .footer-home { margin-top: 0.5rem; text-align: center; }
