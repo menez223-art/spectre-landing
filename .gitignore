@@ -41,3 +41,6 @@ playwright-report/
 # ملفات scratch/notes من الجلسات — لا تذهب للريبو
 *.txt
 !supabase/*.sql
+
+# سكريبتات تشخيص/اختبار محلية — لا تذهب للريبو
+scripts/
