@@ -3,6 +3,7 @@
 // تحذير أمان: البصمة تُحسب في المتصفح ويمكن محاكاتها تقنيًا — طبقة تحكّم لا أمان حقيقي.
 
 let cached: string | null = null;
+let inflight: Promise<string> | null = null;
 
 async function sha256Hex(input: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
@@ -34,8 +35,12 @@ async function canvasFingerprint(): Promise<string> {
 
 export async function computeDeviceFingerprint(): Promise<string> {
   if (cached) return cached;
-  const signals: string[] = [];
-  const add = (v: unknown) => signals.push(typeof v === "string" ? v : String(v ?? ""));
+  // سباق التزامن: استدعاءان متوازيان يحسبان البصمة مرتين (WebGL + canvas بطيئان)
+  // — نضمن حساب واحد ثم نُرجع Promise نفسه للجميع.
+  if (inflight) return inflight;
+  inflight = (async () => {
+    const signals: string[] = [];
+    const add = (v: unknown) => signals.push(typeof v === "string" ? v : String(v ?? ""));
 
   add(navigator.userAgent);
   add(navigator.language);
@@ -71,6 +76,28 @@ export async function computeDeviceFingerprint(): Promise<string> {
   }
 
   add(await canvasFingerprint());
-  cached = await sha256Hex(signals.join("|"));
+
+  const computed = await sha256Hex(signals.join("|"));
+
+  // ثبات البصمة على الهاتف: إشارات الجوال تتغيّر بين الجلسات (أشرطة أدوات،
+  // دوران الشاشة، تحديث المتصفح) فتولّد بصمة جديدة فيُعتبر المستخدم جهازاً
+  // جديداً فيُطلب منه دخولاً من جديد ويضيع ملفه (واتساب/بيكسل/اسم المتجر).
+  // الحل: نثبّت أول بصمة في localStorage ونعيد استخدامها دائماً — طبقة
+  // التحكّم تبقى كما هي (الكود أصلاً يقرّ بسهولة محاكاتها).
+  try {
+    const KEY = "studio-device-fingerprint-v1";
+    const stored = window.localStorage.getItem(KEY);
+    if (stored && /^[a-f0-9]{64}$/.test(stored)) {
+      cached = stored;
+      return cached;
+    }
+    window.localStorage.setItem(KEY, computed);
+  } catch {
+    // وضع خاص/مساحة ممتلئة — نعود للبصمة المحسوبة دون تخزين
+  }
+
+  cached = computed;
   return cached;
+  })();
+  return inflight;
 }

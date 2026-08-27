@@ -1,6 +1,6 @@
 // وظائف التشفير والأمان الموحدة
 
-import { createHash } from "crypto";
+import { createHash, randomInt } from "crypto";
 
 /**
  * حساب SHA-256 لسلسلة نصية
@@ -14,9 +14,10 @@ export async function sha256Hex(input: string): Promise<string> {
 
 /**
  * إنشاء رمز تفعيل عشوائي من 6 أرقام
+ * عشوائية مشفّرة (CSPRNG) عبر randomInt بدل Math.random القابل للتوقع.
  */
 export function generateCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(randomInt(100000, 1000000));
 }
 
 /**

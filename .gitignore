@@ -31,3 +31,13 @@ cookies.txt
 test-results/
 scripts/audit-shots/
 playwright-report/
+
+# دليل البيع/التسليم (خاص بصاحب المشروع — نصه يقول لا يُشمَل في التسليم)
+/vip
+
+# بقايا اختبارات fallback محلية
+/p/test-fallback-*.html
+
+# ملفات scratch/notes من الجلسات — لا تذهب للريبو
+*.txt
+!supabase/*.sql

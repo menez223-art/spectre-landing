@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  MASTER_USERNAME,
   apiCheckDevice,
   apiGetProfile,
   apiClearLink,
@@ -22,6 +21,9 @@ import {
   type LinkEmailResult,
   type WebhookResult,
 } from "@/app/lib/auth";
+
+// Username used as a display label only (matches server MASTER_USERNAME).
+const MASTER_USERNAME = "project";
 import { purgeLegacySamples } from "@/app/lib/storage";
 import { useLocale } from "../LocaleProvider";
 import { SettingsPanel } from "./SettingsPanel";
@@ -68,7 +70,7 @@ export function useAuth(): AuthContextValue {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-sm text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 dark:border-white/15 dark:bg-[#0d1117] dark:text-ivory-50 dark:placeholder:text-ivory-50/40";
+  "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#0d1117] dark:text-ivory-50 dark:placeholder:text-ivory-50/40";
 
 // ── شاشة تسجيل الدخول: خطوة البيانات ثم خطوة رمز الجهاز ──
 function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }) {

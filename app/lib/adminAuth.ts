@@ -95,7 +95,7 @@ export function adminCookieOptions() {
   const isProd = process.env.NODE_ENV === "production";
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
+    sameSite: "strict" as const,
     secure: isProd,
     path: "/",
     maxAge: SESSION_MAX_AGE,

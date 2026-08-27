@@ -1,9 +1,12 @@
 // عميل المصادقة — دخول موحّد + ربط جهاز برمز يرسله المشرف — client only
-// الجلسة في localStorage، وبصمة الجهاز تُرسل للخادم الذي يتحقق من اعتمادها.
+// كلمات الدخول في credentials.ts (server-only) ولا تُصدَّر هنا.
+// اسم المستخدم للعرض فقط ويُرسل مع كل طلب لا أكثر.
+// الأمان الفعلي: الخادم يقارن القيم بـ process.env.MASTER_USERNAME/MASTER_PASSWORD.
 
-import { MASTER_USERNAME, MASTER_PASSWORD } from "./credentials";
-export { MASTER_USERNAME, MASTER_PASSWORD };
 export { computeDeviceFingerprint } from "./device";
+// ثابت عرض للعميل فقط. لا يستعمل لأمان (الفحص في الخادم في /api/auth/login).
+// في حال تغيير اسم المستخدم في الخادم يجب تحديث هذا الثابت.
+const DISPLAY_USERNAME = "project";
 
 const SESSION_KEY = "landing-studio-session";
 // مفتاح قديم لرابط الجدول في localStorage — يُهاجَر مرة واحدة إلى ملف تعريف الجهاز ثم يُحذف
@@ -24,9 +27,9 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 365; // سنة واحدة
 function setSessionCookie(username: string): void {
   if (typeof document === "undefined") return;
   try {
-    document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(
-      username
-    )}; path=/; max-age=${SESSION_MAX_AGE}; samesite=lax`;
+    // تحذير: هذه الكوكي لا تحمي بيانات حساسة، فقط اسم المستخدم للعرض.
+    // غير موقع (httpOnly) عمداً: الخادم هو المصدر الوحيد للحولة بواسطة البصمة.
+    document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(username)}; path=/; max-age=${SESSION_MAX_AGE}; samesite=lax`;
   } catch {
     // تجاهل
   }
@@ -56,6 +59,10 @@ export interface DeviceProfile {
   sheetUrl: string | null;
   sheetId: string | null;
   sheetKey?: string | null; // مفتاح الجدول الثابت — يبقى صالحاً عبر إعادة النشر
+  pixelId?: string | null; // معرّف Meta Pixel — يُحقن في صفحة المتجر المنشورة
+  whatsapp?: string | null; // رقم واتساب استلام الطلبات — يبني زر wa.me بعد الطلب
+  storeName?: string | null;
+  showNamePublicly?: boolean | null;
 }
 
 export interface Session {
@@ -86,12 +93,12 @@ export function getSession(): Session | null {
 export function setSession(): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify({ username: MASTER_USERNAME }));
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify({ username: DISPLAY_USERNAME }));
   } catch {
     // تجاهل — الاحتياطي في ملف تعريف الارتباط سيعوّض
   }
   // احتياطي: نكتب ملف تعريف الارتباط بنفس القيمة كي تنجو الجلسة من مسح localStorage.
-  setSessionCookie(MASTER_USERNAME);
+  setSessionCookie(DISPLAY_USERNAME);
 }
 
 export function clearSession(): void {
@@ -108,11 +115,9 @@ export function clearSession(): void {
 // ── ملف تعريف الجهاز (البريد + رابط Google Sheets) ──────
 // يُخزَّن خادميًا في Blob (profileStore) — ليس في localStorage.
 
-const WEBHOOK_RE = /^https:\/\/script\.google\.com\/macros\/s\/AKfycb[A-Za-z0-9_-]+\/exec$/;
-
-export function isValidWebhook(url: string): boolean {
-  return WEBHOOK_RE.test(url.trim());
-}
+// WEBHOOK_RE centralized in utils/validation.ts as PATTERNS.WEBHOOK.
+import { isValidWebhook as _isValidWebhook } from "./utils/validation";
+export const isValidWebhook = _isValidWebhook;
 
 export async function apiGetProfile(fingerprint: string): Promise<DeviceProfile | null> {
   try {
@@ -228,6 +233,68 @@ export async function apiSetWebhook(
   }
 }
 
+// حفظ الحقول التسويقية (بيكسل حر؛ واتساب يستلزم رمز مشرف عند تغييره على
+// جهاز غير موثَّق — نفس بروتوكول ربط البريد، مرة واحدة لكل بصمة متصفح).
+export async function apiSetMarketing(
+  fingerprint: string,
+  pixelId: string | undefined,
+  whatsapp: string | undefined,
+  adminCode?: string,
+  storeName?: string,
+  showNamePublicly?: boolean
+): Promise<
+  | { status: "ok" }
+  | { status: "pending"; step: "marketing" }
+  | { status: "bad_pixel" }
+  | { status: "bad_whatsapp" }
+  | { status: "email_config" }
+  | { status: "email_failed" }
+  | { status: "no_pending" }
+  | { status: "code_expired" }
+  | { status: "too_many_attempts" }
+  | { status: "wrong_admin_code" }
+  | { status: "unauthorized" }
+  | { status: "storage" }
+  | { status: "error" }
+> {
+  try {
+    const res = await fetch("/api/auth/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ fingerprint, action: "set_marketing", pixelId, whatsapp, adminCode, storeName, showNamePublicly }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      pending?: boolean;
+      step?: "marketing";
+      error?: string;
+    };
+    if (res.ok && data.pending && data.step === "marketing")
+      return { status: "pending", step: "marketing" };
+    if (res.ok) return { status: "ok" };
+    const ERRORS = {
+      bad_pixel: "bad_pixel",
+      bad_whatsapp: "bad_whatsapp",
+      email_config: "email_config",
+      email_failed: "email_failed",
+      no_pending: "no_pending",
+      code_expired: "code_expired",
+      too_many_attempts: "too_many_attempts",
+      wrong_admin_code: "wrong_admin_code",
+      unauthorized: "unauthorized",
+      storage: "storage",
+    } as const;
+    type MarketingErrorStatus = (typeof ERRORS)[keyof typeof ERRORS];
+    const st: MarketingErrorStatus | undefined = data.error
+      ? ERRORS[data.error as keyof typeof ERRORS]
+      : undefined;
+    if (st) return { status: st };
+    return { status: "error" };
+  } catch {
+    return { status: "error" };
+  }
+}
+
 export async function apiClearProfile(fingerprint: string): Promise<boolean> {
   try {
     const res = await fetch("/api/auth/profile", {
@@ -289,12 +356,6 @@ export async function migrateLegacySheetUrl(fingerprint: string): Promise<void> 
   }
 }
 
-// ── التحقق المحلي (احتياطي — المصادقة الحقيقية عبر الخادم) ──
-
-export function verifyMasterLogin(username: string, password: string): boolean {
-  return username.trim().toLowerCase() === MASTER_USERNAME && password === MASTER_PASSWORD;
-}
-
 // ── استدعاءات الخادم ──────────────────────────────────
 
 export type LoginResult =
@@ -337,12 +398,13 @@ export async function apiLogin(
       error?: string;
     };
 
-    // Extract actual data from wrapper { ok, data, error }
-    const data = wrapper.data || wrapper as any;
+    // استخرج البيانات الفعلية من غلاف { ok, data, error }
     const error = wrapper.error;
+    const approved = wrapper.data?.approved;
+    const codeRequestedAt = wrapper.data?.codeRequestedAt;
 
-    if (res.ok && (data as any).approved) return { status: "approved" };
-    if (res.ok && !(data as any).approved) return { status: "needs_code", codeRequestedAt: (data as any).codeRequestedAt ?? "" };
+    if (res.ok && approved) return { status: "approved" };
+    if (res.ok && !approved) return { status: "needs_code", codeRequestedAt: codeRequestedAt ?? "" };
     if (error === "invalid_credentials") return { status: "invalid_credentials" };
     if (error === "banned") return { status: "banned" };
     if (error === "email_config") return { status: "email_config" };
@@ -363,37 +425,27 @@ export async function apiVerify(username: string, code: string, fingerprint: str
       body: JSON.stringify({ username, code, fingerprint }),
     });
 
-    console.log('[apiVerify] Response status:', res.status);
-    console.log('[apiVerify] Response headers:', Object.fromEntries(res.headers.entries()));
-
     const text = await res.text();
-    console.log('[apiVerify] Response body (raw):', text);
-
     let wrapper: { ok?: boolean; data?: { approved?: boolean }; error?: string } = {};
     try {
       wrapper = JSON.parse(text);
-      console.log('[apiVerify] Response body (parsed):', wrapper);
-    } catch (parseError) {
-      console.error('[apiVerify] JSON parse error:', parseError);
-      console.error('[apiVerify] Invalid JSON received:', text.substring(0, 500));
+    } catch {
       return { status: "error" };
     }
 
-    // Extract actual data from wrapper { ok, data, error }
-    const data = wrapper.data || wrapper as any;
+    // استخرج البيانات الفعلية من غلاف { ok, data, error }
+    const data = wrapper.data || wrapper;
     const error = wrapper.error;
 
-    if (res.ok && (data as any).approved) return { status: "approved" };
+    if (res.ok && (data as { approved?: boolean }).approved) return { status: "approved" };
     if (error === "wrong_code") return { status: "wrong_code" };
     if (error === "code_expired") return { status: "code_expired" };
     if (error === "too_many_attempts") return { status: "too_many_attempts" };
     if (error === "no_pending") return { status: "no_pending" };
     if (error === "invalid_code") return { status: "invalid_code" };
 
-    console.warn('[apiVerify] Unhandled response:', { status: res.status, wrapper });
     return { status: "error" };
-  } catch (networkError) {
-    console.error('[apiVerify] Network error:', networkError);
+  } catch {
     return { status: "error" };
   }
 }

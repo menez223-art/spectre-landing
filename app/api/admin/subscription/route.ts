@@ -4,8 +4,10 @@
 // مقابل process.env.ADMIN_EMAIL، وأي طلب خارجي يُرفض (403).
 
 import { NextResponse } from "next/server";
+import { TIME_CONSTANTS } from '@/app/lib/utils/constants';
 import { isDeviceApproved, setDeviceBannedByPepper, removeApprovedDeviceByPepper } from "@/app/lib/authStore";
-import { getProfileEmail, deviceOwnersForEmail, deviceFingerprintsForEmail } from "@/app/lib/profileStore";
+import { getProfileEmail, deviceOwnersForEmail, deviceFingerprintsForEmail, getProfileByEmail } from "@/app/lib/profileStore";
+import { getMarketingForEmailWithMigration } from "@/app/lib/marketingStore";
 import { getAdminSession } from "@/app/lib/adminAuth";
 import {
   deleteSubscription,
@@ -64,13 +66,39 @@ export async function GET(request: Request) {
     const all = await listSubscriptions();
     // عدد الصفحات لكل مشترك (لتتبّع النشاط) + إعادة حساب الصلاحية/التوقيف التلقائي
     // — لا نحسبها للأدمن (بريده كـ userId). لا نثق أبداً بقيم العميل.
+    // نضيف الاسم الودّي ورقم واتساب صاحب المتجر إن وُجدا (للعرض الإداري فقط).
     const subscriptions = await Promise.all(
       all.map(async (s) => {
         const live = await recomputeStatus(s.userId);
+        let storeName: string | null = null;
+        let whatsapp: string | null = null;
+        // الإعدادات التسويقية مصدرها سجل البريد الكنسي (تتبع الحساب لا الجهاز).
+        // هويات device:<hash> القديمة بلا بريد تسقط إلى فحص ملفات التعريف.
+        if (s.userId && !s.userId.startsWith("device:")) {
+          try {
+            const mk = await getMarketingForEmailWithMigration(s.userId);
+            storeName = mk.storeName ?? null;
+            whatsapp = mk.whatsapp ?? null;
+          } catch {
+            // غياب السجل لا يوقف السطر
+          }
+        } else {
+          try {
+            const prof = await getProfileByEmail(s.userId);
+            if (prof) {
+              storeName = typeof prof.storeName === "string" ? prof.storeName : null;
+              whatsapp = typeof prof.whatsapp === "string" ? prof.whatsapp : null;
+            }
+          } catch {
+            // غياب الملف لا يوقف السطر
+          }
+        }
         return {
           ...(live ?? s),
           pages: s.userId.toLowerCase() === ADMIN_EMAIL ? 0 : await countPublishedOwned(s.userId),
           remainingDays: remainingDays(live ?? s),
+          storeName,
+          whatsapp,
         };
       })
     );
@@ -141,6 +169,7 @@ export async function POST(request: Request) {
       // — بغض النظر عن تطابق هوية الجهاز/البريد. هذا هو الحل الجذري لمشكلة
       // «الروابط تستمر بعد الحظر». نرفض الطلب (502) إن فشل الحرق كي لا يُحظر
       // مستخدم وتبقى روابطه تعمل (fail-closed لا fail-open).
+      let burnError: string | null = null;
       try {
         const burned = await burnAllForEmail(userId);
         if (burned === 0) {
@@ -148,10 +177,15 @@ export async function POST(request: Request) {
           // صيغ الهوية، لكن الحظر نفسه يبقى ساريًا بغض النظر عن نتيجة الحرق.
           await burnPublishedOwned(userId);
         }
-      } catch {
-        // الحظر ساري؛ نسجّل فشل الحرق كي يراه الأدمن ويكرّره يدوياً، لكن لا
-        // نعيد المستخدم إلى «نشط» — الصفحات تبقى محجوبة عبر فحص الاشتراك.
-        console.error("[admin/subscription] فشل حرق منشورات:", userId);
+      } catch (err) {
+        burnError = err instanceof Error ? err.message : String(err);
+        console.error("[admin/subscription] فشل حرق منشورات:", userId, burnError);
+      }
+      if (burnError) {
+        return NextResponse.json(
+          { error: "burn_failed", detail: burnError },
+          { status: 502 }
+        );
       }
     }
 
@@ -265,7 +299,7 @@ export async function POST(request: Request) {
     // روابطه تلقائياً عند انتهاء المدة — دون اعتماد على تذكّر الأدمن
     // الضبط اليدوي. هذا يطبّق فقط على الترقية (basic/pro) لا على
     // الحظر/التفعيل اليدوي. لا يمسّ نظام الحظر/السماح إطلاقاً.
-    const isPaidUpgrade = (plan === "basic" || plan === "pro") && status !== "banned";
+    const isPaidUpgrade = (plan === "basic" || plan === "pro" || plan === "gold") && status !== "banned";
     const hasNoValidity =
       sub.validityUnit == null ||
       (sub.validityUnit === "day" && (sub.validityExpiresAt == null || new Date(sub.validityExpiresAt).getTime() < Date.now()));
@@ -274,7 +308,7 @@ export async function POST(request: Request) {
       sub.validityUnit = "day";
       sub.validityDays = autoDays;
       sub.validityStartsAt = new Date().toISOString();
-      sub.validityExpiresAt = new Date(Date.now() + autoDays * 24 * 60 * 60 * 1000).toISOString();
+      sub.validityExpiresAt = new Date(Date.now() + autoDays * TIME_CONSTANTS.DAY_MS).toISOString();
     }
 
     await setSubscription(sub);

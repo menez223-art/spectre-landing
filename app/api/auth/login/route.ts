@@ -1,16 +1,18 @@
-import { MASTER_USERNAME, MASTER_PASSWORD } from "@/app/lib/credentials";
+﻿import { MASTER_USERNAME, MASTER_PASSWORD } from "@/app/lib/credentials";
 import {
   addApprovedDevice,
   createPendingCode,
-  ensureAccount,
   getDeviceOwner,
   getPendingCode,
+  hasAnyApprovedDevice,
   isDeviceApproved,
   isDeviceBanned,
+  pepperFingerprint,
 } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
 import { recomputeStatus } from "@/app/lib/subsStore";
 import { hasEmailConfig, sendVerificationCodeEmail } from "@/app/lib/email";
+import { getKv, setKv } from "@/app/lib/kvStore";
 import {
   errorResponse,
   extractJsonBody,
@@ -25,6 +27,35 @@ import { isExpired, nowISO } from "@/app/lib/utils/date";
 export const dynamic = "force-dynamic";
 
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").toLowerCase();
+
+// ── حدّ إيقاع لكل بصمة (KV — أفضل جهد، لا يحجب الشرعيين عند عطب التخزين) ──
+// غرضه الأساسي: منع قصف بريد المشرف برموز تحقق متكررة باستغلال بيانات
+// الدخول العامة (project/SPECTRE ظاهرة في حزمة العميل بحكم التصميم).
+const RL_FLOOD_PREFIX = "ratelimit/login-flood/"; // طلبات الدخول عموماً
+const RL_SEND_PREFIX = "ratelimit/login-send/"; // إنشاء رموز جديدة وإرسالها
+
+async function hitLimit(
+  prefix: string,
+  rawFp: string,
+  max: number,
+  windowMs: number
+): Promise<boolean> {
+  try {
+    const key = `${prefix}${pepperFingerprint(rawFp)}.json`;
+    const now = Date.now();
+    const cur = await getKv<{ c?: number; t?: number }>(key);
+    if (!cur || typeof cur.t !== "number" || now - cur.t > windowMs) {
+      await setKv(key, { c: 1, t: now });
+      return false;
+    }
+    const next = (typeof cur.c === "number" ? cur.c : 0) + 1;
+    await setKv(key, { c: next, t: cur.t });
+    return next > max;
+  } catch {
+    // فشل العدّاد لا يجب أن يعاقب المستخدم الشرعي
+    return false;
+  }
+}
 
 interface LoginBody {
   username?: unknown;
@@ -53,6 +84,11 @@ export async function POST(request: Request) {
   }
   if (!isNonEmptyString(fingerprint) || fingerprint.length < 8) {
     return errorResponse("missing_fingerprint", HTTP_STATUS.BAD_REQUEST);
+  }
+
+  // حدّ الإيقاع العام: 30 طلب دخول/دقيقة لكل بصمة كحدّ أقصى
+  if (await hitLimit(RL_FLOOD_PREFIX, fingerprint, 30, 60_000)) {
+    return errorResponse("rate_limited", HTTP_STATUS.TOO_MANY_REQUESTS);
   }
 
   // فحص الحظر الشامل (اقتراح 2): إيميل محظور أو صفّ جهاز محظور → يُمنع الدخول.
@@ -84,10 +120,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const account = await ensureAccount();
-
-    // أول جهاز يُعتمد تلقائيًا
-    if (account.devices.length === 0) {
+    // أول جهاز يُعتمد تلقائياً — فقط إذا لم يوجد أي جهاز معتمد في كامل
+    // النظام (الصفوف المستقلة أو المصفوفة القديمة). الفحص المزدوج fail-closed
+    // يغلق ثغرة «فقدان سجل الحساب ⇒ اعتماد تلقائي لأول مَن يعرف الباص».
+    if (!(await hasAnyApprovedDevice())) {
       await addApprovedDevice(fingerprint);
       return successResponse({ approved: true, username: MASTER_USERNAME });
     }
@@ -101,6 +137,11 @@ export async function POST(request: Request) {
     const pending = await getPendingCode(fingerprint);
     if (pending && !isExpired(pending.expiresAt)) {
       return successResponse({ approved: false, codeRequestedAt: pending.createdAt });
+    }
+
+    // حدّ إرسال الرموز: 3 رموز كحدّ أقصى كل 15 دقيقة لكل بصمة
+    if (await hitLimit(RL_SEND_PREFIX, fingerprint, 3, 15 * 60_000)) {
+      return errorResponse("too_many_code_requests", HTTP_STATUS.TOO_MANY_REQUESTS);
     }
 
     // لا رمز أو منتهٍ → ننشئ رمزًا ونرسله لبريد المشرف

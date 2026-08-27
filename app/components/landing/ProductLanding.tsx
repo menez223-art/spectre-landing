@@ -90,7 +90,7 @@ function ProductLandingInner({ product, preview = false }: { product: Product; p
 
   return (
     <main
-      className="min-h-screen overflow-hidden bg-[var(--c-bg)] text-[var(--c-text)]"
+      className={`min-h-screen overflow-hidden bg-[var(--c-bg)] text-[var(--c-text)] ${!preview ? "pb-20 lg:pb-0" : ""}`}
       style={{ colorScheme: product.theme.mode, ...vars }}
       dir={dir}
       lang={lang}

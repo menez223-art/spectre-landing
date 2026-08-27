@@ -169,7 +169,7 @@ export function ProductItemsEditor({
           <label className="grid gap-1.5 text-xs font-semibold text-navy-700">
             <span>{t("productName")}</span>
             <input
-              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-sm text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
               value={items[activeIndex]?.name ?? ""}
               onChange={(e) => update(activeIndex, { name: e.target.value })}
               placeholder={t("productNamePh")}
@@ -179,7 +179,7 @@ export function ProductItemsEditor({
             <span>{t("nameEn")}</span>
             <input
               dir="ltr"
-              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-sm text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
               value={items[activeIndex]?.nameEn ?? ""}
               onChange={(e) => update(activeIndex, { nameEn: e.target.value })}
               placeholder="Pro Wireless Earbuds"
@@ -190,7 +190,7 @@ export function ProductItemsEditor({
           <label className="grid gap-1.5 text-xs font-semibold text-navy-700">
             <span>{t("price")}</span>
             <input
-              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-sm text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
               value={items[activeIndex]?.price ?? ""}
               onChange={(e) => update(activeIndex, { price: e.target.value })}
               placeholder="4500"
@@ -200,7 +200,7 @@ export function ProductItemsEditor({
           <label className="grid gap-1.5 text-xs font-semibold text-navy-700">
             <span>{t("oldPrice")}</span>
             <input
-              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-sm text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
               value={items[activeIndex]?.oldPrice ?? ""}
               onChange={(e) => update(activeIndex, { oldPrice: e.target.value })}
               placeholder="5000"

@@ -139,11 +139,10 @@ async function runHealthCheck(origin: string): Promise<LinkHealthReport> {
 async function redeployFallback(slug: string) {
   try {
     const product = await getPublishedProduct(slug);
-    if (!product) return { ok: false, reason: "no_product" };
-    const p = product as unknown as Record<string, unknown>;
+    if (!product) return { ok: false, served: false, reason: "no_product" };
     const webhook = await buildWebhook({
-      sheetKey: (p.sheetKey as string | null) ?? null,
-      sheetEmail: (p.sheetEmail as string | null) ?? null,
+      sheetKey: product.sheetKey ?? null,
+      sheetEmail: product.sheetEmail ?? null,
     });
     const html = await generateLandingHtml(
       product,
@@ -152,7 +151,7 @@ async function redeployFallback(slug: string) {
     );
     return await deployHtmlToGithubPages(slug, html);
   } catch (err) {
-    return { ok: false, reason: String(err) };
+    return { ok: false, served: false, reason: String(err) };
   }
 }
 
@@ -178,6 +177,11 @@ async function runAutoAction(request: Request): Promise<NextResponse> {
 
   const githubAvailable = hasGithubPages();
   const recovered: string[] = [];
+  // سقف محاولات التعافي لكل تشغيلة: استقصاء Pages حتى ~40ث للرابط الواحد،
+  // وروابط خطأ متعددة بتشغيلة cron واحدة كانت تتجاوز maxDuration=60 ثانية
+  // فتُقص في منتصف الفحص. ما تجاوز السقف يتأجل للتشغيلة التالية (بعد يوم).
+  const MAX_RECOVERY_PER_RUN = 2;
+  let recoveries = 0;
 
   for (const entry of report.entries) {
     if (entry.status !== "error") continue;
@@ -188,23 +192,41 @@ async function runAutoAction(request: Request): Promise<NextResponse> {
       const sub = await getSubscription(email);
       if (!sub) continue;
 
-      // النقطة 2 — إشعار داخلي فقط (لا إيميل): نطلب من المالك تحديث رابطه.
-      const notice =
-        "⚠️ رابط صفحتك لم يستجب أثناء الفحص الأخير. يرجى تحديث رابطك من الاستوديو (زر «رابط جديد»).";
-      await setSubscription({ ...sub, notice, updatedAt: new Date().toISOString() });
-
-      // النقطة 3 — تعافٍ أوتوماتيكي: إن توفّر احتياط GitHub نعيد النشر هناك
-      // ونحوّل الرابط إليه كي يبقى زوار المستخدم يصلون إلى صفحته.
-      if (githubAvailable) {
+      // النقطة 3 أولاً — إن نجح التعافي الآن فهو أفضل من الإشعار، ولا داعي
+      // لإزعاج المالك برسالة «رابطك معطّل» بينما صار يعمل فعلاً.
+      let recoveredThisRun = false;
+      if (githubAvailable && recoveries < MAX_RECOVERY_PER_RUN) {
         const dep = await redeployFallback(entry.slug);
-        if (dep.ok) {
+        // لا نحوّل الرابط إلى host="github" إلا بعد تأكيد أن Pages يخدمه فعلاً
+        // (served=true)، وإلا وقع الزائر على 404 أثناء تأخّر بناء Pages؛ يبقى
+        // على Vercel ويُعاد المحاولة في تشغيلة الفحص التالية بعد اكتمال البناء.
+        if (dep.ok && dep.served) {
           const existingMeta = (await getPublishedMeta(entry.slug)) ?? {
             owner,
             createdAt: entry.checkedAt,
           };
           await setPublishedMeta(entry.slug, { ...existingMeta, host: "github" });
           recovered.push(entry.slug);
+          recoveries++;
+          recoveredThisRun = true;
+          // مسح أي إشعار قديم مضلل بقي من تشغيلات سابقة
+          try {
+            await setSubscription({
+              ...sub,
+              notice: null,
+              updatedAt: new Date().toISOString(),
+            });
+          } catch {
+            // فشل المسح لا يعكس نجاح التعافي نفسه
+          }
         }
+      }
+
+      // النقطة 2 — إشعار داخلي فقط (لا إيميل) حين لم يتعافَ الرابط فعلاً
+      if (!recoveredThisRun) {
+        const notice =
+          "⚠️ رابط صفحتك لم يستجب أثناء الفحص الأخير. يرجى تحديث رابطك من الاستوديو (زر «رابط جديد»).";
+        await setSubscription({ ...sub, notice, updatedAt: new Date().toISOString() });
       }
     } catch {
       // نتجاهل خطأ رابط واحد ونكمل البقية

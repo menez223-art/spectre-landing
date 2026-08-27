@@ -3,7 +3,13 @@
 // أخرى أبداً. لا يُعاد الرمز للعميل الطالب.
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "menez223@gmail.com").toLowerCase();
+// ADMIN_EMAIL is required in production. Defaulting to a personal address in source
+// would be a privacy footgun. In dev we still allow a placeholder so local setup works.
+const _rawAdminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase();
+if (!_rawAdminEmail && process.env.NODE_ENV === "production") {
+  throw new Error("ADMIN_EMAIL is required in production");
+}
+const ADMIN_EMAIL = _rawAdminEmail;
 const FROM = "Studio <onboarding@resend.dev>";
 
 if (typeof window !== "undefined") {
@@ -20,7 +26,7 @@ export function hasEmailConfig(): boolean {
 // وهو من يمنحه للمستخدم لإتمام عملية الربط/التأكيد في المرة الأولى.
 export async function sendVerificationCodeEmail(
   code: string,
-  mode: "admin_login" | "link_email" = "admin_login"
+  mode: "admin_login" | "link_email" | "set_whatsapp" = "admin_login"
 ): Promise<{ ok: boolean; error?: string; deliveredTo?: string }> {
   if (!RESEND_API_KEY) return { ok: false, error: "no_key" };
 
@@ -36,6 +42,20 @@ export async function sendVerificationCodeEmail(
           "",
           "الرمز صالح لمدة 15 دقيقة. شاركه مع المستخدم ليُدخله في خطوة ربط بريده",
           "وتتم العملية بنجاح. إذا لم تكن أنت من أذن بالربط، تجاهل هذه الرسالة.",
+        ].join("\n"),
+      };
+    }
+    if (mode === "set_whatsapp") {
+      return {
+        subject: "استوديو — رمز الموافقة على رقم واتساب لاستلام الطلبات",
+        text: [
+          "وصل طلب ربط رقم واتساب لاستلام طلبات متجر على أحد الأجهزة.",
+          "بصفة مشرف (أونر)، أعطِ الرمز للمستخدم لإقرار رقمه — كل الطلبات ستصل إليه.",
+          "",
+          `رمز الموافقة: ${code}`,
+          "",
+          "الرمز صالح لمدة 15 دقيقة ويُطلب مرة واحدة فقط على الجهاز.",
+          "إذا لم تكن أنت من أذن به، تجاهل هذه الرسالة فلن يُحفظ أي رقم.",
         ].join("\n"),
       };
     }

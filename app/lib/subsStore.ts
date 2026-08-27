@@ -12,7 +12,7 @@ if (typeof window !== "undefined") {
 
 const SUB_PREFIX = KV_PREFIXES.SUBSCRIPTIONS;
 
-export type Plan = "basic" | "pro";
+export type Plan = "basic" | "pro" | "gold";
 export type SubStatus = "active" | "suspended" | "banned" | "expired";
 export type ValidityUnit = "day" | "always" | null;
 
@@ -20,6 +20,7 @@ export type ValidityUnit = "day" | "always" | null;
 export const PLAN_QUOTAS: Record<Plan, { maxProducts: number; maxImages: number }> = {
   basic: { maxProducts: 1, maxImages: 2 },          // 2000 د.ج — منتج واحد، صورتان
   pro: { maxProducts: 5, maxImages: 5 },            // 4000 د.ج — 5 منتجات، 5 صور إجمالاً
+  gold: { maxProducts: 10, maxImages: 10 },         // 6000 د.ج — 10 منتجات، 10 صور إجمالاً
 };
 
 export interface Subscription {

@@ -91,15 +91,40 @@ async function readAllDevices(): Promise<string[]> {
   return out;
 }
 
+// هل يوجد أي جهاز معتمد في النظام؟ (مصدران: الصفوف المستقلة + المصفوفة القديمة)
+// fail-closed: أي فشل في القراءة يعني «ربما توجد أجهزة» — كي لا يُعتمد أول
+// جهاز تلقائياً بسبب فقدان/عطب سجل الحساب (ثغرة bootstrap السابقة).
+export async function hasAnyApprovedDevice(): Promise<boolean> {
+  try {
+    const rows = await listKv(DEVICE_PREFIX);
+    if (rows.length > 0) return true;
+  } catch {
+    // تعذّر قراءة صفوف الأجهزة — نفترض وجود أجهزة (لا اعتماد تلقائي)
+    return true;
+  }
+  try {
+    const acc = await getAccount();
+    if ((acc?.devices?.length ?? 0) > 0) return true;
+  } catch {
+    // تعذّر قراءة الحساب — نفس المنطق fail-closed
+    return true;
+  }
+  return false;
+}
+
 // ── الأجهزة المعتمدة ──
+// فحص الاعتماد مع احترام علم الحظر حتى في مسار الاحتياط (المصفوفة القديمة).
+// عند فشل قراءة صفّ الجهاز المستقل لا نُسلّم الجهاز معتمداً تلقائياً؛ نتحقق
+// من الحظر أولاً ثم من المصفوفة. هذا يغلق حافة «KV blip ⇒ جهاز محظور يمرّ».
 export async function isDeviceApproved(rawFp: string): Promise<boolean> {
   const fp = pepperFingerprint(rawFp);
   try {
     const row = await getKv<{ fingerprint?: string; banned?: boolean }>(deviceKey(fp));
-    if (row?.fingerprint === fp) return !row.banned; // البصمة المحظورة = غير معتمد
+    if (row?.fingerprint === fp) return !row.banned;
   } catch {
-    // احتياط: رجوع للمصفوفة القديمة
+    // احتياط: رجوع للمصفوفة القديمة — لكن بعد فحص الحظر
   }
+  if (await isDeviceBanned(rawFp)) return false;
   const acc = await getAccount();
   return acc?.devices.includes(fp) ?? false;
 }
@@ -270,96 +295,6 @@ export async function listPendingCodes(): Promise<PendingCode[]> {
       .filter((p): p is PendingCode => Boolean(p) && typeof p?.code === "string");
   } catch {
     return [];
-  }
-}
-
-// ── رموز ربط البريد (المصادقة المزدوجة) ──
-// مفتاح ببريد المستخدم (غير مُعدَّل بـ pepper) كي نعثر عليه مباشرةً عند التأكيد.
-const LINK_PENDING_PREFIX = KV_PREFIXES.LINK_PENDING;
-
-export interface LinkPendingCode {
-  email: string; // البريد المطلوب ربطه
-  fingerprint: string; // بصمة الجهاز الطالب (عذرية — للمطابقة عند التأكيد)
-  adminCode: string; // كود المشرف — يُرسل لبريد المشرف (الخطوة 1)
-  emailCode: string; // كود البريد — يُرسل للبريد المطلوب (الخطوة 2)
-  adminVerified: boolean; // هل صادق المشرف بالكود الأول؟
-  adminTries: number;
-  emailTries: number;
-  createdAt: string;
-  expiresAt: string;
-}
-
-function linkPendingKey(email: string): string {
-  return `${LINK_PENDING_PREFIX}${email.toLowerCase()}.json`;
-}
-
-export async function createLinkPendingCode(email: string, fingerprint: string): Promise<string | null> {
-  const pending: LinkPendingCode = {
-    email: email.toLowerCase(),
-    fingerprint,
-    adminCode: generateCode(),
-    emailCode: generateCode(),
-    adminVerified: false,
-    adminTries: 0,
-    emailTries: 0,
-    createdAt: nowISO(),
-    expiresAt: createExpiryDate(CODE_TTL_MS),
-  };
-  try {
-    await setKv(linkPendingKey(email), pending);
-    return pending.adminCode;
-  } catch {
-    return null;
-  }
-}
-
-export async function getLinkPendingCode(email: string): Promise<LinkPendingCode | null> {
-  try {
-    return await getKv<LinkPendingCode>(linkPendingKey(email));
-  } catch {
-    return null;
-  }
-}
-
-export async function incrementLinkAdminTries(email: string): Promise<void> {
-  const pending = await getLinkPendingCode(email);
-  if (!pending) return;
-  pending.adminTries += 1;
-  try {
-    await setKv(linkPendingKey(email), pending);
-  } catch {
-    // تجاهل فشل الكتابة
-  }
-}
-
-export async function incrementLinkEmailTries(email: string): Promise<void> {
-  const pending = await getLinkPendingCode(email);
-  if (!pending) return;
-  pending.emailTries += 1;
-  try {
-    await setKv(linkPendingKey(email), pending);
-  } catch {
-    // تجاهل فشل الكتابة
-  }
-}
-
-// يثبّت أن المشرف صادق الكود الأول (لا يغيّر بقية الحقول).
-export async function setLinkPendingVerified(email: string): Promise<void> {
-  const pending = await getLinkPendingCode(email);
-  if (!pending) return;
-  pending.adminVerified = true;
-  try {
-    await setKv(linkPendingKey(email), pending);
-  } catch {
-    // تجاهل فشل الكتابة
-  }
-}
-
-export async function deleteLinkPendingCode(email: string): Promise<void> {
-  try {
-    await deleteKv(linkPendingKey(email));
-  } catch {
-    // تجاهل فشل الحذف
   }
 }
 

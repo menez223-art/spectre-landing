@@ -3,11 +3,13 @@ import type { Product } from "@/app/lib/types";
 import {
   deletePublishedProduct,
   getPublishedProduct,
+  getPublishedMeta,
   hasPublishStore,
   listPublishedOwned,
   setPublishedMeta,
   setPublishedProduct,
   getPublishedOwner,
+  type PublishMeta,
 } from "@/app/lib/publishStore";
 import { getDeviceOwner, isDeviceApprovedOnly, isDeviceBanned } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
@@ -25,7 +27,7 @@ import {
 export const dynamic = "force-dynamic";
 
 // حد أقصى لحجم جسم الطلب — صور data:URL قد تجعل الصفحة كبيرة جدًا
-const MAX_BODY_BYTES = 1_200_000; // ≈ 1.2 ميغابايت
+const MAX_BODY_BYTES = 3_800_000; // ≈ 3.8 ميغابايت — يتّسع لصفحة Gold بـ 10 صور مضغوطة دون سقف Vercel (~4.5MB)
 
 // مفتاح KV يربط كل مالك بسلاغه الثابت (رابط واحد لكل حساب).
 const ownerSlugKey = (owner: string) => `owner-slug/${owner}`;
@@ -149,6 +151,10 @@ export async function POST(request: Request) {
     );
   }
 
+  // اختيار العميل لإدراج صفحته في المتجر العام (Pro/Gold فقط — يُفرض خادمياً أدناه).
+  const wantListPublic = (searchParams.get("listPublic") ?? "") === "1";
+  let listed = false;
+
   const owner = await resolveOwner(fingerprint);
 
   // الحماية: لا يمكن نشر/إنتاج رابط جديد لمن لم يربط بريده بعد (حساب غير مكتمل).
@@ -180,6 +186,9 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
+
+    // إدراج المتجر العام حصري لـ Pro/Gold — basic يُجبَر على «خاص» مهما طلب.
+    listed = (sub.plan === "pro" || sub.plan === "gold") && wantListPublic;
 
     // كل مالك له *صفحة واحدة* (سلاگ ثابت يُعاد استخدامه عند التحديث، وطلب
     // «رابط جديد» يحرق القديم قبل إنشاء غيره)، فالنشر يستبدل الصفحة في مكانها.
@@ -222,6 +231,24 @@ export async function POST(request: Request) {
   // نثبّت السلاغ الخادمي على المنتج (نيتجهّل أي id أرسله العميل).
   (product as Product).id = slug;
 
+  // ── دمج الميتا القائمة قبل الكتابة (حماية إشرافية) ──
+  // إعادة النشر كانت تمسح الميتا من الصفر فتُسقط علمَي hidden (الإخفاء
+  // الإشرافي للمتجر) وbanned (الحرق المباشر) — فيعود المخفي ظاهراً
+  // بمجرد ضغطة «تحديث الرابط». الدمج يحفظ الحقلين، مع فرض الحقول
+  // المشروعة للمالك (owner/createdAt/listed/host) فوقها.
+  let prevMeta: Awaited<ReturnType<typeof getPublishedMeta>> = null;
+  try {
+    prevMeta = await getPublishedMeta(slug);
+  } catch {
+    prevMeta = null;
+  }
+  const mergedBase: PublishMeta = {
+    ...(prevMeta ?? {}),
+    owner,
+    createdAt: new Date().toISOString(),
+    listed,
+  };
+
   // توجيه الاحتياط: إن كان وضع الاحتياط مفعّلاً (اقتربنا من حد السعة) ننتج
   // صفحة HTML مستقلة ونرفعها على GitHub Pages بدل التخزين على Vercel — كي لا
   // نستهلك سعة/استدعاءات إضافية. الطلبات تشتغل لأننا نحقن webhook مباشراً.
@@ -237,8 +264,8 @@ export async function POST(request: Request) {
       const createdAt = new Date().toISOString();
       // حقن webhook مباشر نحو Apps Script كي تشتغل الطلبات على GitHub Pages.
       const webhook = await buildWebhook({
-        sheetKey: (product as unknown as Record<string, unknown>).sheetKey as string | null,
-        sheetEmail: (product as unknown as Record<string, unknown>).sheetEmail as string | null,
+        sheetKey: product.sheetKey ?? null,
+        sheetEmail: product.sheetEmail ?? null,
       });
       const html = await generateLandingHtml(
         product as Product,
@@ -246,16 +273,18 @@ export async function POST(request: Request) {
         createdAt
       );
       const dep = await deployHtmlToGithubPages(slug, html);
-      if (dep.ok && dep.url) {
+      if (dep.ok && dep.url && dep.served) {
         await setPublishedMeta(slug, {
-          owner,
-          createdAt,
+          ...mergedBase,
           host: "github",
         });
         return NextResponse.json({ url: dep.url, slug, host: "github" });
       }
-      // فشل الرفع على GitHub Pages → نسقط هادئاً إلى المسار العادي (Vercel/Supabase)
-      console.error("[publish] فشل الرفع على GitHub Pages، السقوط لـ Vercel:", dep.error);
+      // فشل الرفع، أو رُفع الملف لكن Pages لم يجهز بعد (served=false) → لا نحوّل
+      // الزائر إلى صفحة قد تردّ 404 أثناء بناء Pages؛ نسقط هادئاً إلى المسار
+      // العادي (Vercel/Supabase) فتعمل الصفحة فوراً، وتُلتقط لاحقاً عند تشغيلة
+      // جاهزة (نشر لاحق أو فحص المراقبة) بعد اكتمال البناء.
+      console.error("[publish] لم يُؤكَّد نشر GitHub Pages (ok=%s served=%s)، السقوط لـ Vercel:", dep.ok, dep.served, dep.error ?? "");
     } catch (err) {
       console.error("[publish] خطأ في مسار الاحتياط:", err);
     }
@@ -264,8 +293,8 @@ export async function POST(request: Request) {
   try {
     await setPublishedProduct(product as Product);
     await setPublishedMeta(slug, {
-      owner,
-      createdAt: new Date().toISOString(),
+      ...mergedBase,
+      host: "vercel",
     });
   } catch (err) {
     console.error("[publish] فشل الحفظ في Blob:", err);
@@ -289,6 +318,19 @@ export async function GET(request: Request) {
     if (slug) {
       const product = await getPublishedProduct(slug);
       if (!product) return NextResponse.json({ error: "not_found" }, { status: 404 });
+      // المنشور المحروق (banned) لا يُخدَم عبر الـAPI — الصفحة تحجبه للزوار
+      // والباب الخام هنا كان يكشف محتواه كاملاً. رفض 404 نفسه كي لا يؤكد
+      // وجوده أصلاً.
+      try {
+        const meta = await getPublishedMeta(slug);
+        if (meta?.banned) return NextResponse.json({ error: "not_found" }, { status: 404 });
+        // تجربة Agent منتهية وغير محوَّلة → الرابط ميت هنا أيضاً (404)
+        if (meta?.trialUntil && Date.now() > new Date(meta.trialUntil).getTime()) {
+          return NextResponse.json({ error: "not_found" }, { status: 404 });
+        }
+      } catch {
+        // فشل قراءة الميتا لا يجب أن يحجب مالكاً شرعياً عن محرّره
+      }
       return NextResponse.json({ product });
     }
 

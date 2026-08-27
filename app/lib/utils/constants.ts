@@ -89,3 +89,15 @@ export const HTTP_STATUS = {
   TOO_MANY_REQUESTS: 429,
   SERVER_ERROR: 500,
 } as const;
+
+
+// حدود النشر والاشتراك (منع التشتت)
+export const RESOURCE_LIMITS_ADDITIONAL = {
+  MAX_PUBLISH_BODY_BYTES: 3_800_000, // حد جسم النشر (Vercel 4.5MB)
+  MAX_QUANTITY_PER_ORDER: 10, // حد الكمية الواحدة في الطلب
+  SUBSCRIPTION_POLL_INTERVAL_MS: 15_000, // استطلاع حالة الاشتراك (15 ثانية)
+  GH_PAGES_POLL_MAX: 20, // محاولات استطلاع GitHub Pages
+  GH_PAGES_POLL_INTERVAL_MS: 2_000, // فترة الاستطلاع (2 ثانية)
+  DEFAULT_VALIDITY_DAYS: 30, // صلاحية افتراضية للاشتراك
+  DEVICE_HASH_PREFIX_LENGTH: 24, // طول الجزء المستخدم لتعريف الجهاز
+};

@@ -7,7 +7,7 @@ import { getPublishedProduct, getPublishedOwner, getPublishedMeta } from "@/app/
 import { recomputeStatus } from "@/app/lib/subsStore";
 import { resolveOwnerEmail } from "@/app/lib/profileStore";
 import { withResolvedWebhook } from "@/app/lib/sheetResolver";
-import { bumpBandwidth } from "@/app/lib/statsStore";
+import { bumpBandwidth, bumpPageVisit } from "@/app/lib/statsStore";
 import { githubPagesUrl } from "@/app/lib/githubPages";
 import { ProductPage } from "@/app/components/landing/ProductPage";
 
@@ -85,6 +85,31 @@ function renderBlocked(slug: string, status: "banned" | "suspended") {
   );
 }
 
+// صفحة انتهاء تجربة Agent — الرابط «محترق» للزائر: بلا محتوى ولا تفاصيل دفع.
+function renderExpiredTrial() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-slate-950 px-6 text-center text-white">
+      <div>
+        <p className="font-display text-6xl font-extrabold text-white/15">24:00</p>
+        <h1 className="mt-4 font-display text-3xl font-extrabold">
+          انتهت صلاحية هذا الرابط
+        </h1>
+        <p className="mt-3 text-sm text-white/50">
+          كانت هذه معاينة مؤقتة. للاستفسار تواصل مع من أرسلها إليك.
+        </p>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <a
+            href="/"
+            className="rounded-full bg-white px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-white/80"
+          >
+            العودة إلى الفهرس
+          </a>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 export default async function ProductSlugPage({ params }: { params: { slug: string } }) {
   const staticProduct = PRODUCTS.find((p) => p.id === params.slug) ?? null;
   // فرع مبكر للمنتجات الثابتة — لا اتصال بالتخزين أثناء بنائها (تبقى SSG)
@@ -101,6 +126,18 @@ export default async function ProductSlugPage({ params }: { params: { slug: stri
   }
   if (meta?.banned) {
     return renderBlocked(params.slug, "banned");
+  }
+
+  // تجربة Agent منتهية ولم تُحوَّل إلى دائمة (تأكيد الدفع يمسح trialUntil)
+  // → الرابط ميت: صفحة حجب محايدة بلا أي تفاصيل دفع.
+  if (meta?.trialUntil) {
+    let expiredTrial = true;
+    try {
+      expiredTrial = Date.now() > new Date(meta.trialUntil).getTime();
+    } catch {
+      expiredTrial = true;
+    }
+    if (expiredTrial) return renderExpiredTrial();
   }
 
   // توجيه الاحتياط: إن كان المنشور مُستضافاً على GitHub Pages (وضع الاحتياط
@@ -161,7 +198,23 @@ export default async function ProductSlugPage({ params }: { params: { slug: stri
   if (published) {
     const bytes = Buffer.byteLength(JSON.stringify(published), "utf-8");
     void bumpBandwidth(bytes);
+    void bumpPageVisit(params.slug);
   }
 
-  return <ProductPage slug={params.slug} staticProduct={resolved} />;
+  // حقن Meta Pixel لصاحب المتجر إن ضبطه في الإعدادات — يقيس إعلانات فيسبوك
+  // لهذه الصفحة تحديداً (PageView هنا؛ أحداث الشرط تُبنى لاحقاً عند الحاجة).
+  const pixelId = resolved?.pixelId && /^\d{5,30}$/.test(resolved.pixelId) ? resolved.pixelId : null;
+
+  return (
+    <>
+      {pixelId ? (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');fbq('track','PageView');`,
+          }}
+        />
+      ) : null}
+      <ProductPage slug={params.slug} staticProduct={resolved} />
+    </>
+  );
 }
