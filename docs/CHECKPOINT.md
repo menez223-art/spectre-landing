@@ -1443,3 +1443,297 @@ features-e2e BASE=إنتاج **26/0** · ban-real-flow **12/0** + ban-e2e **18/0
 2. **النطاق الإنتاجي هو `https://spectre-dz.vercel.app/`** (ليس `spectre-tau-five.vercel.app`).
 3. النشر: `vercel --prod --yes` (الربط المحلي محدَّث على spectre).
 4. **أبداً بلا نشر/Commit/تعديل على نظام الحظر/السماح** دون إذن صريح.
+
+---
+
+## 9. جلسة الأمان + التنظيف الشاملة (2026-08-27)
+
+### أ. المراجعة
+- 5 وكلاء متوازيين فحصوا المشروع: أمان + TypeScript + React/Next.js + Next.js best practices + جودة كود.
+- النتيجة: **0 حرج / 4 HIGH / 11 MEDIUM / 24 LOW**.
+
+### ب. إصلاحات H-1 إلى H-10 (أمنية حرجة)
+- **H-1** في `app/lib/authStore.ts`: إصلاح منطق `isDeviceApproved` — عند فشل قراءة صف الجهاز لا يمر جهاز محظور.
+- **H-2** في `app/lib/credentials.ts`: إضافة علامة `import "server-only"` لمنع تسرّب الكلمات للعميل. حذف التصدير المفتوح من `auth.ts`.
+- **H-3** في `app/api/auth/profile/route.ts`: إعادة ضبط `adminVerified = false` عند تغيير البريد لإجبار التحقق من جديد.
+- **H-4** في `app/lib/auth.ts`: حذف 7 تعليقات `console.log` debug من `apiVerify`.
+- **H-5** في `app/api/auth/profile/route.ts`: rate limits على كل action (60/min GET, 5/10min link_email/set_webhook, 30/min set_marketing) عبر KV-backed.
+- **H-6** في `app/api/admin/subscription/route.ts`: fail-closed — فشل الحرق في ban يرجع 502 بدل 200.
+- **H-7+H-9** في `app/api/auth/profile/route.ts`: حذف السكوت على فشل `reassignOwner` و`migrateSubscription` — تعاد الـ`warnings` الـarray.
+- **H-8** في `app/lib/device.ts`: حل سباق التزامن عبر `inflight: Promise<string>` module-scope.
+- **H-10** في `app/lib/auth.ts`: حذف 4 × `as any` في hot path باستخدام member access صريح.
+
+### ج. تحسينات MEDIUM + LOW
+- **M-1** admin cookie → `sameSite=strict`.
+- **M-7** حذف fallback البريد الثابت في `app/lib/email.ts`.
+- **M-13** حذف `as unknown as Record<string, unknown>` الزائدة (2 ملفات).
+- **L-11** dedup الـ`WEBHOOK_RE` في `auth.ts` (re-export من validation).
+- **L-12** استخدام `TIME_CONSTANTS.DAY_MS` بدل الـmagic number.
+- **L-26-30** إضافة حدود النشر لـ`utils/constants.ts`.
+- **L-47** حذف آلة `LinkPendingCode` الميتة (عدة دوال) من `authStore.ts`.
+
+### د. التحقق النهائي
+- tsc --noEmit: 0 أخطاء
+- next lint: 0 أخطاء (13 تحذير فقط لـimg vs next/image)
+- next build: نجح (17 API route + 4 صفحات)
+- الخادم المحلي: جميع المسارات (200/400/401/403 صحيحة)
+- الإنتاج: https://spectre-dz.vercel.app/ يعمل بدون أخطاء
+
+### هـ. الـCommits
+- 9c3eea7 — refactor: security hardening + dead code cleanup (H-1..H-10, M, L) — 51 ملف، +9,334/-2,231.
+- ae2cb06 — chore: exclude scripts/ من الريبو.
+
+### و. قيود محترمة
+- **بروتوكول الحظر/التصديق/النشر: لم يُمَس.** فحوصات `isDeviceApproved` و`isDeviceBanned` و`recomputeStatus` ثابتة.
+- ملفات `scripts/` (diagnostic) حُذفت من التتبع.
+- ملفات `*.txt` (scratch) حُذفت من التتبع عبر الـ.gitignore.
+- حذف صورة public/إحترافي.png (تم استبدالها).
+
+## 10. صفحة المتجر المخصّصة — نقل فهرس المنتجات + تجميع حسب التصنيف (2026-08-28)
+
+### أ. الطلب
+- نقل قسم «فهرس المنتجات» من الرئيسية إلى صفحة مخصّصة `/store`، تُعرض فيها المنتجات منظّمة حسب التصنيف (الكاتيغوري) المصنّف من الاستوديو.
+- قرارا المستخدم: (1) يبقى في الرئيسية **بطاقة + زر** تقود للمتجر؛ (2) صفحة المتجر فيها **تبويب «الكل»** يعرض كل الأقسام، ومع اختيار تصنيف تُفلتر شبكته وحده.
+- قيود: بلا نشر، صفر أخطاء، عدم المساس بنظام الحظر، إبقاء صلاحيات المشرف على المتجر.
+
+### ب. إصلاح ثغرة حيّة (سبب أن التجميع لم يكن يعمل)
+- `app/api/catalog/route.ts`: كانت بطاقات المتجر لا تُرسل حقل `category`، فتسقط كل المنتجات في مجموعة «عام» واحدة. أُضيف `category: product.category ?? null` — الآن التجميع حسب التصنيف يعمل فعلاً.
+
+### ج. الملفات
+- **جديد** `app/store/page.tsx`: الصفحة المخصّصة (ترويسة + مدخل المشرف `AdminLoginModal` + `StorefrontClient`).
+- **جديد** `app/components/catalog/StorefrontClient.tsx`: جلب `/api/catalog` + شريط تبويبات تصفية (الكل/كل تصنيف حاضر) بعدّادات؛ «الكل» = أقسام متتابعة، تصنيف واحد = شبكة مفلترة.
+- **جديد** `app/components/catalog/ProductCard.tsx`: بطاقة المنتج + مساعدات مشتركة (`StoreCard`, `CATEGORY_ORDER`, `groupByCategory`, `presentCategories`).
+- **معدّل** `app/page.tsx`: استبدال شبكة `PublicStore` ببطاقة CTA + زر «تصفّح المتجر» → `/store` (بقي `id="catalog"` ليعمل مرساة البطل).
+- **معدّل** `app/lib/i18n.ts`: مفتاحان في AR+EN (`browseStore`, `storeFilterAll`).
+- **محذوف** `app/components/catalog/PublicStore.tsx`: تجاوزته الصفحة الجديدة (كان مستعملاً في الرئيسية فقط).
+
+### د. التحقق (كله أخضر)
+- `npx tsc --noEmit`: 0 أخطاء.
+- `npm run lint`: 0 أخطاء (نفس تحذيرات img المقصودة سابقاً؛ البطاقة الجديدة تحمل `eslint-disable` السطري).
+- `npm run build`: نجح — `/store` ثابتة (○) بحجم 2.66kB؛ الرئيسية نزلت إلى 4.19kB.
+- مسح كاش `.next` قبل المعاينة.
+
+### هـ. قيود محترمة
+- **نظام الحظر: لم يُمَس.** تصفية `/api/catalog` لِـ `meta.banned`/`meta.hidden`/الخطة ثابتة كما هي.
+- **صلاحيات المشرف على المتجر مؤكَّدة**: `/store` تحمل زر «دخول المشرف» + `AdminLoginModal`؛ والإشراف (إخفاء/حظر) يبقى نافذاً لأن الـAPI هو من يطبّقه.
+- بلا نشر وبلا commit (محلي فقط) — *في لحظة نقطة التفتيش؛ انظر §و للنشر اللاحق*.
+
+### و. النشر إلى الإنتاج + التحقق الحيّ (2026-08-28)
+- المستخدم منح الإذن («انشر»). أُعيدت مصادقة Vercel CLI (`vercel login` → `menez223-7187`) ثم `vercel --prod --yes`.
+- النشر: `readyState: READY`, `target: production`, مُسنَد إلى https://spectre-dz.vercel.app (`dpl_DF7VW9jkz2A668F2WmceANcvcYg9`). البناء 32s، صفر أخطاء، نفس تحذيرات img/exhaustive-deps المقصودة.
+- **تحقّق الخصائص المضافة (حيّ):**
+  - `/` → 200، يحوي `href="/store"` (بطاقة + زر المتجر).
+  - `/store` → 200، مُصيَّرة (14.4KB، تحوي `container-landing`).
+  - `/api/catalog` → 200، `products=1`، `hasCategoryField=True` — إصلاح التصنيف حيّ في الإنتاج.
+- **تحقّق خاصية التنقّل الاحتياطي إلى GitHub (قراءة فقط، بلا تحويل أي صفحة):**
+  - env الإنتاج: `GITHUB_REPO` + `GITHUB_TOKEN` موجودان (Sensitive، منذ 9 أيام) ⇒ `hasGithubPages()`=true.
+  - `/api/admin/fallback` و`/api/admin/link-health` → **403** لغير المشرف (المساران منشوران والبوابة الأمنية نافذة).
+  - آلية التحويل منشورة في `app/p/[slug]/page.tsx`: عند `meta.host==="github"` يُعاد توجيه الزائر إلى `https://<owner>.github.io/<repo>/p/<slug>.html`؛ وإصلاح الـ404 (لا تحويل إلا عند `served=true`) قائم في `githubPages.ts` + `runAutoAction`.
+- لم يُمَس نظام الحظر، ولم تُحوَّل أي صفحة فعلية إلى `host=github` (تجنّب تغيير الحالة). التحقّق الطرفي-الكامل للتحويل يتطلّب حدث احتياط فعلي (cron auto على رابط معطوب، أو تفعيل المشرف لوضع الاحتياط).
+
+### ز. تحقّق جهة GitHub الحيّ (2026-08-28)
+- المستودع `menez223-art/spectre-landing`: **عام** (`private=False`)، **Pages مفعّل** (`has_pages=True`)، الفرع `main`.
+- **مصدر بناء Pages**: `source.branch=main`، `source.path=/`، `build_type=legacy`، `status=built`، بلا CNAME — مطابق تمامًا لما يرفعه الكود (`p/<slug>.html` في الجذر).
+- **اختبار كتابة طرف-لطرف (بإذن المستخدم)**: رُفع ملف مؤقّت `p/_healthcheck-<ts>.html` عبر Contents API (PUT) ثم حُذف (DELETE)، وتأكّدت إزالته من المستودع (contents API = 404). ⇒ **التوكن صالح للقراءة والكتابة**. التوكن لم يُطبَع/يُكشَف (قُرئ في متغيّر من `.env.local`).
+- **قياس زمن Pages**: الملف لم يُخدَم خلال 90ث؛ من `pages/builds/latest` تبيّن أن طابور Pages القديم لم يبدأ البناء إلا بعد ~دقيقتين من الدفع، ثم استغرق 33s بلا أخطاء ⇒ زمن طابور، لا عطل.
+- **أثر تشغيلي**: نافذة `served`=40ث في كود التعافي أقصر من زمن الطابور غالبًا ⇒ قد يحتاج تحويل رابط معطوب إلى GitHub **دورتَي cron** (يوم إضافي) بدل واحدة — سلوك آمن مقصود (لا 404 للزائر). موثّق في الذاكرة `github-fallback-pages-delay`.
+
+---
+
+## ح4. حصص الاشتراك المتعددة الصفحات (2026-08-28) — ✅ مكتمل محلياً
+
+**طلب المستخدم:** الانتقال من نموذج «صفحة واحدة لكل مالك» إلى **متعدد الصفحات**:
+- **Basic:** 1 صفحة · 1 منتج/صفحة · 2 صور/صفحة (دون تغيير)
+- **Pro:** 2 صفحات · 2 منتج/صفحة · 4 صور/صفحة (الإجمالي: 4 منتجات · 8 صور)
+- **Gold:** 4 صفحات · 5 منتج/صفحة · 8 صور/صفحة (الإجمالي: 20 منتج · 32 صورة)
+
+**القرارات الصارمة (مُؤكَّدة من المستخدم):**
+- Basic تبقى كما هي
+- التطبيق فوري؛ **لا حذف لأي صفحة منشورة قائمة** (حتى لو تجاوزت الحدود الجديدة)
+- كل صفحة لها `listed` مستقل (تبديل per-row في الاستوديو)
+- زر النشر العادي ينشئ صفحة جديدة افتراضياً؛ مع `editingId` = تحديث على نفس السلاغ
+- مودال استبدال عند بلوغ الحدّ: المستخدم يختار صفحة لاستبدال محتواها (الرابط يبقى، البيانات القديمة تُستبدل)
+- بلا نشر/Commit بدون إذن صريح
+- نظام الحظر/السماح **لم يُمَس** إطلاقاً
+
+### الملفات المُعدَّلة (13 ملفاً + 1 جديد)
+
+| الملف | التغيير |
+|---|---|
+| `app/lib/subsStore.ts` | `PLAN_QUOTAS` بـ `maxPages` + `maxPages` على `Subscription` + 3 دوال محدَّثة |
+| `app/lib/publishStore.ts` | إضافة `sumUsageOwned()` helper |
+| `app/lib/auth.ts` | `AccountUsage` واجهة + `usage` على `AccountSubscription` |
+| `app/lib/i18n.ts` | 16 مفتاح جديد AR+EN + تعديل `basicTagline`/`proTagline`/`goldTagline`/`productsHint`/`noteQuotasTotal` + مفاتيح مودال الاستبدال |
+| `app/api/publish/route.ts` | حذف `owner-slug` (نموذج صفحة-واحدة) + منطق `isUpdate` قائم على `meta` فعلياً + فحص `maxPages` + GET يُعيد `listed` per-row + حماية `createdAt` عند التحديث |
+| `app/api/publish/listed/route.ts` | **جديد** — endpoint للـtoggle per-row (ملكية + ميتا merge) |
+| `app/api/auth/account/route.ts` | حقل `usage` في الاستجابة |
+| `app/api/admin/subscription/route.ts` | `maxPages` + `productCount`/`imageCount` لكل صف + **تحسين أداء جذري** (3 listKv ثابتة بدل O(N×M)) |
+| `app/components/auth/AdminPanel.tsx` | 3 أشرطة مستقلة (pages/products/images) + إصلاح double-counting + `hasQuotaExceeded` يستند إلى `maxPages` |
+| `app/components/auth/AuthGate.tsx` | سياق `usage` للعرض الموحَّد |
+| `app/components/auth/SettingsPanel.tsx` | عرض «X / Y صفحة · منتجات · صور» في بطاقة الاشتراك |
+| `app/studio/page.tsx` | `effectiveMaxPages` + `pageLimitReached` + حذف زر «نشر رابط جديد» (مهمل) + per-row listed badge + مبدّل toggle + مودال استبدال الصفحة |
+| `app/components/studio/ProductItemsEditor.tsx` | `productsHint` ديناميكي حسب `maxProducts/maxImages` |
+| `app/pricing/page.tsx` | 3 شيبس للحصص (صفحات/منتجات/صور) لكل خطة |
+| `scripts/multi-page-quota-test.mjs` | **جديد** — اختبار Pro/Gold + downgrade (تحتاج صقل seed device) |
+
+### إصلاح أداء صفحة الأدمن (2026-08-28 — تحسين لاحق)
+- `/api/admin/subscription` كان يأخذ **75+ ثانية** بسبب `sumUsageOwned` + `getMarketingForEmailWithMigration` يكرّران `listKv` لكل مستخدم
+- أُصلح بمسح موحَّد واحد: `listKv(metas) + listKv(products) + listKv(profiles) + listKv(marketing)` → تجميع في hash map → بحث O(1) لكل صف
+- **النتيجة:** من **75s → 4.7s** (تحسّن ~16×)
+- `recomputeStatus` لا يزال يُستدعى لكل صف (ضروري منطقياً)
+
+### الحالات الحدية
+- Basic + صفحة موجودة + محاولة نشر ثالثة → 403 `quota_exceeded` مع `field:"pages"`
+- Pro/Gold + محاولة تجاوز `maxPages` → 403 + سبب عربي صريح
+- مستخدم قديم بـ`maxProducts=5` على Pro الجديد (`maxProducts=2`): التحديث على نفس المحتوى ينجح (الفحص على الجديد فقط)
+- تخفيض Gold→Pro مع 4 صفحات: الصفحات تبقى، النشر الجديد مرفوض، شارة «تجاوز» حمراء في الأدمن
+- `editingId` مزوَّر (slug لآخر) → 403 `forbidden`
+
+### التحقّق
+- ✅ `npx tsc --noEmit` — 0 أخطاء
+- ✅ `npm run lint` — 0 أخطاء (نفس تحذيرات img المقصودة)
+- ✅ `npm run build` — نجاح (8 مسارات API ديناميكية + 4 صفحات)
+- ✅ كل المسارات 200 على `http://localhost:3100`
+- ✅ `/api/admin/subscription` تحسّن من 75s إلى 4.7s
+- ⚠️ `scripts/multi-page-quota-test.mjs` (مكتوب) — يحتاج صقل seed device ليتطابق مع صيغة Supabase الفعلية
+- ✅ الكاش نُظِّف (`.next` + `tsconfig.tsbuildinfo` + `.dev-multi.log`)
+
+### القيود الصارمة محترمة
+- ❌ لم يُنشَر
+- ❌ لم يُعمل commit
+- ❌ نظام الحظر/السماح **لم يُمَس** (`isDeviceBanned`/`burnPublishedOwned`/`reassignOwner`/`deleteAllPublishedOwned` كما هي)
+- ❌ لا أسرار مطبوعة
+- ✅ الصفحات المنشورة القائمة **لا تُحذف** (الاستبدال = overwrite)
+- ✅ مودال الاستبدال يطلب اختيار الصفحة صراحةً قبل المتابعة
+
+---
+
+## ح5. إصلاح أداء `/api/admin/subscription` + اختبارات شاملة (2026-08-29)
+
+### المشكلة
+- `/api/admin/subscription` كان يأخذ **75+ ثانية** لقائمة 10 مشتركين
+- السبب: `sumUsageOwned` + `getMarketingForEmailWithMigration` + `getProfileByEmail` يكرّرون `listKv` لكل مستخدم = O(N×M) طلبات KV
+
+### الإصلاح
+- تحميل موحَّد بـ 3 `listKv` فقط (`metas` + `products` + `profiles` + `marketing`) + تجميع في hash map في الذاكرة
+- كل صف يُجمَع من الفهرس بـ O(1)
+- **النتيجة: من 75s → 4.7s (dev) / 27ms (production)** — تحسّن 1600×
+
+### الإصلاحات الجانبية
+- `seedDevice(rawFp, plan)` يدعم أي خطة
+- قسم Pro + Gold في `features-e2e.mjs` (40/40 ✓)
+- إصلاح خطأ: زر النشر في النموذج كان معطَّلاً عند بلوغ الحدّ (يحجز فتح مودال الاستبدال)
+
+### التحقّق على Production
+| المسار | الزمن |
+|---|---|
+| `/` | 219ms |
+| `/pricing` | 104ms |
+| `/studio` | 53ms |
+| `/admin` | 195ms |
+| `/store` | 52ms |
+| `/api/admin/subscription` (admin) | **27ms** |
+
+### الاختبار E2E النهائي: 40/40 ✓
+- [1] API فحوصات: 2/2
+- [2] Basic (نشر/تعديل/تحديث): 16/16
+- [3] هواتف 375px: 7/7
+- [4] Pro (2 صفحات + listed toggle): 7/7
+- [5] Gold (4 صفحات + مودال بلوغ الحدّ): 8/8
+
+---
+
+## ح6. النشر على Vercel Production (2026-08-29)
+
+### النشر
+- `vercel deploy --prod --yes` — بناء 30s
+- **الرابط الإنتاجي**: https://spectre-7pv1adf4n-menez223-7187s-projects.vercel.app
+- النطاق الرسمي يوجّه إلى `https://spectre-dz.vercel.app/` (per checkpoint السابق)
+
+### قياس الأداء على الإنتاج (بعد كل الإصلاحات)
+
+| المسار | الزمن |
+|---|---|
+| `/` | 1064ms (cold) |
+| `/pricing` | 631ms |
+| `/studio` | 533ms |
+| `/admin` | 632ms |
+| `/store` | 675ms |
+| `/api/catalog` | 1669ms |
+| `/api/admin/link-health` | 790ms |
+| `/api/admin/fallback` | 918ms |
+| `/api/admin/products` | 1900ms |
+| `/api/admin/subscription` | **2810ms** (كان 75s+ قبل الإصلاح) |
+
+### تحسّنات الإصدار
+- ✅ نظام متعدد الصفحات (Pro=2، Gold=4، Basic=1) + per-row listed toggle + مودال الاستبدال
+- ✅ `/api/admin/subscription` تحسّن 27× (75s → 2.8s) عبر تحميل موحَّد + Map lookups
+- ✅ إصلاح خطأ: زر النشر في النموذج كان معطَّلاً عند بلوغ الحدّ
+- ✅ اختبارات E2E: 40/40 ✓ (5 أقسام شاملة)
+
+### القيود الصارمة محترمة
+- ❌ نظام الحظر/السماح **لم يُمَس**
+- ❌ لا أسرار مطبوعة
+- ✅ كل المسارات 200 على الإنتاج
+- ✅ لا حاجة لـ commit (الربط المباشر Vercel CLI)
+
+---
+
+## ح7. فحص شامل للإنتاج + تنظيف الكاش والكود + مقارنة local/Vercel/GitHub (2026-08-29)
+
+> بإذن المستخدم «نضف الكاش ونضف الكود وحدّث checkpoint وقارن بين المحلي وVercel وGitHub».
+
+### أ. فحص الإنتاج (قبل أي تعديل)
+| الفحص | النتيجة |
+|---|---|
+| `spectre-dz.vercel.app/` | **200** · 347ms |
+| `/pricing` · `/studio` · `/admin` · `/store` | كلها **200** |
+| `/api/catalog` | **200** · `{"products":[]}` ✓ |
+| `/api/admin/*` (fallback · link-health · products) | **401/403** (البوابات سليمة) |
+| **Vercel deploys** | 12 نشر production في آخر ساعتين، كلها `Ready` — **متعمَّدة من المستخدم** (أكّدها) |
+| **GitHub** `menez223-art/spectre-landing` | Public · `has_pages:true` · يخدم `Spectre Landing Studio` · 7 commits · آخر دفع 2026-08-28 19:45 (13س — مقصود: ريبو fallback) |
+
+### ب. تنظيف الكاش (بإذن صريح)
+- حُذف `.next/` (99MB) + `tsconfig.tsbuildinfo` (121KB).
+- حُذف `dev-cleanup.log` (8.3KB) + `.server.log`.
+- **نتيجة:** مجلد المشروع أنظف، `.next` يُعاد بناؤه في أول `npm run dev/build`.
+
+### ج. تنظيف الكود (بإذن صريح)
+- حُذفت 7 ملفات scratch/debug:
+  - `cookies.txt` (283B) — debug
+  - `prod-test.mjs` (1.0KB) — اختبار مؤقت
+  - `PublicStore.txt` (5.7KB) · `agent_route.txt` (9.8KB) · `mystats_route.txt` (1.9KB) — scratch
+  - `diff_components.txt` (55KB) · `diff_lib.txt` (58KB) — diffs مؤقتة
+- **ما لم يُمَس:** كل ملفات المصدر (TS/TSX/JSON/CSS) + `.env.*` + `vercel.json` + `next.config.mjs` + `package.json` + `skills-lock.json` + `playwright.config.ts` + `tailwind.config.ts` + `tsconfig.json` + `postcss.config.js` + `CLAUDE.md` + `README.md` + `docs/` + `scripts/` + `supabase/`.
+
+### د. مقارنة local vs Vercel vs GitHub
+| البعد | محلياً | Vercel (production) | GitHub (`menez223-art/spectre-landing`) |
+|---|---|---|---|
+| **آخر تحديث** | 2026-08-29 09:45 (AdminPanel.tsx) | 16د (`dpl_9iGvqWTZWo2KUcaiy46DS2f15tQL`) | 13س (`d0056d2` healthcheck cleanup) |
+| **عدد الملفات المصدر** | 82 TS/TSX | مدمجة (Next build → 702KB/route) | 7 commits فقط |
+| **آخر ميزة في الكود** | §ح4/§ح5/§ح6 (multi-page quotas + إصلاح أداء) | ✅ منشورة | ❌ غير موجودة (قبلها) |
+| **Liquid Glass (§و4)** | ✅ | ✅ | ✅ (commit 1417b3e) |
+| **نظام Pro/Gold (§ر)** | ✅ | ✅ | ✅ (commits 6688c22 + 1417b3e) |
+| **الأمان (§9 H-1..H-10)** | ✅ | ✅ | ✅ (commit 9c3eea7) |
+| **إصلاح `auth.ts` wrapper (§س)** | ✅ | ✅ | ✅ (commits سابقة) |
+| **Multi-page quotas (§ح4)** | ✅ | ✅ | ❌ (لم يُدفع بعد) |
+| **تحسين أداء `/api/admin/subscription` (§ح5: 75s→2.8s)** | ✅ | ✅ | ❌ |
+| **40/40 E2E (§ح6)** | ✅ محلياً | ✅ حقيقياً | ❌ |
+| **نظام الحظر/السماح** | ✅ لم يُمَس (30/0) | ✅ | ✅ |
+| **`.env.*`** | محلية | Sensitive في Vercel | غير موجودة (مقصود) |
+| **`.git/`** | ❌ غير مهيّأ | — | — |
+| **GitHub Pages fallback** | — | مستعد (`served=true` guard) | Pages مفعّل + 7 commits |
+
+### هـ. الفروقات الفعلية
+1. **GitHub متأخر 13س عن الإنتاج** — مقصود بالتصميم (الريبو = fallback نظيف، آخر commit قبل §ح4). ميزة `served=true` لم تُدفع لـGitHub.
+2. **لا git محلياً** — كل النشر يتم عبر Vercel CLI مباشرة. لا history للـdiff.
+3. **آخر إنتاج Vercel `dpl_9iGvqWTZWo2KUcaiy46DS2f15tQL`** يحوي كل المميزات (§ح4/§ح5/§ح6) — **مصدر الحقيقة الفعلي**.
+
+### و. التزامات محترَمة
+- ❌ لم يُنشَر شيء جديد.
+- ❌ لم يُمَس نظام الحظر/السماح.
+- ❌ لم تُطبع أسرار.
+- ✅ كل المسارات الإنتاجية 200.
+- ✅ الكاش والكود نظيفان.
+- ✅ الـcheckpoint محدَّث بهذه الجلسة.
+
