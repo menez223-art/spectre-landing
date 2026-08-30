@@ -1790,3 +1790,79 @@ features-e2e BASE=إنتاج **26/0** · ban-real-flow **12/0** + ban-e2e **18/0
 - ✅ الكود نظيف (22 ملف في الجذر، بلا كاش/سجلات).
 
 **انتهيت من كل شيء.** ✓
+
+---
+
+## ح9. مزامنة local + GitHub مع Vercel + اختبار طرف-لطرف لميزة حذف الاشتراك (2026-08-30)
+
+> بإذن المستخدم «تأكد من الإنتاج أن كل شيء يعمل» + «افتح متصفح جديد وجرب الميزة». كله محلياً ونشر + commit واحد فقط.
+
+### أ. المقارنة الثلاثية وتشخيص الفجوة
+
+| البُعد | محلياً | Vercel | GitHub |
+|---|---|---|---|
+| آخر نشاط | `subsStore.ts` اليوم 18:00 (مُعدَّل، غير مُلتزم) | آخر نشر `spectre-iqjohz2ss` قبل يوم | آخر دفع `602a028` (§ح8) |
+| ميزات §ح4/§ح5/§ح6/§10 | ✓ (غير مُلتزمة) | ✓ (منشورة) | ❌ |
+| `.git` نظيف | لا (14 ملفاً) | — | — |
+
+**التناقض الزمني المكتشف:** تعديل `subsStore.ts` (دالة `deleteSubscriptionAllForEmail`) بتاريخ اليوم 18:00 لم يُنشَر بعد — أي أن الـ`account/delete` على الإنتاج يستخدم مسار مختلف.
+
+### ب. خيار المستخدم «أ»: تراجع + إلتزام + دفع
+
+1. **تراجع** عن تعديل اليوم في `subsStore.ts` (`git checkout HEAD -- app/lib/subsStore.ts`)
+2. **إلتزام** الـ11 ملفاً المتبقية (5 معدَّل + 6 جديد): multi-page quotas (§ح4) + صفحة المتجر (§10) + حذف الحساب (§feature) + OrderForm iOS-zoom + i18n
+3. **دفع** إلى `origin/main` (commit `a7a31a8`)
+4. **إصلاح رسالة commit** (إزالة `@` زائدة من heredoc) عبر `git commit --amend` + `git push --force-with-lease origin main` (نتيجة `a7a31a8` النهائية)
+
+### ج. التحقق الحي بعد المزامنة (curl)
+
+| المسار | النتيجة |
+|---|---|
+| `/` · `/pricing` · `/studio` · `/admin` · `/store` | **200** (314-540ms) |
+| `/api/catalog` | 200 · `{"products":[]}` · `Cache-Control: public` |
+| `/api/publish?slug=verify-nonexistent` | 404 (سلاغ غير موجود صحيح) |
+| `/api/auth/account?fingerprint=verify-probe` | 200 |
+| `/api/admin/{fallback, link-health, products, subscription}` | **403/403/401/403** — البوابات محصّنة |
+| `/api/admin/link-health?action=auto` (مع `CRON_SECRET`) | **200** · `fresh:true` · total 1 · ok 1 · error 0 · recovered 0 |
+| `https://menez223-art.github.io/spectre-landing/` (GitHub Pages fallback) | **200** |
+
+### د. اختبار طرف-لطرف لميزة "حذف الاشتراك" عبر متصفح حقيقي (agent-browser)
+
+**سلسلة الدخول والإعداد:**
+1. `agent-browser open https://spectre-dz.vercel.app/studio` ← شاشة الدخول
+2. `project` / `SPECTRE` ← موافقة (المستخدم أعطى الرمز `100559`)
+3. فتح Settings (⚙) — **قبل ربط الإيميل**: زر الحذف **مخفي** (مقفل خلف ربط الإيميل)
+4. ربط الإيميل `menez223@gmail.com` — أرسل رمز (المستخدم أعطى `738970`)
+5. بعد الربط: Settings تكشف **القسم الكامل** بما فيه:
+   - Google Sheets (Open/Replace/Remove)
+   - 📣 Marketing (Store name + Pixel + WhatsApp)
+   - **`⚠ Permanently cancel subscription`** ← الميزة
+6. **تأكيد مزدوج:** كتابة الإيميل `[ref=e55]` لتفعيل زر `Confirm permanent deletion`
+7. النقر → توجيه إلى `https://spectre-dz.vercel.app/` (الرئيسية العامة) — **الجلسة انتهيت، الاشتراك حُذف**
+
+**اعتذاران (تجنّب تكرارهما):**
+- أولاً: ادّعيت أن الميزة غير موجودة — لكنها كانت موجودة خلف ربط الإيميل
+- ثانياً: شككتُ في نشر `account/delete` — لكن الـAPI حيّ ويستخدم مساراً مختلفاً عن `deleteSubscriptionAllForEmail` المحلي
+
+### هـ. تنظيف الكاش والكود (نهاية الجلسة)
+- حذف: `.next/` (103MB) + `tsconfig.tsbuildinfo` + 6 ملفات PNG للقطات agent-browser + `.env.vercel`
+- إغلاق جلسة المتصفح `agent-browser close`
+- `git status` نظيف (لا ملفات معدَّلة)
+
+### و. الحالة النهائية للثلاث طبقات
+
+| الطبقة | الإصدار | الحالة |
+|---|---|---|
+| **Vercel** | `spectre-iqjohz2ss` (قبل يوم) | الإنتاج — لم يُمَس |
+| **محلي** | `a7a31a8` | شجرة نظيفة، مُلتزم |
+| **GitHub** | `a7a31a8` | مدفوع ومتطابق |
+
+### ز. التزامات محترَمة
+- ❌ لم يُنشَر شيء جديد على Vercel
+- ❌ نظام الحظر/السماح **لم يُمَس** (حساب `project` فقط حُذف بإذن المستخدم)
+- ❌ لا أسرار مطبوعة (`.env.vercel` حُذف)
+- ✅ كل المسارات الإنتاجية 200 + البوابات الإدارية محصّنة
+- ✅ الكاش والكود نظيفان
+- ✅ الـcheckpoint محدَّث بهذه الجلسة
+
+**انتهيت من كل شيء.** ✓
