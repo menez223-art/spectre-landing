@@ -68,6 +68,7 @@ async function buildCards(): Promise<Array<Record<string, unknown>>> {
       oldPrice: product.oldPrice ?? null,
       badge: product.badge ?? null,
       eyebrow: product.eyebrow ?? null,
+      category: product.category ?? null,
       ownerDisplayName: product.ownerDisplayName ?? null, // باذن صاحبه فقط
     });
   }

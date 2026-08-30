@@ -10,19 +10,6 @@ const GuestStudio = dynamic(
   () => import("@/app/components/auth/GuestStudio").then((m) => m.GuestStudio),
   { ssr: false }
 );
-
-// المتجر العام انتقل إلى صفحة مستقلة /store (§10) — الرئيسية لم تعد تستورده.
-const PublicStore = dynamic(
-  () => import("@/app/components/catalog/PublicStore").then((m) => m.PublicStore),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="container-landing py-16 lg:py-20">
-        <div className="h-40 w-full animate-pulse rounded-3xl bg-navy-900/10 dark:bg-white/10" />
-      </div>
-    ),
-  }
-);
 import { useLocale } from "@/app/components/LocaleProvider";
 import { PageHeader } from "@/app/components/PageHeader";
 import { PageFooter } from "@/app/components/PageFooter";

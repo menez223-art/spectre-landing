@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useLocale } from "../LocaleProvider";
-import type { Plan, Subscription, SubStatus, ValidityUnit } from "@/app/lib/subsStore";
+import type { Plan, Subscription, SubStatus } from "@/app/lib/subsStore";
 
 // ── الأنواع ──
 interface SubRow extends Subscription {
@@ -797,7 +796,6 @@ function SearchFilterBar({
 }
 
 export function AdminPanel({ email }: { email: string }) {
-  const { t } = useLocale();
   const [rows, setRows] = useState<SubRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
