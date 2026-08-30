@@ -19,10 +19,16 @@ export default function PricingPage() {
 
   const plans = [
     {
+      key: "basic",
       name: t("planBasic"),
       price: t("basicPrice"),
       period: t("priceMonthly"),
       description: t("basicTagline"),
+      stats: [
+        { value: "1", label: t("statPages") },
+        { value: "1", label: t("statProducts") },
+        { value: "2", label: t("statImages") },
+      ],
       features: [
         t("featureLandingPages"),
         t("featureWilayas"),
@@ -38,10 +44,16 @@ export default function PricingPage() {
       popular: false,
     },
     {
+      key: "pro",
       name: t("planPro"),
       price: t("proPrice"),
       period: t("priceMonthly"),
       description: t("proTagline"),
+      stats: [
+        { value: "2", label: t("statPages") },
+        { value: "2", label: t("statProducts") },
+        { value: "4", label: t("statImages") },
+      ],
       features: [
         t("featureLandingPages"),
         t("featureWilayas"),
@@ -58,10 +70,16 @@ export default function PricingPage() {
       popular: false,
     },
     {
+      key: "gold",
       name: t("planGold"),
       price: t("goldPrice"),
       period: t("priceMonthly"),
       description: t("goldTagline"),
+      stats: [
+        { value: "4", label: t("statPages") },
+        { value: "5", label: t("statProducts") },
+        { value: "8", label: t("statImages") },
+      ],
       features: [
         t("featureLandingPages"),
         t("featureWilayas"),
@@ -94,7 +112,7 @@ export default function PricingPage() {
         <div className="mt-12 grid gap-8 lg:grid-cols-3">
           {plans.map((plan) => (
             <article
-              key={plan.name}
+              key={plan.key}
               className={`liquid-glass liquid-glass--rounded relative grid gap-6 overflow-hidden rounded-3xl p-8 transition hover:-translate-y-2 hover:shadow-2xl ${
                 plan.highlight
                   ? "ring-2 ring-blue-500/40"
@@ -114,6 +132,16 @@ export default function PricingPage() {
                   <span className="text-sm font-semibold text-navy-700/70 dark:text-ivory-50/70">{plan.period}</span>
                 </div>
                 <p className="text-sm text-navy-700/70 dark:text-ivory-50/70">{plan.description}</p>
+              </div>
+
+              {/* شبكة الإحصائيات — أرقام كبيرة تحت الوصف (متطابقة مع الإنتاج) */}
+              <div className="grid grid-cols-3 gap-2 rounded-2xl border border-navy-900/10 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5">
+                {plan.stats.map((stat, sidx) => (
+                  <div key={sidx} className="text-center">
+                    <div className="font-display text-2xl font-extrabold text-navy-900 dark:text-ivory-50">{stat.value}</div>
+                    <div className="mt-1 text-[10px] font-semibold text-navy-700/70 dark:text-ivory-50/70">{stat.label}</div>
+                  </div>
+                ))}
               </div>
 
               <ul className="grid gap-3" role="list">
