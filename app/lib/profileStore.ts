@@ -97,6 +97,19 @@ export async function getProfileByEmail(email: string): Promise<DeviceProfile | 
   }
 }
 
+// يحذف ملف تعريف جهاز بمعرّفه الخام (يُستخدم عند إلغاء حساب بمبادرة المستخدم).
+// لا يحظر الجهاز — يمكن للمستخدم إنشاء حساب جديد من نفس المتصفح لاحقاً.
+export async function deleteProfile(rawFp: string): Promise<boolean> {
+  if (!rawFp) return false;
+  try {
+    const peppered = pepperFingerprint(rawFp);
+    await setKv(`studio-auth/profiles/${peppered}.json`, null);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // يحلّ مالكًا (إيميل أو هوية جهاز) إلى البريد الكنسي الخاص به.
 // إن كان owner بريدًا مباشرًا نعيده؛ وإن كان device:<hash> نبحث ملفّات
 // التعريف عن الجهاز الذي يطابق هذا الـ hash ونعيد بريده إن وُجد.

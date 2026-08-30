@@ -418,6 +418,8 @@ const AR = {
   listPublicHint: "تظهر صفحتك في متجر الصفحة الرئيسية — حصري لخطتَي Pro وGold. يُطبَّق عند النشر.",
   storeEmptyTitle: "المتجر فارغ حالياً",
   storeEmptySub: "لا توجد منتجات معروضة للعموم بعد — عُد قريباً لاكتشاف صفحات جديدة.",
+  storeFilterAll: "الكل",
+  catalogSectionCount: "منتجات",
 } as const;
 
 const EN: Record<keyof typeof AR, string> = {
@@ -793,6 +795,8 @@ const EN: Record<keyof typeof AR, string> = {
   listPublicHint: "Your page appears in the homepage store — exclusive to Pro and Gold plans. Applied on publish.",
   storeEmptyTitle: "The store is empty for now",
   storeEmptySub: "No products are listed publicly yet — check back soon for new pages.",
+  storeFilterAll: "All",
+  catalogSectionCount: "products",
 };
 
 export type I18nKey = keyof typeof AR;

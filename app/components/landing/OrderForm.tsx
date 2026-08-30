@@ -110,6 +110,34 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
     }
     setBlocked(false);
 
+    // === META PIXEL: Lead + Purchase tracking ===
+    // يُطلق فقط إذا صاحب المتجر ضبط pixelId في إعداداته (افتراضياً معطّل
+    // للجميع — لا Lead ولا Purchase لمن لم يُضف البيكسل). يُسجَّل الحدثان
+    // بعد اجتياز فحص نظام الحظر وقبل تصفير النموذج، كي يحتوي على كل بيانات
+    // الطلب (السعر، الكمية، الولاية). لا يُطلق في وضع المعاينة (preview).
+    const pixelId = product.pixelId?.trim();
+    if (pixelId && typeof window !== "undefined") {
+      const fbq = (window as unknown as { fbq?: (...args: unknown[]) => void }).fbq;
+      if (typeof fbq === "function") {
+        fbq("track", "Lead", {
+          content_name: payload.product,
+          content_category: payload.deliveryType,
+          value: payload.totalPrice,
+          currency: "DZD",
+          wilaya: payload.wilaya,
+        });
+        fbq("track", "Purchase", {
+          content_name: payload.product,
+          content_type: "product",
+          content_ids: [product.id],
+          num_items: payload.quantity,
+          value: payload.totalPrice,
+          currency: "DZD",
+        });
+      }
+    }
+    // === END META PIXEL ===
+
     // رسالة واتساب الجاهزة — تُبنى قبل تصفير النموذج كي نحتفظ بالقيم.
     // اسم المنتج المطلوب يظهر في سطر مستقل واضح كي يعرف البائع ما المطلوب.
     setLastOrder({
