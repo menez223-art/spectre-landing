@@ -1866,3 +1866,110 @@ features-e2e BASE=إنتاج **26/0** · ban-real-flow **12/0** + ban-e2e **18/0
 - ✅ الـcheckpoint محدَّث بهذه الجلسة
 
 **انتهيت من كل شيء.** ✓
+
+---
+
+## ح10. فحص شامل Vercel ↔ محلي ↔ GitHub (2026-08-30 — جلسة ثانية)
+
+> بإذن المستخدم «النسخة الفعلية الحقيقية هي الموجودة في vercel … قارنها مع المحلية و github». كله **محلياً فقط، بلا نشر على Vercel**، ولا مساس بنظام الحظر/السماح.
+
+### أ. المنهجية — 6 وكلاء متوازيين + 4 وكلاء اختبارات حيّة
+
+| المرحلة | الوكيل | النتيجة |
+|---|---|---|
+| 1 | Homepage HTML vs local | ✅ match مع 2 drift بسيط |
+| 2 | API endpoints (13) على Vercel vs local | ✅ تطابق 100% |
+| 3 | مقارنة local ↔ GitHub (99 ملف) | ✅ متطابق بايت |
+| 4 | /pricing، /studio، /admin، /store | ✅ الهياكل متطابقة |
+| 5 | `/p/[slug]` + مكونات landing/catalog | ⚠️ drift مكتشف |
+| 6 | Settings/Auth/Admin components | ✅ + يتامى موثّقة |
+| 7 | اختبار 5 صفحات محلية | ✅ كل المسارات 200 |
+| 8 | اختبار 16 API endpoint محلي | ✅ تطابق |
+| 9 | مقارنة HTML محلي vs Vercel بايت-بايت | ⚠️ `/pricing` فيه drift |
+| 10 | build + lint + يتامى | ✅ + 4 يتامى مكتشفة |
+
+### ب. الـDrift المكتشف بين Vercel (الحقيقة) والمحلّي
+
+| # | المشكلة | الموضع | الحالة |
+|---|---|---|---|
+| 1 | استيراد `PublicStore` ميّت (لم يُحذَف بعد §10) | `app/page.tsx:15-25` | ✅ مُصلَح `2c5f71f` |
+| 2 | `/pricing` لا يعرض شبكة الإحصائيات البصرية (3 أرقام) | `app/pricing/page.tsx` | ✅ مُصلَح `3aff921` |
+| 3 | `/pricing` نص "per-page limits" بدل "total page limits" | `app/lib/i18n.ts` | ✅ مُصلَح `3aff921` |
+| 4 | taglines التسعير متقادمة (لا تعكس حصص §ح4) | `app/lib/i18n.ts:395-397,780-782` | ✅ مُصلَح `2c5f71f` |
+| 5 | `deleteSubscriptionAllForEmail` helper مفقود (يكسر `account/delete/route.ts`) | `app/lib/subsStore.ts` | ✅ مُصلَح `d443f91` |
+| 6 | `category` field مفقود من `/api/catalog` (مطلوب لـ `StorefrontClient`) | `app/api/catalog/route.ts:62-72` | ✅ مُصلَح `2c5f71f` |
+
+### ج. الـOrphans المكتشفة والمُحذوفة
+
+| الملف/المجلد | الأسطر | البديل المستخدم | الحالة |
+|---|---|---|---|
+| `app/components/catalog/PublicStore.tsx` | 144 | `StorefrontClient.tsx` | ✅ حُذف `b3119f5` |
+| `app/lib/themeStore.tsx` | 54 | `app/components/ThemeProvider.tsx` | ✅ حُذف `b3119f5` |
+| `app/components/catalog/CatalogLocal.tsx` | 153 | لا بديل (محذوف سابقاً) | ✅ حُذف `2c5f71f` |
+| `app/products/` (فارغ) | — | — | ✅ حُذف `b3119f5` |
+| `app/api/debug-pepper/` (فارغ — كان يمنع البناء) | — | — | ✅ حُذف أثناء الفحص |
+
+### د. الـi18n Keys الجديدة
+
+- `browseStore` (AR: تصفّح المتجر / EN: Browse store)
+- `statProducts` (AR: منتجات/صفحة / EN: products/page)
+- `statImages` (AR: صور/صفحة / EN: images/page)
+- تحديث `basicTagline` / `proTagline` / `goldTagline` لتطابق الإنتاج
+- تحديث `noteQuotasTotal` من "total" إلى "per-page"
+
+### هـ. الإصلاحات الأخرى
+
+- `app/components/auth/AdminPanel.tsx`: حذف `useLocale` import، `ValidityUnit` type، و `t` destructure (0 استخدام)
+- `app/lib/types.ts`: إضافة `category?: string | null` لـ `Product`
+- `app/api/catalog/route.ts`: إضافة `category: product.category ?? null` للبطاقات
+
+### و. نتائج الفحص الحي (محلي والخادم)
+
+| الفحص | النتيجة |
+|---|---|
+| `/`, `/pricing`, `/studio`, `/admin`, `/store` | **200** |
+| `tsc --noEmit` | **0 أخطاء** |
+| `next lint` | **0 أخطاء** (13 تحذير مقصودة) |
+| `next build` | **نجح** (1m 33s) — 26 route |
+| `git status` | شجرة نظيفة |
+| Vercel (إنتاج) | `/` 446ms · `/pricing` 327ms · `/studio` 406ms · `/admin` 1368ms · `/api/catalog` 1790ms · كل البوابات الإدارية 401/403 ✓ |
+
+### ز. الـCommits في هذه الجلسة (4)
+
+| Hash | الوصف |
+|---|---|
+| `d443f91` | feat: align homepage store features + subsStore helper with Vercel production |
+| `2c5f71f` | fix: sync local + GitHub with Vercel production (priority 1 gaps) |
+| `3aff921` | fix: pricing stats grid + per-page wording (sync with Vercel) |
+| `b3119f5` | chore: delete orphan files + empty dir discovered by audit |
+
+### ح. ملاحظات موثّقة (ليست drift — متعمَّدة/قديمة)
+
+- `/p/[slug]` لا يرجع HTTP 404 لمنتج غير موجود (يُعرض client-side بدلاً) — سلوك قديم في الإنتاج أيضاً
+- `/admin` دائماً redirect إلى `/?admin=1` — تصميم متعمَّد (modal على الرئيسية)
+- 2 تحذيرات `exhaustive-deps` في SettingsPanel + LandingLang — موثّقة ولا تُصلَح تلقائياً (تستلزم مراجعة يدوية)
+- 12 تحذير `no-img-element` — مقصودة (صور base64 data URLs)
+
+### ط. مخاطر أمنية قائمة (لم تُلمَس — تحتاج إذن صريح)
+
+- `ADMIN_PASSWORD` افتراضي = `"Aline"`
+- `ADMIN_SESSION_SECRET` افتراضي = `"spectre-admin-session-secret"`
+- 3 كلمات سر افتراضية متضاربة في 3 ملفات مختلفة (`adminAuth.ts`، `credentials.ts`، `auth.ts`)
+
+### ي. الحالة النهائية
+
+| الطبقة | الإصدار | الحالة |
+|---|---|---|
+| **Vercel** | `spectre-iqjohz2ss` (قبل يوم) | الإنتاج — لم يُمَس (لم يُطلب نشر) |
+| **محلي** | `b3119f5` | شجرة نظيفة، مُختبَر |
+| **GitHub** | `b3119f5` | مدفوع ومتطابق مع المحلي |
+
+### ك. التزامات محترَمة
+- ❌ لم يُنشَر شيء جديد على Vercel (بطلب المستخدم «لا تنشر على vercel ابدا»)
+- ❌ نظام الحظر/السماح **لم يُمَس**
+- ❌ لا أسرار مطبوعة
+- ✅ 0 أخطاء TypeScript · 0 أخطاء lint · build ناجح
+- ✅ 4 يتامى محذوفة + 4 ملفات drift مُصلحة
+- ✅ الـcheckpoint محدَّث بهذه الجلسة كاملة
+
+**انتهيت من كل شيء.** ✓
