@@ -11,8 +11,7 @@ const GuestStudio = dynamic(
   { ssr: false }
 );
 
-// المتجر العام يُرسم أسفل الصفحة — نحمّله كسولاً مع هيكل بديل كي لا يثقل
-// الرسم الأولي للرئيسية (البطل + قسم الاشتراكات يظهران فوراً).
+// المتجر العام انتقل إلى صفحة مستقلة /store (§10) — الرئيسية لم تعد تستورده.
 const PublicStore = dynamic(
   () => import("@/app/components/catalog/PublicStore").then((m) => m.PublicStore),
   {
@@ -147,22 +146,34 @@ export default function Home() {
         </div>
       </section>
 
-      {/* الكتالوج */}
+      {/* الكتالوج — بطاقة CTA §10 (تصفّح المتجر + إنشاء صفحة جديدة) */}
       <section id="catalog" className="container-landing py-16 lg:py-20">
-        <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-xs font-bold tracking-wide text-navy-400 dark:text-navy-300">{t("catalogEyebrow")}</p>
-            <h2 className="mt-3 font-display text-3xl font-extrabold text-navy-900 dark:text-ivory-50">{t("catalogTitle")}</h2>
-            <p className="mt-3 max-w-md text-sm leading-6 text-navy-700/70 dark:text-ivory-50/70">
-              {t("catalogSub")}
-            </p>
+        <div className="liquid-glass liquid-glass--rounded relative overflow-hidden rounded-[2rem] p-8 sm:p-12">
+          <div className="absolute -end-16 -top-16 h-56 w-56 rounded-full bg-gradient-to-br from-emerald-500/15 to-teal-500/10 blur-3xl" />
+          <div className="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div className="max-w-xl">
+              <p className="text-xs font-bold tracking-wide text-navy-400 dark:text-navy-300">{t("catalogEyebrow")}</p>
+              <h2 className="mt-3 font-display text-3xl font-extrabold text-navy-900 dark:text-ivory-50 sm:text-4xl">{t("catalogTitle")}</h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-navy-700/70 dark:text-ivory-50/70">
+                {t("catalogSub")}
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
+              <Link
+                href="/store"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-navy-900 px-8 py-4 text-sm font-bold text-ivory-50 shadow-xl shadow-navy-900/20 transition hover:-translate-y-0.5 hover:bg-navy-700 dark:bg-white/10 dark:hover:bg-white/20"
+              >
+                🛍️ {t("browseStore")}
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Link>
+              <StudioLink className="inline-flex items-center justify-center rounded-full border border-navy-900/15 px-6 py-4 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50/80 dark:hover:text-ivory-50">
+                + {t("newPage")}
+              </StudioLink>
+            </div>
           </div>
-          <StudioLink className="shrink-0 rounded-full border border-navy-900/15 px-5 py-3 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900">
-            + {t("newPage")}
-          </StudioLink>
         </div>
-
-        <PublicStore />
       </section>
 
       {/* قسم الاشتراكات — بطاقة مع صورة fb.png وزر CTA فيسبوك + زر الخطط */}

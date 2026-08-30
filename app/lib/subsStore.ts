@@ -295,3 +295,25 @@ export async function listSubscriptions(): Promise<Subscription[]> {
     return [];
   }
 }
+
+// يحذف كل اشتراكات البريد (userId) — يُستخدم عند إلغاء حساب بمبادرة المستخدم.
+// الجهاز لا يُحظر — فقط يحذف صفوف الاشتراك.
+export async function deleteSubscriptionAllForEmail(email: string): Promise<number> {
+  if (!email) return 0;
+  const lower = email.toLowerCase();
+  let count = 0;
+  try {
+    const rows = await listKv(SUB_PREFIX);
+    for (const row of rows) {
+      const sub = row.value as Subscription | null;
+      if (!sub) continue;
+      if (sub.userId === email || sub.userId.toLowerCase() === lower) {
+        await deleteKv(row.key);
+        count++;
+      }
+    }
+  } catch {
+    // best-effort: نُرجع العدد قبل الفشل
+  }
+  return count;
+}
