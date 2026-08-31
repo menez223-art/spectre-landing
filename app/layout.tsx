@@ -3,6 +3,7 @@ import { Cairo, Tajawal } from "next/font/google";
 import "./globals.css";
 import { LocaleProvider } from "@/app/components/LocaleProvider";
 import { ThemeProvider } from "@/app/components/ThemeProvider";
+import { NavigationProgress } from "@/app/components/NavigationProgress";
 import { themeNoFlashScript } from "@/app/theme-script";
 
 const cairo = Cairo({
@@ -40,7 +41,10 @@ export default function RootLayout({
       </head>
       <body className={`${cairo.variable} ${tajawal.variable} font-body min-h-screen`}>
         <ThemeProvider>
-          <LocaleProvider>{children}</LocaleProvider>
+          <LocaleProvider>
+            <NavigationProgress />
+            {children}
+          </LocaleProvider>
         </ThemeProvider>
       </body>
     </html>

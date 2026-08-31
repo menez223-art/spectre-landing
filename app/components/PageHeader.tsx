@@ -56,7 +56,7 @@ export function PageHeader({ showAdminButton = true, onAdminClick, hideOnScroll 
         <div className="container-landing py-3 sm:py-4">
           <div className="liquid-glass liquid-glass--pill flex flex-wrap items-center justify-between gap-x-3 gap-y-2 overflow-hidden rounded-full px-3 py-2 sm:px-4">
             {/* الشعار */}
-            <Link href="/" className="group flex items-center gap-2 sm:gap-3">
+            <Link href="/" prefetch className="group flex items-center gap-2 sm:gap-3">
               <div className="grid h-9 w-9 place-items-center rounded-xl theme-gradient font-display text-lg font-bold text-white theme-shadow transition group-hover:theme-shadow-lg sm:h-10 sm:w-10">
                 S
               </div>
@@ -69,10 +69,10 @@ export function PageHeader({ showAdminButton = true, onAdminClick, hideOnScroll 
               className="hidden items-center gap-8 text-sm font-semibold text-navy-700 dark:text-ivory-200 md:flex"
               aria-label={t("products")}
             >
-              <Link href="/#catalog" className="transition hover:text-navy-400 dark:hover:text-blue-400">
+              <Link href="/#catalog" prefetch={false} className="transition hover:text-navy-400 dark:hover:text-blue-400">
                 {t("products")}
               </Link>
-              <Link href="/studio" className="transition hover:text-navy-400 dark:hover:text-blue-400">
+              <Link href="/studio" prefetch className="transition hover:text-navy-400 dark:hover:text-blue-400">
                 {t("studio")}
               </Link>
             </nav>
@@ -83,6 +83,7 @@ export function PageHeader({ showAdminButton = true, onAdminClick, hideOnScroll 
               <LangToggle />
               <Link
                 href="/pricing"
+                prefetch
                 className="hidden rounded-xl border border-navy-900/10 bg-white/50 px-4 py-2 text-sm font-semibold text-navy-700 backdrop-blur transition hover:border-navy-900/20 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-ivory-50 sm:block"
               >
                 الخطط والأسعار

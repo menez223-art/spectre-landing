@@ -148,6 +148,7 @@ export default function Home() {
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
               <Link
                 href="/store"
+                prefetch
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-navy-900 px-8 py-4 text-sm font-bold text-ivory-50 shadow-xl shadow-navy-900/20 transition hover:-translate-y-0.5 hover:bg-navy-700 dark:bg-white/10 dark:hover:bg-white/20"
               >
                 🛍️ {t("browseStore")}
@@ -189,6 +190,7 @@ export default function Home() {
                 </a>
                 <Link
                   href="/pricing"
+                  prefetch
                   className="inline-flex items-center gap-2 rounded-full px-8 py-4 font-bold text-white theme-gradient theme-shadow transition hover:theme-shadow-lg"
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
