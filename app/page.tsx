@@ -201,7 +201,7 @@ export default function Home() {
             <div className="relative">
               <div className="absolute -inset-4 rounded-3xl blur-2xl" style={{ backgroundImage: 'linear-gradient(to right, rgba(var(--theme-primary-rgb), 0.2), rgba(var(--theme-secondary-rgb), 0.2))' }} />
               <img
-                src="/FB.png"
+                src="/fb.png"
                 alt="باقات الاشتراكات"
                 className="relative w-full rounded-3xl shadow-2xl"
               />

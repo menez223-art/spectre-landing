@@ -55,10 +55,19 @@ async function countOwnedPages(owner: string): Promise<number> {
 }
 
 // فحص ملكية السلاغ: هل ينتمي فعلاً لهذا المالك؟
+// ملاحظة حرجة: resolveOwner يُعيد البريد المربوط بعد ربطه، لكن المنشور القديم
+// قد يحوي `meta.owner = device:<hash>` (نُشر قبل ربط البريد). لتفادي خسارة
+// صفحات المستخدم بسبب الربط، نقبل التحديث في هذه الحالة — owner الحالي سيُعاد
+// إسناده عبر `reassignOwner` تلقائياً في حساب الاستوديو، فلا حاجة لفرضه هنا.
 async function isOwnedBy(slug: string, owner: string): Promise<boolean> {
   try {
     const publishedOwner = await getPublishedOwner(slug);
-    return publishedOwner === owner;
+    if (!publishedOwner) return false;
+    if (publishedOwner === owner) return true;
+    // منشور قديماً بهوية جهاز، والمالك الآن بريد: نقبل التحديث ونعتمد إعادة
+    // الإسناد التلقائي في account/route عند فتح الاستوديو.
+    if (!owner.startsWith("device:") && publishedOwner.startsWith("device:")) return true;
+    return false;
   } catch {
     return false;
   }

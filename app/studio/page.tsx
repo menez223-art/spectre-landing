@@ -196,6 +196,7 @@ function draftToProduct(d: Draft, preview: boolean): Product {
     ...(d.badge.trim() ? { badge: d.badge.trim() } : {}),
     ...(d.description.trim() ? { description: d.description.trim() } : {}),
     ...(d.tagline.trim() ? { tagline: d.tagline.trim() } : {}),
+    ...(d.category && d.category !== "عام" ? { category: d.category } : {}),
     ...(features.length ? { features } : {}),
     ...(testimonials.length ? { testimonials } : {}),
     ...(stats.length ? { stats } : {}),
