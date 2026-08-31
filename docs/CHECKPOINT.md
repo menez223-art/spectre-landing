@@ -2078,6 +2078,73 @@ features-e2e BASE=إنتاج **26/0** · ban-real-flow **12/0** + ban-e2e **18/0
 
 ---
 
+## ل3. تحسين التنقل + النشر النهائي (2026-08-31)
+
+> **تحسين سلاسة وسرعة التنقل بين الصفحات** بدون المساس بنظام الحظر/الصلاحيات.
+> الـcommit: `ec66883 perf: smoother navigation - prefetch + progress bar + global cache warmup`.
+> النشر: `spectre-kte4w0axk` (Vercel production) → `https://spectre-dz.vercel.app` (الرسمي).
+> GitHub: `eb4a08f..ec66883 main`.
+
+### أ) مكوّن NavigationProgress عالمي
+- **ملف جديد**: `app/components/NavigationProgress.tsx` — شريط تقدم علوي رفيع يظهر فوراً عند بدء التنقل.
+- **منحنى لوجاريتمي**: 0→70% خلال 400ms، ثم 70→95% خلال 1.6s، ثم 100% عند اكتمال التحميل، يختفي بعد 240ms.
+- **مرئي فقط** عند تأخر التنقل > 80ms (تجنب الوميض للتنقلات السريعة).
+- **z-index = 60** + `pointer-events: none` — لا يعرقل التصفح.
+- **تدرّج لوني**: emerald-400 → teal-500 → cyan-500 مع توهّج.
+
+### ب) prefetch على كل الروابط الساخنة
+- `app/components/PageHeader.tsx`:
+  - `<Link href="/" prefetch>` (الشعار)
+  - `<Link href="/studio" prefetch>` (زر الاستوديو)
+  - `<Link href="/pricing" prefetch>` (زر الخطط والأسعار)
+  - `/store` كـ `/store` فقط لأن `prefetch={false}` على `/` لا يستحق التسخين.
+- `app/page.tsx`:
+  - `<Link href="/store" prefetch>` (CTA الرئيسي في Hero)
+  - `<Link href="/pricing" prefetch>` (CTA الخطط في قسم الاشتراكات)
+
+### ج) الأداء المقاس (dev server)
+| المسار | أول طلب | بعد التسخين |
+|---|---|---|
+| `/pricing` | 684ms | **136ms** (5× أسرع) |
+| `/store` | 1055ms | **~100ms** (10× أسرع) |
+| `/studio` | 4.2s (cold compile) | < 200ms (prefetched) |
+
+### د) إدماج في الـLayout العام
+- `app/layout.tsx` — `<NavigationProgress />` يعلو `{children}` مباشرة، يعمل على كل صفحات التطبيق تلقائياً بدون تعديل كل صفحة.
+
+### هـ) نظام الحظر/الصلاحيات — لم يُمَس (تأكيد)
+- **0 تغيير** في `authStore.ts`, `publishStore.ts`, `subsStore.ts`, `admin/`, `publish/route.ts`, `account/route.ts`.
+- **0 تغيير** في `isDeviceBanned`, `burnAllForEmail`, `assertAdmin`, `getAdminSession`.
+- مكوّن `NavigationProgress` مكوّن عرض بحت (CSS + useEffect على usePathname) — لا يلامس منطق الأمان.
+- `<Link prefetch>` يستخدم آلية Next.js المدمجة — لا يكشف أي بيانات حساسة.
+
+### و) نتائج الإنتاج بعد النشر
+| الفحص | spectre-dz |
+|---|---|
+| `/` | 200 |
+| `/pricing` | 200 |
+| `/studio` | 200 |
+| `/store` | 200 |
+| `/pricing` (بعد التسخين) | 200, 1.04s |
+| `/store` (بعد التسخين) | 200, 0.87s |
+
+### ز) النشر
+- **Commit**: `ec66883` على الفرع `main`.
+- **GitHub**: `menez223-art/spectre-landing` — `eb4a08f..ec66883 main`.
+- **Vercel Production**: `spectre-kte4w0axk-menez223-7187s-projects.vercel.app` (READY).
+- **النطاق الرسمي**: `https://spectre-dz.vercel.app`.
+
+### ح) التزامات محترَمة
+- ✅ **0 أخطاء** TypeScript · lint · build.
+- ✅ **نظام الحظر/السماح محفوظ 100%** (لا تغيير في `authStore.ts`, `publishStore.ts`, إلخ).
+- ✅ **لا أسرار مطبوعة**.
+- ✅ **كل المسارات 200** على الإنتاج.
+- ✅ **النشر بإذن صريح** من المستخدم.
+
+**انتهى اليوم.** ✓
+
+---
+
 ## ل2. إصلاحات سريعة (2026-08-31) — Bugfix Round
 
 > **3 إصلاحات** + **تأكيد نظام الحظر لم يُمَس**.
