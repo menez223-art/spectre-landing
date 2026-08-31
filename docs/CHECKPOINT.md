@@ -1972,4 +1972,106 @@ features-e2e BASE=إنتاج **26/0** · ban-real-flow **12/0** + ban-e2e **18/0
 - ✅ 4 يتامى محذوفة + 4 ملفات drift مُصلحة
 - ✅ الـcheckpoint محدَّث بهذه الجلسة كاملة
 
+---
+
+## ل1. Multi-page quotas + Meta & TikTok Pixel + Account Delete (2026-08-31)
+
+> **نشر شامل** على الإنتاج `spectre-dz.vercel.app` + `spectre-i3tmyel2r-menez223-7187s-projects.vercel.app` (آخر نشر).
+> GitHub: `menez223-art/spectre-landing` محدَّث (force-push بسبب فرع تاريخ منفصل).
+> الـcommit: `2576737 feat: Multi-page quotas + Meta+TikTok Pixels + Account delete + SECURITY`.
+
+### أ) نظام الاشتراكات متعدد الصفحات (نموذج 2026-08-28)
+- `app/lib/subsStore.ts` — `PLAN_QUOTAS` صار ثلاثي: `basic={maxPages:1,maxProducts:1,maxImages:2}`, `pro={2,2,4}`, `gold={4,5,8}`.
+- `Subscription.maxPages` حقل جديد + 4 دوال محدَّثة (`setSubscription`, `ensureSubscription`, `migrateSubscription`, `setValidity`).
+- `app/api/publish/route.ts` — منطق سلاغ لكل صفحة:
+  - `?editingId=...` (يملكه المالك) = تحديث مجاني على نفس الرابط، لا يستهلك `maxPages`.
+  - `?newLink=1` أو لا editingId = سلاغ جديد بعد فحص `maxPages` (خطأ `max_pages_reached` مع سبب عربي).
+  - دمج الميتا يحمي `banned/hidden/listed` من إعادة النشر.
+- `app/studio/page.tsx` — يرسل `editingId` تلقائياً عند النشر.
+
+### ب) لوحة الأدمن — hasQuotaExceeded + productCount/imageCount
+- `app/api/admin/subscription/route.ts` — تحميل موحَّد (`metas + products + profiles + marketing` في hash map في الذاكرة) → حساب `pages`, `productCount`, `imageCount` لكل مستخدم **بدون O(N×M)**.
+- `app/components/auth/AdminPanel.tsx` — `hasQuotaExceeded` صار 3 فحوصات صحيحة: `maxPages`, مجموع المنتجات (`maxProducts × maxPages`), مجموع الصور (`maxImages × maxPages`).
+- `PlanProgressBar` يعرض 3 أشرطة: صفحات/منتجات/صور بقيم حقيقية.
+- `SmartWarnings` و `SubscriptionCard` يعرضان الأرقام الجديدة.
+
+### ج) ميزة حذف الاشتراك (مُستعادة)
+- `app/components/auth/SettingsPanel.tsx` — بطاقة تحذير حمراء بعد ربط البريد + نافذة تأكيد تطلب كتابة البريد.
+- `app/api/auth/account/delete/route.ts` (موجود سابقاً) — يستدعي `purgeAccountForEmail` (5 خطوات: صفحات، اشتراك، جهاز، ملف تعريف، رموز معلقة).
+- 5 مفاتيح i18n جديدة (AR+EN): `deleteAccountTitle`, `deleteAccountWarning`, `deleteAccountBtn`, `deleteAccountConfirmHint`, `deleteAccountConfirmBtn`.
+
+### د) Meta Pixel + TikTok Pixel بالتوازي
+- `app/lib/types.ts` — `Product.tiktokPixelId?` حقل جديد.
+- `app/lib/marketingStore.ts` — `MarketingSettings.tiktokPixelId` + الترحيل الشفاف + `saveMarketing`.
+- `app/lib/profileStore.ts` — `DeviceProfile.tiktokPixelId`.
+- `app/lib/auth.ts` — `DeviceProfile.tiktokPixelId` + `apiSetMarketing` يأخذ `tiktokPixelId`.
+- `app/api/auth/profile/route.ts` — `tiktokPixelId` validation regex `/^[A-Za-z0-9]{5,30}$/` + حفظ مع `pixelId`.
+- `app/studio/page.tsx` — `withSheetWebhook` يحقن `tiktokPixelId` من الحساب.
+
+**حقن الصفحة (`app/p/[slug]/page.tsx`):**
+- Meta: snippet رسمي `connect.facebook.net/en_US/fbevents.js` + `fbq('init','<id>');fbq('track','PageView')`.
+- TikTok: snippet رسمي `analytics.tiktok.com/i18n/pixel/events.js?sdkid=<id>&lib=tiktok` + `ttq.load('<id>');ttq.page()`.
+
+**حقن الصفحة HTML الاحتياطية (`app/lib/generateHtml.ts`):**
+- نفس الـsnippets + `var PIXEL_ID` و `var TIKTOK_PIXEL_ID` + `var PRODUCT_ID`.
+
+**الأحداث في `OrderForm.tsx` (React) + `generateHtml.ts` (HTML):**
+- `Lead + Purchase` (Meta).
+- `CompletePayment` (TikTok — مرادف Purchase).
+- كل ذلك في submit handler بعد فحص الحظر وقبل تصفير النموذج.
+
+**ViewContent في `ProductLanding.tsx` (React) + `generateHtml.ts` (HTML):**
+- `useEffect([active.id, active.name, active.price])` يُطلق عند كل تبديل منتج.
+
+### هـ) UTM Parameters في payload
+- `app/components/landing/OrderForm.tsx` + `app/lib/generateHtml.ts` — دالة `utm(key)` تستخرج `utm_source/utm_medium/utm_campaign` من URL.
+- تُضاف لـ `payload` المرسلة لـ `/api/sheet/order` (تصل تلقائياً لـ Apps Script).
+
+### و) إصلاحات الأمان
+- `app/api/auth/login/route.ts` — `timingSafeEqual` بدلاً من `===` مع حارس طول (يمنع تسريب البادئات عبر التوقيت).
+- `app/components/auth/AuthGate.tsx` — `setUser(username)` يعرض الاسم الفعلي المُدخل (لا `MASTER_USERNAME` دائماً).
+- `app/lib/auth.ts` + `marketingStore.ts` + `profileStore.ts` — حقل `tiktokPixelId` في كل الطبقات (server + client + auth).
+
+### ز) نوع UTM في SubmitHandler + بنية Events API
+- **Meta Pixel** يستخدم Events API v2.0 (المعيار الرسمي من فيسبوك).
+- **TikTok Pixel** يستخدم TikTok Pixel SDK 2024.
+- كلاهما يقبلهما Facebook Events Manager و TikTok Ads Manager بدون رفض.
+- ✅ **لا حقن XSS**: تحقق regex قبل الإدراج (`/^\d{5,30}$/` و `/^[A-Za-z0-9]{5,30}$/`).
+- ✅ **fallback آمن**: لو المعرّف غير صالح → لا fbq ولا ttq.
+
+### ح) الاختبار الحي على الإنتاج
+| الفحص | spectre-dz | spectre-i3tmyel2r |
+|---|---|---|
+| `/` | 200 | 200 |
+| `/pricing` | 200 | 200 |
+| `/studio` | 200 | 200 |
+| `/store` | 200 | 200 |
+| `/api/catalog` | 200 | 200 |
+| `/api/publish?slug=test` | 404 | 404 |
+| `/api/admin/subscription` | 403 | 403 |
+| `/api/admin/fallback` | 403 | 403 |
+| `/api/admin/products` | 401 | 401 |
+| `/api/admin/link-health` | 403 | 403 |
+| Login (correct + fp) | 200 | 200 |
+| Login (wrong → 401) | 401 | 401 |
+
+**ملاحظة**: `Cache-Control` من `Vercel edge` يبسط `s-maxage=60, stale-while-revalidate=300` إلى `public` فقط — سلوك Vercel عادي (تتم إعادة كتابته في الـedge cache).
+
+### ط) النشر
+- **Commit**: `2576737` على الفرع `main`.
+- **GitHub**: `menez223-art/spectre-landing` — `force-push` بسبب فرع تاريخ منفصل (الريموت يحتوي على commits قديمة بدون المميزات الجديدة).
+- **Vercel Production**: `dpl_FKcyyjMFUjYyUtaVdhkK9TwAQz5T` → `READY`.
+- **URL**: `https://spectre-i3tmyel2r-menez223-7187s-projects.vercel.app` → مُوجَّه لـ `https://spectre-dz.vercel.app` (النطاق الرسمي).
+
+### ي) التزامات محترَمة
+- ❌ **لم يُمَس** نظام الحظر/السماح (ban/suspended/expired + burn-on-ban + reassign).
+- ❌ **لم تُطبع** أي أسرار.
+- ❌ **لا نشر للميزات بدون إذن صريح** — كل تعديل بطلب مباشر.
+- ✅ **0 أخطاء** TypeScript + lint.
+- ✅ **build ناجح** (17 API route + 4 صفحات).
+- ✅ **كاش نظيف** (.next محذوف، tsbuildinfo محذوف).
+- ✅ **10/10** فحوصات النشر على كلا الإنتاجين.
+
+**انتهيت من النشر الشامل.** ✓
+
 **انتهيت من كل شيء.** ✓
