@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import type { Product, Theme } from "@/app/lib/types";
 import { MAX_LANDING_PRODUCTS, MAX_LANDING_IMAGES } from "@/app/lib/types";
+import { IMAGE_MAX_BYTES_BY_PLAN, IMAGE_MAX_BYTES_DEFAULT } from "@/app/lib/utils/constants";
 import { defaultTheme, normalizeTheme } from "@/app/lib/theme";
 import {
   PaletteCorsError,
@@ -15,10 +16,11 @@ import {
 } from "@/app/lib/palette";
 import { ensureContrast } from "@/app/lib/color";
 import { getProduct, saveProduct, slugExists, slugify } from "@/app/lib/storage";
-import { CATEGORIES, generateAutoContent, type Category } from "@/app/lib/autoContent";
+import { CATEGORIES, type Category } from "@/app/lib/autoContent";
 import { DELIVERY_PRICES, WILAYAS, normalizeWilayaEntry } from "@/app/data/delivery";
 import type { WilayaPrice } from "@/app/lib/types";
-import { generateLandingHtml } from "@/app/lib/generateHtml";
+// generateHtml ثقيل (~74KB مصدراً) ولا يُستخدم إلا عند ضغطة «تحميل HTML» —
+// يُحمَّل ديناميكياً داخل المعالج كي لا يثقل حزمة الاستوديو الأولية.
 // المعاينة الحية ثقيلة (تستخرج اللوحة/ترسم المنتج) — نحمّلها ديناميكياً
 // لتقليل JS الأولي لصفحة الاستوديو، مع هيكل بديل أثناء التحميل.
 const ProductLanding = dynamic(
@@ -46,11 +48,12 @@ export interface PublishedItem {
   slug: string;
   createdAt?: string;
   updatedAt?: string;
+  listed?: boolean;
 }
 
 // ينسّق مدة الصلاحية للعرض في الستوديو (عربية RTL).
 const stInput =
-  "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-sm text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50 dark:placeholder:text-ivory-50/35";
+  "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50 dark:placeholder:text-ivory-50/35";
 const stBtnGhost =
   "rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400";
 const stBtnIcon =
@@ -363,6 +366,16 @@ function StudioInner() {
   const [publishedInfo, setPublishedInfo] = useState<{ url: string; slug: string } | null>(null);
   const [publishedList, setPublishedList] = useState<PublishedItem[]>([]);
   const [copiedPublished, setCopiedPublished] = useState(false);
+  // إحصائيات زيارات صفحة المالك هذا الشهر — تُجلب مرة عند توفر البصمة
+  const [myVisits, setMyVisits] = useState<number | null>(null);
+  // تحميل الصفحة المنشورة إلى المحرّر («تعديل السعر والصور»): السلاغ قيد
+  // الجلب حالياً (لتعطيل الأزرار وعرض «جارٍ التحميل» في مكانه) + إشعار يظهر
+  // أعلى النموذج بعد التحميل + آخر سلاغ نُسِخ (لزر النسخ في قائمة المنشورات).
+  const [editLoadingSlug, setEditLoadingSlug] = useState<string | null>(null);
+  const [editNotice, setEditNotice] = useState(false);
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  // إدراج الصفحة في المتجر العام (Pro/Gold فقط) — تُزامَن من حالة الخادم عند التحميل.
+  const [listPublic, setListPublic] = useState(false);
   const [imageTab, setImageTab] = useState<"upload" | "url">("upload");
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [paletteWarning, setPaletteWarning] = useState("");
@@ -378,7 +391,32 @@ function StudioInner() {
       ),
     [draft.items]
   );
-  const remainingImages = Math.max(0, MAX_LANDING_IMAGES - totalImages);
+  // ── حدود الخطة الفعّالة ──
+  // الحد الأدنى بين حدّ الخطة (من صف الاشتراك) والسقف العام للنظام. مشترك بلا
+  // حقول حصص (صف قديم) يسقط إلى السقف العام. هذه الحدود للعرض وتعطيل الأزرار
+  // فقط — الحارس القاطع يبقى خادمياً في /api/publish (fail-closed).
+  const effectiveMaxProducts = Math.min(subscription?.maxProducts ?? MAX_LANDING_PRODUCTS, MAX_LANDING_PRODUCTS);
+  const effectiveMaxImages = Math.min(subscription?.maxImages ?? MAX_LANDING_IMAGES, MAX_LANDING_IMAGES);
+  const remainingImages = Math.max(0, effectiveMaxImages - totalImages);
+  const atProductLimit = draft.items.length >= effectiveMaxProducts;
+  const planCode = subscription?.plan ?? "basic";
+  // اسم الخطة المعروض (مترجَم) للفتة العلوية.
+  const planName = subscription
+    ? subscription.plan === "gold"
+      ? t("planGold")
+      : subscription.plan === "pro"
+        ? t("planPro")
+        : t("planBasic")
+    : "";
+  // إتاحة إدراج المتجر العام حصراً لخطتَي Pro/Gold.
+  const canListPublic = planCode === "pro" || planCode === "gold";
+  // حجب كامل للاستوديو عند توقّف/انتهاء الاشتراك: مدّة = 0 أو حالة موقوف/منتهٍ.
+  // (الحجب عند الدخول ابتداءً تتكفّل به AuthGate؛ هذا يغطّي الانتهاء أثناء الجلسة.)
+  const subBlocked =
+    subscription != null &&
+    (subscription.status === "suspended" ||
+      subscription.status === "expired" ||
+      subscription.remainingDays === 0);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id");
@@ -404,6 +442,11 @@ function StudioInner() {
   useEffect(() => {
     if (!fingerprint) return;
     loadPublishedList();
+    // إحصائيات زيارات صفحة المالك هذا الشهر
+    fetch(`/api/my-page-stats?fingerprint=${encodeURIComponent(fingerprint)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setMyVisits(typeof d?.visits === "number" ? d.visits : null))
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fingerprint]);
 
@@ -415,11 +458,19 @@ function StudioInner() {
   // حقن هوية الجدول الثابتة (البريد + المفتاح) في المنتج عند التوليد/النشر،
   // مع إبقاء رابط الجدول الحالي كاحتياط مخبّأ. الحلّ الديناميكي للرابط الحيّ
   // يتم خادمياً عبر sheetResolver (ينشر/يخدُم) أو وقت التحميل (HTML ثابت).
+  // نرفق كذلك الحقول التسويقية الاختيارية: بكسل فيسبوك + بكسل تيكتوك +
+// واتساب الطلبات — يقرأها /p/<slug> و HTML الاحتياطي لحقن fbq + ttq
+// وبناء زر wa.me بعد نجاح النموذج.
   function withSheetWebhook(product: Product): Product {
     const next: Product = { ...product };
     if (account?.sheetUrl) next.sheetWebhook = account.sheetUrl;
     if (account?.email) next.sheetEmail = account.email;
     if (account?.sheetKey) next.sheetKey = account.sheetKey;
+    if (account?.pixelId) next.pixelId = account.pixelId;
+    if (account?.tiktokPixelId) next.tiktokPixelId = account.tiktokPixelId;
+    if (account?.whatsapp) next.whatsapp = account.whatsapp;
+    // اسم المتجر الودّي — يظهر في المتجر العام فقط إن أذن صاحبه صراحةً.
+    if (account?.showNamePublicly && account?.storeName) next.ownerDisplayName = account.storeName;
     return next;
   }
 
@@ -444,6 +495,13 @@ function StudioInner() {
   // الصور والألوان تُحرَّر لـ activeItem (العنصر النشط في محرّر المنتجات).
   async function handleMainImage(file: File) {
     if (!file) return;
+    // حدّ حجم ملف المصدر حسب الخطة — قبل الضغط (رسالة واضحة عند التجاوز).
+    const maxBytes = IMAGE_MAX_BYTES_BY_PLAN[planCode] ?? IMAGE_MAX_BYTES_DEFAULT;
+    if (file.size > maxBytes) {
+      setError(t("imageTooLargeForPlan", { plan: planName || planCode, mb: Math.round(maxBytes / 1_000_000) }));
+      return;
+    }
+    setError("");
     const dataUrl = await compressImage(file);
     setDraft((d) => {
       const items = d.items.slice();
@@ -465,15 +523,26 @@ function StudioInner() {
 
   async function handleAddImage(file: File) {
     if (!file) return;
+    // حدّ الصور حسب الخطة: عند بلوغ سقف صور الصفحة نُظهر رسالة واضحة بدل
+    // التجاهل الصامت («خطتك تسمح بصورتين فقط» للأساسية).
+    if (remainingImages <= 0) {
+      setError(t("planLimitImages", { plan: planCode, max: effectiveMaxImages }));
+      return;
+    }
+    // حدّ حجم ملف المصدر حسب الخطة — قبل الضغط (رسالة واضحة عند التجاوز).
+    const maxBytes = IMAGE_MAX_BYTES_BY_PLAN[planCode] ?? IMAGE_MAX_BYTES_DEFAULT;
+    if (file.size > maxBytes) {
+      setError(t("imageTooLargeForPlan", { plan: planName || planCode, mb: Math.round(maxBytes / 1_000_000) }));
+      return;
+    }
     const dataUrl = await compressImage(file, 800);
     setDraft((d) => {
       const items = d.items.slice();
       const it = items[activeItem];
-      // حماية الواجهة: لا تتجاوز الحد الأقصى للصور (باقي رصيد الصفحة).
-      if (it.images.length >= remainingImages) return d;
       items[activeItem] = { ...it, images: [...it.images, dataUrl] };
       return { ...d, items };
     });
+    setError("");
   }
 
   async function handleExtract() {
@@ -524,7 +593,7 @@ function StudioInner() {
   }
 
   // توليد المحتوى تلقائياً — يملأ الحقول التسويقية من الاسم والسعر والتصنيف
-  function handleAutoGenerate() {
+  async function handleAutoGenerate() {
     if (locked) return;
     // الاسم المرجعي لتوليد المحتوى: اسم المنتج النشط (منتج واحد) أو عنوان
     // المتجر (متعدد). في منتج واحد نعتمد اسم البطاقة لا «عنوان المتجر».
@@ -537,7 +606,8 @@ function StudioInner() {
     }
     setError("");
     const active = draft.items[activeItem];
-    const content = generateAutoContent({
+    const { generateAutoContent } = await import("@/app/lib/autoContent");
+    const content = await generateAutoContent({
       name: refName,
       nameEn: (active?.nameEn || "").trim() || undefined,
       price: Math.max(0, Number(active?.price) || 0),
@@ -595,6 +665,7 @@ function StudioInner() {
       return;
     }
     try {
+      const { generateLandingHtml } = await import("@/app/lib/generateHtml");
       const html = await generateLandingHtml(product);
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const url = URL.createObjectURL(blob);
@@ -666,8 +737,54 @@ function StudioInner() {
       if (!res.ok) return;
       const data = (await res.json()) as { products?: PublishedItem[] };
       setPublishedList(data.products ?? []);
+      // مزامنة مبدّل «المتجر العام» مع حالة الخادم (لكل مالك صفحة واحدة).
+      setListPublic(Boolean(data.products?.[0]?.listed));
     } catch {
       // القائمة اختيارية — لا نعرض خطأً عند تعذّرها
+    }
+  }
+
+  // —— تحميل صفحة منشورة إلى المحرّر (زر «تعديل» بجانب كل صفحة) ——
+  // نجلب المنتج الكامل من الخادم (المصدر الحيّ الأدق من نسخة localStorage
+  // التي قد تكون قديمة أو من جهاز آخر)، ثم نحوّله مسودةً عبر productToDraft
+  // التي تدعم وضع المتجر (كل المنتجات: الأسعار/الصور/الألوان) والإعدادات.
+  // بعدها يعدّل المستخدم ما يشاء ويعيد النشر بنفسه: «تحديث الرابط» = نفس
+  // الرابط، أو «♻ رابط جديد» / خانة الرابط = رابط مختلف — حرية كاملة.
+  async function handleEditPublished(targetSlug?: string) {
+    const slug = (targetSlug ?? publishedInfo?.slug ?? "").trim();
+    if (!slug || editLoadingSlug) return;
+    setEditLoadingSlug(slug);
+    setError("");
+    try {
+      const res = await fetch(`/api/publish?slug=${encodeURIComponent(slug)}`);
+      if (!res.ok) {
+        setError(t("errEditLoad"));
+        return;
+      }
+      const data = (await res.json().catch(() => ({}))) as { product?: Product };
+      if (!data.product) {
+        setError(t("errEditLoad"));
+        return;
+      }
+      const loaded = productToDraft(data.product);
+      setDraft(loaded);
+      setActiveItem(0);
+      setEditingId(slug);
+      // افتح «خيارات متقدمة» إن كانت الأقسام ممتلئة — نفس منطق فتح ?id=
+      if (
+        loaded.features.length ||
+        loaded.testimonials.length ||
+        loaded.stats.length ||
+        loaded.extracted
+      ) {
+        setAdvancedOpen(true);
+      }
+      setEditNotice(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      setError(t("errEditLoad"));
+    } finally {
+      setEditLoadingSlug(null);
     }
   }
 
@@ -712,14 +829,20 @@ function StudioInner() {
     setPublishing(true);
     try {
       const qs = new URLSearchParams({ fingerprint });
+      if (editingId) qs.set("editingId", editingId);
       if (opts?.newLink) qs.set("newLink", "1");
+      // إدراج المتجر العام (Pro/Gold فقط) — الخادم يفرض الحصرية أيضاً.
+      if (canListPublic && listPublic) qs.set("listPublic", "1");
       const res = await fetch(`/api/publish?${qs.toString()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(product),
       });
-      const data = (await res.json().catch(() => ({}))) as { url?: string; slug?: string; error?: string };
-      if (res.status === 403 && (data.error === "incomplete" || data.error === "banned" || data.error === "suspended")) {
+      const data = (await res.json().catch(() => ({}))) as { url?: string; slug?: string; error?: string; reason?: string };
+      if (res.status === 403 && data.error === "quota_exceeded") {
+        // تجاوز حصّة الخطة (منتجات/صور) — نعرض سبب الخادم الصريح إن وُجد.
+        setError(data.reason || t("planLimitProducts", { plan: planCode, max: effectiveMaxProducts }));
+      } else if (res.status === 403 && (data.error === "incomplete" || data.error === "banned" || data.error === "suspended")) {
         setError(t("errPublishLocked"));
       } else if (res.status === 503 && data.error === "config") {
         setError(t("errPublishConfig"));
@@ -729,6 +852,7 @@ function StudioInner() {
         setError(t("errPublish"));
       } else {
         setPublishedInfo({ url: data.url, slug: data.slug ?? "" });
+        setEditNotice(false);
         loadPublishedList();
       }
     } catch {
@@ -744,6 +868,20 @@ function StudioInner() {
       await navigator.clipboard.writeText(publishedInfo.url);
       setCopiedPublished(true);
       setTimeout(() => setCopiedPublished(false), 2000);
+    } catch {
+      setError(t("errCopyUrl"));
+    }
+  }
+
+  // نسخ رابط صفحة من قائمة المنشورات (زر النسخ الدائم بجانب كل صفحة).
+  async function copyPageUrl(slug: string) {
+    const row = publishedList.find((x) => x.id === slug);
+    const url = row?.url ?? publishedInfo?.url;
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedSlug(slug);
+      setTimeout(() => setCopiedSlug((s) => (s === slug ? null : s)), 2000);
     } catch {
       setError(t("errCopyUrl"));
     }
@@ -796,6 +934,42 @@ function StudioInner() {
     } finally {
       setDeleting(false);
     }
+  }
+
+  // حجب كامل: عند توقّف/انتهاء الاشتراك يُمنع الدخول للاستوديو تماماً (لا نشر
+  // ولا تحرير) — رسالة واضحة وزرّا الإعدادات/الخروج فقط. الحارس القاطع خادمي.
+  if (subBlocked) {
+    const isExpiry = !subscription?.reason || subscription.reason.includes("انتهت صلاحية");
+    return (
+      <div className="grid min-h-screen place-items-center bg-ivory-50 px-6 text-navy-900 dark:bg-[#0d1117] dark:text-ivory-50">
+        <div className="w-full max-w-md rounded-3xl border border-red-300/40 bg-white p-8 text-center shadow-2xl dark:border-red-500/30 dark:bg-[#161b22]">
+          <span className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-red-100 text-3xl dark:bg-red-900/40">⏳</span>
+          <h1 className="mb-2 text-xl font-extrabold">{t("subBlockTitle")}</h1>
+          <p className="text-sm leading-7 text-navy-900/75 dark:text-ivory-50/75" dir="auto">
+            {isExpiry ? t("subExpiredBlock") : t("subSuspendedBlock")}
+          </p>
+          {!isExpiry && subscription?.reason ? (
+            <p className="mt-2 text-xs text-navy-900/50 dark:text-ivory-50/50" dir="auto">
+              {subscription.reason}
+            </p>
+          ) : null}
+          <div className="mt-6 flex justify-center gap-3">
+            <button
+              onClick={openSettings}
+              className="rounded-full border border-navy-900/15 px-5 py-2.5 text-sm font-bold text-navy-700 transition hover:bg-navy-900/5 dark:border-white/15 dark:text-ivory-50"
+            >
+              {t("settings")}
+            </button>
+            <button
+              onClick={logout}
+              className="rounded-full bg-navy-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-navy-400"
+            >
+              {t("logout")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -867,18 +1041,18 @@ function StudioInner() {
           </div>
         </div>
       )}
-      {/* شريط علوي */}
-      <header className="sticky top-0 z-30 border-b border-navy-900/10 bg-white/85 backdrop-blur dark:border-white/10 dark:bg-[#0d1117]/85">
-        <div className="container-landing flex flex-wrap items-center justify-between gap-3 py-3">
+      {/* شريط علوي — زجاج سائل pill لاصقة. على الجوال: صفّان (العلوي: هوية/رجوع، السفلي: أدوات+نشر أفقي قابل للتمرير). */}
+      <header className="sticky top-0 z-30 border-b border-navy-900/10 dark:border-white/10">
+        <div className="container-landing flex flex-col gap-2 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:py-3">
           {/* اليمين: رجوع + العلامة + عنوان الصفحة */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/"
-              className="flex items-center gap-2 rounded-full border border-navy-900/15 px-3.5 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900"
+              className="flex items-center gap-1.5 rounded-full border border-navy-900/15 px-2.5 py-1.5 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 sm:gap-2 sm:px-3.5 sm:py-2"
               title={t("backToDashboard")}
             >
               <span aria-hidden className="text-sm leading-none">→</span>
-              {t("backToDashboard")}
+              <span className="hidden sm:inline">{t("backToDashboard")}</span>
             </Link>
             <Link href="/" className="hidden font-display text-xl font-extrabold text-navy-900 sm:block">
               {t("brandField")}
@@ -886,70 +1060,88 @@ function StudioInner() {
             <span className="hidden max-w-[12rem] truncate text-xs text-navy-900/50 md:block">
               {editingId ? t("editing", { id: editingId }) : t("studioTitle")}
             </span>
+            {/* لفتة الخطة والأيام المتبقية — تُظهر للمستخدم خطته والمدة المتبقية.
+                على الجوال: أيقونة الخطة فقط (شارة لون). على الديسكتوب: نص كامل. */}
+            {subscription && planName ? (
+              <span
+                className="flex items-center gap-1 rounded-full border border-navy-900/10 bg-white/60 px-2 py-0.5 text-[10px] font-bold sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[11px] dark:border-white/10 dark:bg-white/5"
+                title={
+                  subscription.remainingDays == null
+                    ? t("subPermanent")
+                    : t("subRemaining", { n: subscription.remainingDays })
+                }
+              >
+                <span className="text-navy-900/90 dark:text-ivory-50">{planName}</span>
+                <span className="hidden text-navy-900/25 sm:inline dark:text-white/20">·</span>
+                <span className="hidden text-navy-900/55 sm:inline dark:text-ivory-50/60">
+                  {subscription.remainingDays == null
+                    ? t("subPermanent")
+                    : t("subRemaining", { n: subscription.remainingDays })}
+                </span>
+              </span>
+            ) : null}
           </div>
 
-          {/* اليسار: الإجراءات مرتّبة — أدوات ثم نشر.
-              مجموعتان منفصلتان (أيقونات | إجراءات) بفاصل واضح لتفادي الازدحام. */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* مجموعة الأيقونات: ثيم / لغة / إعدادات / خروج */}
-            <div className="flex items-center gap-1.5">
+          {/* اليسار: الإجراءات مرتّبة. على الجوال: صفّ أفقي قابل للتمرير لإبقاء الأزرار على سطر واحد. */}
+          <div className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:px-0 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {/* مجموعة الأيقونات: ثيم / لغة / إعدادات / خروج — تبقى في مكانها على الجوال */}
+            <div className="flex shrink-0 items-center gap-1 rounded-xl border border-navy-900/10 bg-white/50 p-1 dark:border-white/10 dark:bg-white/5">
               <ThemeToggle />
               <LangToggle />
               {user && (
-                <button onClick={openSettings} className={stBtnIcon} title={t("settings")} aria-label={t("settings")}>
+                <button onClick={openSettings} className={`${stBtnIcon} shrink-0`} title={t("settings")} aria-label={t("settings")}>
                   ⚙
                 </button>
               )}
               {user && (
-                <button onClick={logout} className={stBtnIcon} title={`${t("logout")} · ${user}`} aria-label={t("logout")}>
+                <button onClick={logout} className={`${stBtnIcon} shrink-0`} title={`${t("logout")} · ${user}`} aria-label={t("logout")}>
                   ⎋
                 </button>
               )}
             </div>
-            <div className="mx-0.5 hidden h-6 w-px bg-navy-900/10 sm:block" />
-            {/* مجموعة الإجراءات: توليد المحتوى · تحميل HTML · توليد الصفحة · نشر · رابط جديد */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleAutoGenerate}
-                disabled={locked}
-                title={locked ? t("lockedHint") : t("generateContent")}
-                className={`rounded-full bg-navy-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-navy-400 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-              >
-                {t("generateContent")}
-              </button>
-              <button
-                onClick={handleDownloadHtml}
-                disabled={locked}
-                title={locked ? t("lockedHint") : t("downloadHtml")}
-                className={`${stBtnGhost} ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-              >
-                {t("downloadHtml")}
-              </button>
-              <button
-                onClick={handleGenerate}
-                disabled={locked}
-                title={locked ? t("lockedHint") : t("generatePage")}
-                className={`${stBtnGhost} ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-              >
-                {t("generatePage")}
-              </button>
-              <button
-                onClick={() => handlePublish()}
-                disabled={locked || publishing}
-                title={locked ? t("lockedHint") : t("publishReplace")}
-                className={`rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-60 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-              >
-                {publishing ? t("publishing") : t("publishReplace")}
-              </button>
-              <button
-                onClick={() => handlePublish({ newLink: true })}
-                disabled={locked || publishing}
-                title={t("newLinkHint")}
-                className={`rounded-full border border-red-500/40 px-4 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-500/10 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
-              >
-                ♻ {t("newLink")}
-              </button>
-            </div>
+            <div className="mx-0.5 hidden h-6 w-px shrink-0 bg-navy-900/10 sm:block" />
+            {/* مجموعة الإجراءات: توليد المحتوى · تحميل HTML · توليد الصفحة · نشر · رابط جديد
+                على الجوال: scroll-snap للحماية من التراكم العمودي. */}
+            <button
+              onClick={handleAutoGenerate}
+              disabled={locked}
+              title={locked ? t("lockedHint") : t("generateContent")}
+              className={`shrink-0 scroll-mx-1 rounded-xl bg-navy-500 px-3 py-1.5 text-[11px] font-bold whitespace-nowrap text-white transition hover:bg-navy-400 sm:px-4 sm:py-2 sm:text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+            >
+              {t("generateContent")}
+            </button>
+            <button
+              onClick={handleDownloadHtml}
+              disabled={locked}
+              title={locked ? t("lockedHint") : t("downloadHtml")}
+              className={`${stBtnGhost} shrink-0 scroll-mx-1 !px-3 !py-1.5 !text-[11px] whitespace-nowrap sm:!px-4 sm:!py-2 sm:!text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+            >
+              {t("downloadHtml")}
+            </button>
+            <button
+              onClick={handleGenerate}
+              disabled={locked}
+              title={locked ? t("lockedHint") : t("generatePage")}
+              className={`${stBtnGhost} shrink-0 scroll-mx-1 !px-3 !py-1.5 !text-[11px] whitespace-nowrap sm:!px-4 sm:!py-2 sm:!text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+            >
+              {t("generatePage")}
+            </button>
+            <button
+              onClick={() => handlePublish()}
+              disabled={locked || publishing}
+              title={locked ? t("lockedHint") : t("publishReplace")}
+              className={`shrink-0 scroll-mx-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-3 py-1.5 text-[11px] font-bold whitespace-nowrap text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl hover:shadow-blue-500/50 disabled:opacity-60 sm:px-4 sm:py-2 sm:text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+            >
+              {publishing ? t("publishing") : t("publishReplace")}
+            </button>
+            <button
+              onClick={() => handlePublish({ newLink: true })}
+              disabled={locked || publishing}
+              title={t("newLinkHint")}
+              className={`shrink-0 scroll-mx-1 rounded-full border border-red-500/40 px-3 py-1.5 text-[11px] font-bold whitespace-nowrap text-red-600 transition hover:bg-red-50 disabled:opacity-60 sm:px-4 sm:py-2 sm:text-xs dark:hover:bg-red-500/10 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+            >
+              ♻ {t("newLink")}
+            </button>
           </div>
         </div>
       </header>
@@ -957,6 +1149,19 @@ function StudioInner() {
       <div className="container-landing grid gap-8 py-8 lg:grid-cols-2">
         {/* النموذج */}
         <div className="space-y-6 pb-10">
+          {/* بانر تأكيد تحميل الصفحة المنشورة إلى المحرّر — يختفي عند النشر أو الإغلاق */}
+          {editNotice && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-400/40 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-500/30 dark:bg-emerald-500/10">
+              <p className="text-emerald-800 dark:text-emerald-300">{t("editLoadedHint")}</p>
+              <button
+                onClick={() => setEditNotice(false)}
+                aria-label={t("close")}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-emerald-700 transition hover:bg-emerald-500/10 dark:text-emerald-300"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {!account?.sheetUrl && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/40 bg-amber-50 px-4 py-3 text-sm">
               <p className="text-amber-900">
@@ -974,7 +1179,7 @@ function StudioInner() {
           )}
 
           {/* المعلومات الأساسية */}
-          <section className="grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
+          <section className="liquid-glass liquid-glass--rounded grid gap-4 overflow-hidden rounded-3xl p-5">
             <h2 className="font-display text-base font-bold">{t("productInfo")}</h2>
             {/* عنوان المتجر: يظهر فقط في وضع المتجر (منتجات متعددة).
                 في منتج واحد نعتمد اسم المنتج كترويسة تلقائياً لتفادي التكرار. */}
@@ -1140,23 +1345,30 @@ function StudioInner() {
           </section>
 
           {/* لوحة المنتجات الموحّدة: البطاقات + الحقول + الصورة + الألوان */}
-          <section className="grid gap-5 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
+          <section className="liquid-glass liquid-glass--rounded grid gap-5 overflow-hidden rounded-3xl p-5">
           <ProductItemsEditor
             bare
             items={draft.items}
             activeIndex={activeItem}
             remainingImages={remainingImages}
-            maxProducts={MAX_LANDING_PRODUCTS}
+            maxProducts={effectiveMaxProducts}
+            atLimitNote={atProductLimit ? t("planLimitProducts", { plan: planCode, max: effectiveMaxProducts }) : undefined}
             lang={lang}
             dir={dir}
             onSelect={(i) => setActiveItem(i)}
             onChange={(items) => setDraft((d) => ({ ...d, items }))}
             onAdd={() => {
+              // حدّ المنتجات حسب الخطة: رسالة واضحة عند بلوغ السقف بدل التجاهل.
+              if (draft.items.length >= effectiveMaxProducts) {
+                setError(t("planLimitProducts", { plan: planCode, max: effectiveMaxProducts }));
+                return;
+              }
               setDraft((d) => {
-                if (d.items.length >= MAX_LANDING_PRODUCTS) return d;
+                if (d.items.length >= effectiveMaxProducts) return d;
                 return { ...d, items: [...d.items, emptyItem()] };
               });
               setActiveItem(draft.items.length);
+              setError("");
             }}
             onRemove={(i) => {
               setDraft((d) => {
@@ -1291,11 +1503,18 @@ function StudioInner() {
                   </button>
                 </div>
               ))}
-              {remainingImages > 0 && (
+              {remainingImages > 0 ? (
                 <label className={`${stBtnGhost} cursor-pointer text-center`}>
                   {t("addImage")}
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleAddImage(e.target.files[0])} />
                 </label>
+              ) : (
+                <p
+                  className="rounded-xl border border-amber-400/30 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+                  dir="auto"
+                >
+                  {t("planLimitImages", { plan: planCode, max: effectiveMaxImages })}
+                </p>
               )}
 
               {/* ألوان العنصر النشط — يختارها الزبون للعرض فقط */}
@@ -1365,7 +1584,7 @@ function StudioInner() {
           </section>
 
           {/* خيارات متقدمة — الألوان / المميزات / الإحصائيات / الآراء */}
-          <section className="rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
+          <section className="liquid-glass liquid-glass--rounded overflow-hidden rounded-3xl p-5">
             <button
               type="button"
               onClick={() => setAdvancedOpen((v) => !v)}
@@ -1478,7 +1697,7 @@ function StudioInner() {
           </section>
 
           {/* النشر المباشر */}
-          <section className="grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
+          <section className="liquid-glass liquid-glass--rounded grid gap-4 overflow-hidden rounded-3xl p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-base font-bold">{t("publishSection")}</h2>
               <button
@@ -1499,6 +1718,27 @@ function StudioInner() {
               </button>
             </div>
 
+            {/* مبدّل المتجر العام — حصري لخطتَي Pro/Gold (يُطبَّق عند النشر) */}
+            {canListPublic && (
+              <label className="flex items-center justify-between gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 px-4 py-3 dark:border-white/10 dark:bg-[#161b22]">
+                <span className="grid gap-0.5">
+                  <span className="text-xs font-bold text-navy-900 dark:text-ivory-50">{t("listPublicLabel")}</span>
+                  <span className="text-[11px] leading-5 text-navy-900/55 dark:text-ivory-50/55">{t("listPublicHint")}</span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={listPublic}
+                  onClick={() => setListPublic((v) => !v)}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition ${listPublic ? "bg-emerald-500" : "bg-navy-900/20 dark:bg-white/20"}`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${listPublic ? "start-0.5" : "end-0.5"}`}
+                  />
+                </button>
+              </label>
+            )}
+
             {publishedInfo ? (
               <div className="grid gap-3 rounded-2xl border border-emerald-300/40 bg-emerald-50 p-4">
                 <p className="text-xs font-bold text-emerald-800">{t("publishedOk")}</p>
@@ -1515,6 +1755,14 @@ function StudioInner() {
                   <a href={publishedInfo.url} target="_blank" rel="noopener noreferrer" className={stBtnGhost}>
                     {t("open")}
                   </a>
+                  <button
+                    onClick={() => handleEditPublished()}
+                    disabled={Boolean(editLoadingSlug)}
+                    title={t("editProductsHint")}
+                    className={`${stBtnGhost} ${editLoadingSlug === publishedInfo.slug ? "opacity-60" : ""}`}
+                  >
+                    ✏️ {editLoadingSlug === publishedInfo.slug ? t("editLoadingBtn") : t("editProductsBtn")}
+                  </button>
                 </div>
                 <p className="text-[11px] leading-5 text-emerald-800/80">
                   {t("publishNote")}
@@ -1531,16 +1779,29 @@ function StudioInner() {
               </p>
             )}
 
+            {/* بطاقة إحصائيات زيارات صفحة المالك هذا الشهر */}
+            {myVisits !== null && (
+              <div className="flex items-center justify-between gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-500/30 dark:bg-sky-500/10">
+                <span className="text-xs font-semibold text-sky-900 dark:text-sky-200">📊 {t("myVisitsLabel")}</span>
+                <span className="font-display text-lg font-extrabold text-sky-700 dark:text-sky-300">
+                  {myVisits.toLocaleString()}
+                </span>
+              </div>
+            )}
+
             {/* مدير المنشورات */}
             {publishedList.length > 0 && (
               <div className="grid gap-2">
                 <p className="text-[11px] font-bold text-navy-900/50">{t("publishedPages", { n: publishedList.length })}</p>
                 {publishedList.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-2.5">
+                  <div
+                    key={p.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-navy-900/10 bg-ivory-50 p-2.5 dark:border-white/10 dark:bg-[#161b22]"
+                  >
                     {p.image && (
                       <img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-navy-900/10" />
                     )}
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 basis-40">
                       <p className="truncate text-xs font-bold text-navy-900">{p.name}</p>
                       <a
                         href={p.url}
@@ -1552,12 +1813,32 @@ function StudioInner() {
                         {p.url}
                       </a>
                     </div>
-                    <button
-                      onClick={() => setDeleteTarget({ slug: p.id, name: p.name })}
-                      className="shrink-0 text-[11px] font-bold text-red-600 hover:underline"
-                    >
-                      {t("cancel")}
-                    </button>
+                    {/* الإجراءات الدائمة لكل صفحة: تعديل (يحمّلها للمحرّر) · نسخ · إلغاء */}
+                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                      <button
+                        onClick={() => handleEditPublished(p.id)}
+                        disabled={Boolean(editLoadingSlug)}
+                        title={t("editProductsHint")}
+                        className={`rounded-full border border-navy-900/15 bg-white px-3 py-1.5 text-[11px] font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 disabled:opacity-50 dark:border-white/15 dark:bg-[#11161d] dark:text-ivory-50 dark:hover:border-navy-400 ${
+                          editLoadingSlug === p.id ? "opacity-60" : ""
+                        }`}
+                      >
+                        ✏️ {editLoadingSlug === p.id ? t("editLoadingBtn") : t("editBtn")}
+                      </button>
+                      <button
+                        onClick={() => copyPageUrl(p.id)}
+                        title={t("copy")}
+                        className="rounded-full border border-navy-900/15 px-3 py-1.5 text-[11px] font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400"
+                      >
+                        {copiedSlug === p.id ? `✓ ${t("copiedShort")}` : t("copy")}
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget({ slug: p.id, name: p.name })}
+                        className="shrink-0 px-1 text-[11px] font-bold text-red-600 hover:underline"
+                      >
+                        {t("cancel")}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1571,7 +1852,7 @@ function StudioInner() {
 
         {/* المعاينة المباشرة */}
         <div className="self-start lg:sticky lg:top-24">
-          <div className="overflow-hidden rounded-3xl border border-navy-900/10 bg-white shadow-sm dark:border-white/10 dark:bg-[#11161d]">
+          <div className="liquid-glass liquid-glass--rounded overflow-hidden rounded-3xl">
             <div className="flex items-center justify-between border-b border-navy-900/10 px-5 py-3 text-xs font-bold text-navy-700 dark:border-white/10 dark:text-ivory-50">
               <span>{t("preview")}</span>
               <span dir="ltr" className="text-navy-900/45">/p/{previewProduct.id}</span>

@@ -5,13 +5,16 @@
 
 import { deleteKv, getKv, listKv, setKv, deleteKvMany } from "./kvStore";
 import { type Product } from "./types";
+import { getSubscription, type Plan } from "./subsStore";
+import { KV_PREFIXES } from "./utils/constants";
+import { nowISO } from "./utils/date";
 
 if (typeof window !== "undefined") {
   throw new Error("publishStore.ts is server-only");
 }
 
-const BLOB_PREFIX = "published/";
-const META_PREFIX = "published-meta/";
+const BLOB_PREFIX = KV_PREFIXES.PUBLISHED;
+const META_PREFIX = KV_PREFIXES.PUBLISHED_META;
 
 export function hasPublishStore(): boolean {
   return true; // KV معطّل دائماً متى توفرت بيئة Supabase
@@ -26,6 +29,15 @@ export interface PublishMeta {
   // علامة حرق/حظر مباشرة على المنشور — تُكتب عند حظر الأدمن للمستخدم
   // كي تتوقف الروابط فوراً 100% بغض النظر عن تطابق هوية الجهاز/البريد.
   banned?: boolean;
+  // إدراج اختياري في المتجر العام على الرئيسية — يفعّله المالك (Pro/Gold فقط).
+  // مستقل تماماً عن banned. غياب الحقل = غير مُدرَج (خاص).
+  listed?: boolean;
+  // إخفاء إشرافي من المتجر العام فقط (يضبطه الأدمن) — لا يمسّ صفحة /p/<slug>
+  // ولا نظام حظر الأجهزة. مفهوم منفصل عن banned. غياب الحقل = ظاهر.
+  hidden?: boolean;
+  // تجربة Agent: صالحة حتى هذا التاريخ ثم تُعتبر الرابط ميتاً (404) ما لم
+  // يُحوَّل إلى دائم عبر تأكيد الدفع (يُمسح الحقل عند التأكيد).
+  trialUntil?: string;
 }
 
 // قراءة منشور واحد عبر السلاگ
@@ -129,7 +141,8 @@ export async function reassignOwner(fromOwner: string, toOwner: string): Promise
   let count = 0;
   for (const { slug } of entries) {
     try {
-      await setPublishedMeta(slug, { owner: toOwner, createdAt: new Date().toISOString() });
+      const meta = await getKv<PublishMeta>(`${META_PREFIX}${slug}.json`);
+      await setPublishedMeta(slug, { ...(meta ?? {}), owner: toOwner, createdAt: meta?.createdAt ?? nowISO() });
       count += 1;
     } catch {
       // تجاهل فشل ملف واحد
@@ -146,7 +159,7 @@ export async function allOwnersForEmail(email: string): Promise<string[]> {
   const lower = email.toLowerCase();
   const owners = new Set<string>([lower]);
   try {
-    const rows = await listKv("studio-auth/profiles/");
+    const rows = await listKv(KV_PREFIXES.PROFILES);
     for (const row of rows) {
       const profile = row.value as import("./profileStore").DeviceProfile | null;
       if (!profile?.email) continue;
@@ -175,8 +188,9 @@ export async function burnPublishedOwned(owner: string): Promise<number> {
       try {
         const meta = await getKv<PublishMeta>(`${META_PREFIX}${slug}.json`);
         await setPublishedMeta(slug, {
+          ...(meta ?? {}),
           owner,
-          createdAt: meta?.createdAt ?? new Date().toISOString(),
+          createdAt: meta?.createdAt ?? nowISO(),
           banned: true,
         });
         count += 1;
@@ -200,8 +214,9 @@ export async function unburnPublishedOwned(owner: string): Promise<number> {
       try {
         const meta = await getKv<PublishMeta>(`${META_PREFIX}${slug}.json`);
         await setPublishedMeta(slug, {
+          ...(meta ?? {}),
           owner,
-          createdAt: meta?.createdAt ?? new Date().toISOString(),
+          createdAt: meta?.createdAt ?? nowISO(),
           banned: false,
         });
         count += 1;

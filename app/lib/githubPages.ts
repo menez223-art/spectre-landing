@@ -36,7 +36,8 @@ export function githubPagesUrl(slug: string): string | null {
 
 export interface GithubPagesResult {
   url: string;
-  ok: boolean;
+  ok: boolean; // نجح الرفع (PUT) إلى الريبو
+  served?: boolean; // تأكّد فعلياً أن GitHub Pages يخدم الملف (200) خلال المهلة
   error?: string;
 }
 
@@ -76,7 +77,7 @@ export async function deployHtmlToGithubPages(
   slug: string,
   html: string
 ): Promise<GithubPagesResult> {
-  if (!hasGithubPages()) return { url: "", ok: false, error: "missing_config" };
+  if (!hasGithubPages()) return { url: "", ok: false, served: false, error: "missing_config" };
 
   const content = Buffer.from(html, "utf-8").toString("base64");
   const path = `${PATH_PREFIX}${slug}.html`;
@@ -104,17 +105,20 @@ export async function deployHtmlToGithubPages(
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    return { url: "", ok: false, error: `upload:${res.status}:${errText.slice(0, 200)}` };
+    return { url: "", ok: false, served: false, error: `upload:${res.status}:${errText.slice(0, 200)}` };
   }
 
-  // GitHub Pages ينشر تلقائياً عند دفع للفرع المُفعّل — ننتظر ظهور الرابط.
+  // GitHub Pages ينشر عبر إعادة بناء الموقع بعد الدفع، وقد يتأخّر دقيقة+ قبل أن
+  // يُخدَم الملف فعلاً على الحافة. ننتظر تأكيداً حقيقياً بأن الرابط يردّ 200،
+  // ونعيده في الحقل served. المستدعون يجب ألا يحوّلوا الزائر إلى host="github"
+  // إلا عند served=true، وإلا وقع الزائر على 404 أثناء تأخّر بناء Pages.
   const url = `${siteBase()}/${path}`;
-  let reached = false;
+  let served = false;
   for (let i = 0; i < POLL_MAX; i++) {
     try {
-      const head = await fetch(url, { method: "HEAD" });
-      if (head.ok || head.status === 200) {
-        reached = true;
+      const head = await fetch(url, { method: "HEAD", cache: "no-store" });
+      if (head.status === 200) {
+        served = true;
         break;
       }
     } catch {
@@ -123,10 +127,6 @@ export async function deployHtmlToGithubPages(
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
 
-  if (!reached) {
-    // نعيد الرابط رغم ذلك — قد يتأخر نشر Pages بضع ثوانٍ بعد الرفع.
-    return { url, ok: true };
-  }
-
-  return { url, ok: true };
+  // ok=نجح الرفع للريبو (دائماً هنا)؛ served=هل تأكّدنا أن Pages يخدمه فعلاً.
+  return { url, ok: true, served };
 }

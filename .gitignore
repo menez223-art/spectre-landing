@@ -24,3 +24,29 @@ prod.html
 root.html
 *.tsbuildinfo
 memory/
+
+# أسرار/بقايا اختبارات — لا تُلتزم أبداً
+cookies.txt
+*.backup
+test-results/
+scripts/audit-shots/
+playwright-report/
+
+# دليل البيع/التسليم (خاص بصاحب المشروع — نصه يقول لا يُشمَل في التسليم)
+/vip
+
+# بقايا اختبارات fallback محلية
+/p/test-fallback-*.html
+
+# ملفات scratch/notes من الجلسات — لا تذهب للريبو
+*.txt
+!supabase/*.sql
+
+# سكريبتات تشخيص/اختبار محلية — لا تذهب للريبو
+scripts/
+
+# ملفات untracked مكسورة محفوظة للرجوع (لا تُلتزم ولا تُنشر)
+backup-untracked-2026-08-30/
+
+# مجلد اختبار Vercel محلي (مؤقت — لا يذهب للريبو)
+.vercel-test/

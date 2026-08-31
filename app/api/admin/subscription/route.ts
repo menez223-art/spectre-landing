@@ -4,8 +4,11 @@
 // مقابل process.env.ADMIN_EMAIL، وأي طلب خارجي يُرفض (403).
 
 import { NextResponse } from "next/server";
+import { TIME_CONSTANTS, KV_PREFIXES } from '@/app/lib/utils/constants';
+import { deleteKv, getKv, listKv, setKv } from "@/app/lib/kvStore";
 import { isDeviceApproved, setDeviceBannedByPepper, removeApprovedDeviceByPepper } from "@/app/lib/authStore";
-import { getProfileEmail, deviceOwnersForEmail, deviceFingerprintsForEmail } from "@/app/lib/profileStore";
+import { getProfileEmail, deviceOwnersForEmail, deviceFingerprintsForEmail, getProfileByEmail } from "@/app/lib/profileStore";
+import { getMarketingForEmailWithMigration } from "@/app/lib/marketingStore";
 import { getAdminSession } from "@/app/lib/adminAuth";
 import {
   deleteSubscription,
@@ -19,8 +22,9 @@ import {
   type SubStatus,
   type Subscription,
   type ValidityUnit,
+  PLAN_QUOTAS,
 } from "@/app/lib/subsStore";
-import { countPublishedOwned, deleteAllPublishedOwned, reassignOwner, burnPublishedOwned, unburnPublishedOwned, burnAllForEmail, unburnAllForEmail, deleteAllForEmail } from "@/app/lib/publishStore";
+import { deleteAllPublishedOwned, reassignOwner, burnPublishedOwned, unburnPublishedOwned, burnAllForEmail, unburnAllForEmail, deleteAllForEmail } from "@/app/lib/publishStore";
 
 export const dynamic = "force-dynamic";
 
@@ -61,15 +65,84 @@ export async function GET(request: Request) {
       return NextResponse.json({ subscription: sub });
     }
     const all = await listSubscriptions();
-    // عدد الصفحات لكل مشترك (لتتبّع النشاط) + إعادة حساب الصلاحية/التوقيف التلقائي
-    // — لا نحسبها للأدمن (بريده كـ userId). لا نثق أبداً بقيم العميل.
+    // عدّ الصفحات + مجموع المنتجات والصور لكل مشترك (لعرض نظري في الأدمن).
+    // تُحسب عبر قراءة KV الكاملة مرة واحدة (أداء عالٍ — O(N) في الذاكرة).
+    const usageByEmail = new Map<string, { pages: number; products: number; images: number }>();
+    try {
+      const [metas, products] = await Promise.all([
+        listKv(KV_PREFIXES.PUBLISHED_META),
+        listKv(KV_PREFIXES.PUBLISHED),
+      ]);
+      const productById = new Map<string, { items?: unknown[]; products?: unknown[]; image?: string }>();
+      for (const row of products) {
+        const id = row.key.replace(KV_PREFIXES.PUBLISHED, "").replace(/\.json$/, "");
+        const p = row.value as { items?: unknown[]; products?: unknown[]; image?: string } | null;
+        if (p) productById.set(id, p);
+      }
+      for (const row of metas) {
+        const slug = row.key.replace(KV_PREFIXES.PUBLISHED_META, "").replace(/\.json$/, "");
+        const meta = row.value as { owner?: string; banned?: boolean } | null;
+        if (!meta?.owner) continue;
+        // المحروقات لا تُعدّ (غير متاحة للزوار).
+        if (meta.banned) continue;
+        const cur = usageByEmail.get(meta.owner) ?? { pages: 0, products: 0, images: 0 };
+        cur.pages += 1;
+        const p = productById.get(slug);
+        if (p) {
+          // عدّ المنتجات (متعدد أو منفرد).
+          const items = Array.isArray(p.products) && p.products.length > 0
+            ? p.products
+            : Array.isArray(p.items) && p.items.length > 0
+              ? p.items
+              : (p.image ? [p] : []);
+          cur.products += items.length;
+          // عدّ الصور (رئيسية + إضافية) لكل المنتجات.
+          for (const it of items) {
+            const item = it as { image?: string; images?: string[] };
+            const count = (item.image ? 1 : 0) + (Array.isArray(item.images) ? item.images.length : 0);
+            cur.images += count;
+          }
+        }
+        usageByEmail.set(meta.owner, cur);
+      }
+    } catch {
+      // استمرار بصف صفر إن تعذّر الجلب.
+    }
     const subscriptions = await Promise.all(
       all.map(async (s) => {
         const live = await recomputeStatus(s.userId);
+        const usage = usageByEmail.get(s.userId) ?? { pages: 0, products: 0, images: 0 };
+        let storeName: string | null = null;
+        let whatsapp: string | null = null;
+        // الإعدادات التسويقية مصدرها سجل البريد الكنسي (تتبع الحساب لا الجهاز).
+        // هويات device:<hash> القديمة بلا بريد تسقط إلى فحص ملفات التعريف.
+        if (s.userId && !s.userId.startsWith("device:")) {
+          try {
+            const mk = await getMarketingForEmailWithMigration(s.userId);
+            storeName = mk.storeName ?? null;
+            whatsapp = mk.whatsapp ?? null;
+          } catch {
+            // غياب السجل لا يوقف السطر
+          }
+        } else {
+          try {
+            const prof = await getProfileByEmail(s.userId);
+            if (prof) {
+              storeName = typeof prof.storeName === "string" ? prof.storeName : null;
+              whatsapp = typeof prof.whatsapp === "string" ? prof.whatsapp : null;
+            }
+          } catch {
+            // غياب الملف لا يوقف السطر
+          }
+        }
         return {
           ...(live ?? s),
-          pages: s.userId.toLowerCase() === ADMIN_EMAIL ? 0 : await countPublishedOwned(s.userId),
+          pages: s.userId.toLowerCase() === ADMIN_EMAIL ? 0 : usage.pages,
+          productCount: usage.products,
+          imageCount: usage.images,
           remainingDays: remainingDays(live ?? s),
+          storeName,
+          whatsapp,
         };
       })
     );
@@ -82,13 +155,14 @@ export async function GET(request: Request) {
 interface Body {
   fingerprint?: unknown;
   userId?: unknown;
-  action?: unknown; // set | delete | validity
+  action?: unknown; // set | delete | validity | notify
   plan?: unknown;
   status?: unknown;
   expiresAt?: unknown;
   reason?: unknown;
   validityUnit?: unknown; // "day" | "always" | null
   validityDays?: unknown; // number (>0 لـ day)
+  notice?: unknown; // string | null — رسالة للإشعار للعميل
 }
 
 // تعديل اشتراك (تعليق/حظر/تفعيل/تغيير خطة)
@@ -139,6 +213,7 @@ export async function POST(request: Request) {
       // — بغض النظر عن تطابق هوية الجهاز/البريد. هذا هو الحل الجذري لمشكلة
       // «الروابط تستمر بعد الحظر». نرفض الطلب (502) إن فشل الحرق كي لا يُحظر
       // مستخدم وتبقى روابطه تعمل (fail-closed لا fail-open).
+      let burnError: string | null = null;
       try {
         const burned = await burnAllForEmail(userId);
         if (burned === 0) {
@@ -146,10 +221,15 @@ export async function POST(request: Request) {
           // صيغ الهوية، لكن الحظر نفسه يبقى ساريًا بغض النظر عن نتيجة الحرق.
           await burnPublishedOwned(userId);
         }
-      } catch {
-        // الحظر ساري؛ نسجّل فشل الحرق كي يراه الأدمن ويكرّره يدوياً، لكن لا
-        // نعيد المستخدم إلى «نشط» — الصفحات تبقى محجوبة عبر فحص الاشتراك.
-        console.error("[admin/subscription] فشل حرق منشورات:", userId);
+      } catch (err) {
+        burnError = err instanceof Error ? err.message : String(err);
+        console.error("[admin/subscription] فشل حرق منشورات:", userId, burnError);
+      }
+      if (burnError) {
+        return NextResponse.json(
+          { error: "burn_failed", detail: burnError },
+          { status: 502 }
+        );
       }
     }
 
@@ -220,12 +300,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, subscription: live ?? updated, remainingDays: remainingDays(live ?? updated) });
     }
 
+    // إشعار للعميل: يكتب رسالة (أو يمسحها بـ notice=null) تظهر له كلفتة
+    // داخل الاستوديو. لا علاقة له بنظام الحظر/السماح — بيانات إضافية فقط.
+    if (action === "notify") {
+      const existing = await getSubscription(userId);
+      if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
+      const notice = body.notice != null ? String(body.notice).slice(0, 280) : null;
+      const updated: Subscription = { ...existing, notice, updatedAt: new Date().toISOString() };
+      await setSubscription(updated);
+      return NextResponse.json({ ok: true, subscription: updated });
+    }
+
     // تحديث/إنشاء
     const existing = await getSubscription(userId);
-    const plan = (String(body.plan ?? existing?.plan ?? "free")) as Plan;
+    const plan = (String(body.plan ?? existing?.plan ?? "basic")) as Plan;
     const status = (String(body.status ?? existing?.status ?? "active")) as SubStatus;
     const expiresAt = body.expiresAt != null ? String(body.expiresAt) : (existing?.expiresAt ?? null);
     const reason = body.reason != null ? String(body.reason) : (existing?.reason ?? null);
+
+    // تحديد الحصص بناءً على الخطة
+    const quota = PLAN_QUOTAS[plan] ?? PLAN_QUOTAS.basic;
 
     const sub: Subscription = {
       userId,
@@ -239,7 +333,29 @@ export async function POST(request: Request) {
       validityDays: existing?.validityDays ?? null,
       validityStartsAt: existing?.validityStartsAt ?? null,
       validityExpiresAt: existing?.validityExpiresAt ?? null,
+      maxProducts: quota.maxProducts,
+      maxImages: quota.maxImages,
+      maxPages: quota.maxPages,
     };
+
+    // ضبط مدة صلاحية تلقائية عند ترقية إلى خطة مدفوعة:
+    // إن لم تكن الصلاحية مضبوطة مسبقاً (null/لا expiry) نضع تلقائياً
+    // validityUnit:"day" + validityDays:30 كي يتوقّف الاشتراك ويُحبَس
+    // روابطه تلقائياً عند انتهاء المدة — دون اعتماد على تذكّر الأدمن
+    // الضبط اليدوي. هذا يطبّق فقط على الترقية (basic/pro) لا على
+    // الحظر/التفعيل اليدوي. لا يمسّ نظام الحظر/السماح إطلاقاً.
+    const isPaidUpgrade = (plan === "basic" || plan === "pro" || plan === "gold") && status !== "banned";
+    const hasNoValidity =
+      sub.validityUnit == null ||
+      (sub.validityUnit === "day" && (sub.validityExpiresAt == null || new Date(sub.validityExpiresAt).getTime() < Date.now()));
+    if (isPaidUpgrade && hasNoValidity) {
+      const autoDays = 30;
+      sub.validityUnit = "day";
+      sub.validityDays = autoDays;
+      sub.validityStartsAt = new Date().toISOString();
+      sub.validityExpiresAt = new Date(Date.now() + autoDays * TIME_CONSTANTS.DAY_MS).toISOString();
+    }
+
     await setSubscription(sub);
 
     // إن كان التحديث أعاد المستخدم إلى «نشط» (إلغاء حظر/توقيف) نرفع علامة

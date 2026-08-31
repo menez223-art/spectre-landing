@@ -16,6 +16,16 @@ export interface DeviceProfile {
   sheetId: string | null;
   sheetKey?: string | null; // مفتاح الجدول الثابت — يبقى صالحاً عبر إعادة النشر
   adminVerified?: boolean; // هل أُكّد كود المشرف مرة واحدة على هذا الجهاز؟ (يُعفي من إعادة الطلب) — للربط التلقائي واليدوي على حدّ سواء
+  // ── حقول تسويقية اختيارية (لا علاقة لهما بالحظر/الربط) ──
+  // Meta Pixel: يُحقن تلقائياً في صفحة المتجر المنشورة لقياس إعلانات فيسبوك.
+  pixelId?: string | null;
+  // TikTok Pixel: يُحقن تلقائياً بالتوازي مع فيسبوك لقياس إعلانات تيكتوك.
+  tiktokPixelId?: string | null;
+  // رقم واتساب استلام الطلبات (بصيغة دولية بلا +): تُبنى منه رسالة الطلب الجاهزة.
+  whatsapp?: string | null;
+  // اسم ودّي اختياري للمتجر — يظهر في لوحة الأدمن، وفي المتجر العام إن أذن صاحبه.
+  storeName?: string | null;
+  showNamePublicly?: boolean | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,7 +51,7 @@ export async function getProfile(rawFp: string): Promise<DeviceProfile | null> {
 
 export async function saveProfile(
   rawFp: string,
-  patch: Partial<Pick<DeviceProfile, "email" | "sheetUrl" | "sheetId" | "sheetKey" | "adminVerified">>
+  patch: Partial<Pick<DeviceProfile, "email" | "sheetUrl" | "sheetId" | "sheetKey" | "adminVerified" | "pixelId" | "tiktokPixelId" | "whatsapp" | "storeName" | "showNamePublicly">>
 ): Promise<DeviceProfile> {
   const fp = pepperFingerprint(rawFp);
   const existing = await getProfile(rawFp);
@@ -53,6 +63,12 @@ export async function saveProfile(
     sheetId: patch.sheetId !== undefined ? patch.sheetId : (existing?.sheetId ?? null),
     sheetKey: patch.sheetKey !== undefined ? patch.sheetKey : (existing?.sheetKey ?? null),
     adminVerified: patch.adminVerified !== undefined ? patch.adminVerified : existing?.adminVerified,
+    pixelId: patch.pixelId !== undefined ? patch.pixelId : (existing?.pixelId ?? null),
+    tiktokPixelId:
+      patch.tiktokPixelId !== undefined ? patch.tiktokPixelId : (existing?.tiktokPixelId ?? null),
+    whatsapp: patch.whatsapp !== undefined ? patch.whatsapp : (existing?.whatsapp ?? null),
+    storeName: patch.storeName !== undefined ? patch.storeName : (existing?.storeName ?? null),
+    showNamePublicly: patch.showNamePublicly !== undefined ? patch.showNamePublicly : (existing?.showNamePublicly ?? null),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -82,6 +98,19 @@ export async function getProfileByEmail(email: string): Promise<DeviceProfile | 
     return null;
   } catch {
     return null;
+  }
+}
+
+// يحذف ملف تعريف جهاز بمعرّفه الخام (يُستخدم عند إلغاء حساب بمبادرة المستخدم).
+// لا يحظر الجهاز — يمكن للمستخدم إنشاء حساب جديد من نفس المتصفح لاحقاً.
+export async function deleteProfile(rawFp: string): Promise<boolean> {
+  if (!rawFp) return false;
+  try {
+    const peppered = pepperFingerprint(rawFp);
+    await setKv(`studio-auth/profiles/${peppered}.json`, null);
+    return true;
+  } catch {
+    return false;
   }
 }
 

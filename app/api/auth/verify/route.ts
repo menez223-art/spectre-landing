@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { MASTER_USERNAME } from "@/app/lib/credentials";
 import {
   MAX_TRIES,
@@ -7,9 +6,20 @@ import {
   getDeviceOwner,
   getPendingCode,
   incrementPendingTries,
+  listPendingCodes,
 } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
 import { ensureSubscription, migrateSubscription } from "@/app/lib/subsStore";
+import {
+  errorResponse,
+  extractJsonBody,
+  successResponse,
+  unauthorizedResponse,
+  notFoundResponse,
+  HTTP_STATUS,
+} from "@/app/lib/utils/api";
+import { isValidCode, isNonEmptyString } from "@/app/lib/utils/validation";
+import { isExpired, nowISO } from "@/app/lib/utils/date";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +31,9 @@ interface VerifyBody {
 
 // إدخال رمز التفعيل من جهاز جديد → ربط البصمة بالحساب للأبد
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as VerifyBody | null;
-  if (!body || typeof body !== "object") {
-    return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  const body = await extractJsonBody<VerifyBody>(request);
+  if (!body) {
+    return errorResponse("bad_request", HTTP_STATUS.BAD_REQUEST);
   }
 
   const username = String(body.username ?? "").trim();
@@ -31,36 +41,53 @@ export async function POST(request: Request) {
   const fingerprint = String(body.fingerprint ?? "").trim();
 
   if (username.toLowerCase() !== MASTER_USERNAME) {
-    return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
+    return unauthorizedResponse("invalid_credentials");
   }
-  if (!/^\d{6}$/.test(code)) {
-    return NextResponse.json({ error: "invalid_code" }, { status: 400 });
+  if (!isValidCode(code)) {
+    return errorResponse("invalid_code", HTTP_STATUS.BAD_REQUEST);
   }
-  if (!fingerprint || fingerprint.length < 8) {
-    return NextResponse.json({ error: "missing_fingerprint" }, { status: 400 });
+  if (!isNonEmptyString(fingerprint) || fingerprint.length < 8) {
+    return errorResponse("missing_fingerprint", HTTP_STATUS.BAD_REQUEST);
   }
 
   try {
-    const pending = await getPendingCode(fingerprint);
+    // أولاً: البحث بالبصمة الحالية (السيناريو العادي - نفس المتصفح)
+    let pending = await getPendingCode(fingerprint);
+    let pendingFingerprint = fingerprint;
+
+    // ثانياً: إذا لم يوجد، البحث عن كود مطابق بنفس اسم المستخدم (السيناريو عبر متصفحات)
+    // نسمح بذلك فقط للأكواد حديثة الإنشاء (أقل من 5 دقائق) لأمان إضافي
     if (!pending) {
-      return NextResponse.json({ error: "no_pending" }, { status: 404 });
-    }
-    if (new Date(pending.expiresAt).getTime() < Date.now()) {
-      await deletePendingCode(fingerprint);
-      return NextResponse.json({ error: "code_expired" }, { status: 410 });
-    }
-    if (pending.tries >= MAX_TRIES) {
-      await deletePendingCode(fingerprint);
-      return NextResponse.json({ error: "too_many_attempts" }, { status: 429 });
-    }
-    if (pending.code !== code) {
-      await incrementPendingTries(fingerprint);
-      return NextResponse.json({ error: "wrong_code" }, { status: 401 });
+      const allPending = await listPendingCodes();
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const match = allPending.find(
+        (p) => p.username === MASTER_USERNAME && p.code === code && !isExpired(p.expiresAt) && p.createdAt >= fiveMinutesAgo
+      );
+      if (match) {
+        pending = match;
+        pendingFingerprint = match.fingerprint; // البصمة الأصلية التي طلبت الكود
+      }
     }
 
-    // صحيح → ربط الجهاز وإلغاء الرمز
+    if (!pending) {
+      return notFoundResponse("no_pending");
+    }
+    if (isExpired(pending.expiresAt)) {
+      await deletePendingCode(pendingFingerprint);
+      return errorResponse("code_expired", 410);
+    }
+    if (pending.tries >= MAX_TRIES) {
+      await deletePendingCode(pendingFingerprint);
+      return errorResponse("too_many_attempts", HTTP_STATUS.TOO_MANY_REQUESTS);
+    }
+    if (pending.code !== code) {
+      await incrementPendingTries(pendingFingerprint);
+      return unauthorizedResponse("wrong_code");
+    }
+
+    // صحيح → ربط الجهاز الحالي (الذي أدخل الكود) وإلغاء الرمز
     await addApprovedDevice(fingerprint);
-    await deletePendingCode(fingerprint);
+    await deletePendingCode(pendingFingerprint);
 
     // ضمان ظهور المشترك في لوحة الأدمن: إن وُجد بريد مربوط استخدمه، وإلا هوية الجهاز.
     try {
@@ -74,9 +101,9 @@ export async function POST(request: Request) {
       // فشل التهيئة لا يوقف اعتماد الجهاز
     }
 
-    return NextResponse.json({ ok: true, approved: true, username: MASTER_USERNAME });
+    return successResponse({ approved: true, username: MASTER_USERNAME });
   } catch (err) {
     console.error("[auth/verify] خطأ:", err);
-    return NextResponse.json({ error: "storage" }, { status: 502 });
+    return errorResponse("storage", 502);
   }
 }

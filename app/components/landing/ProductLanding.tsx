@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, CSSProperties } from "react";
+import { useState, useEffect, CSSProperties } from "react";
 import type { Product } from "@/app/lib/types";
 import { buildCssVars } from "@/app/lib/theme";
 import { LandingLangProvider, useLandingLang } from "./LandingLang";
@@ -88,9 +88,42 @@ function ProductLandingInner({ product, preview = false }: { product: Product; p
   const active = items[Math.min(activeIndex, items.length - 1)] ?? product;
   const display = isStore ? deriveDisplay(product, active) : product;
 
+  // === META PIXEL + TIKTOK PIXEL: ViewContent ===
+  // في وضع المتجر: عند تبديل المنتج نُسجّل اختيار الزبون (مشاهدة) بالتوازي.
+  // في المنتج المفرد: نُسجّل مرة واحدة عند التحميل لقياس PageView كـ ViewContent.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Meta Pixel
+    const fbq = (window as unknown as { fbq?: (...a: unknown[]) => void }).fbq;
+    if (typeof fbq === "function") {
+      try {
+        fbq("track", "ViewContent", {
+          content_type: "product",
+          content_ids: [active.id],
+          content_name: active.name,
+          value: active.price,
+          currency: "DZD",
+        });
+      } catch { /* تتبّع اختياري */ }
+    }
+    // TikTok Pixel — يُطلق بالتوازي مع فيسبوك.
+    const ttq = (window as unknown as { ttq?: { track?: (...a: unknown[]) => void } }).ttq;
+    if (ttq && typeof ttq.track === "function") {
+      try {
+        ttq.track("ViewContent", {
+          content_type: "product",
+          content_id: active.id,
+          content_name: active.name,
+          value: active.price,
+          currency: "DZD",
+        });
+      } catch { /* تتبّع اختياري */ }
+    }
+  }, [active.id, active.name, active.price]);
+
   return (
     <main
-      className="min-h-screen overflow-hidden bg-[var(--c-bg)] text-[var(--c-text)]"
+      className={`min-h-screen overflow-hidden bg-[var(--c-bg)] text-[var(--c-text)] ${!preview ? "pb-20 lg:pb-0" : ""}`}
       style={{ colorScheme: product.theme.mode, ...vars }}
       dir={dir}
       lang={lang}

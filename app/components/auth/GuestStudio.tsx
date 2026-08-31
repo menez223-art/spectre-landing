@@ -368,7 +368,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
   if (!open) return null;
 
   const inputCls =
-    "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-sm text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50 dark:placeholder:text-ivory-50/35";
+    "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50 dark:placeholder:text-ivory-50/35";
   const ghostBtn =
     "rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400";
 
@@ -382,7 +382,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex h-full w-full max-w-6xl flex-col overflow-hidden bg-ivory-50 text-navy-900 dark:bg-[#0d1117] dark:text-ivory-50 sm:h-auto sm:max-h-[92vh] sm:rounded-3xl sm:shadow-2xl sm:shadow-navy-950/40">
+      <div className="liquid-glass liquid-glass--rounded flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-3xl text-navy-900 sm:h-auto sm:max-h-[92vh] sm:shadow-2xl sm:shadow-navy-950/40 dark:text-ivory-50">
         {/* الترويسة */}
         <div className="flex items-center justify-between gap-2 border-b border-navy-900/10 bg-navy-900 px-4 py-3 text-ivory-50 sm:px-6 dark:border-white/10">
           <div className="flex items-center gap-2">
@@ -822,7 +822,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                       </button>
                     </div>
                     {draft.features.map((f, i) => (
-                      <div key={i} className="grid gap-2 rounded-2xl border border-navy-900/10 bg-white p-3 sm:grid-cols-[1fr_1.4fr_auto] sm:items-center dark:border-white/10 dark:bg-[#0d1117]">
+                      <div key={i} className="liquid-glass liquid-glass--rounded grid gap-2 overflow-hidden rounded-2xl p-3 sm:grid-cols-[1fr_1.4fr_auto] sm:items-center">
                         <input className={inputCls} value={f.title} placeholder={t("featureTitle")} onChange={(e) => { const features = [...draft.features]; features[i] = { ...f, title: e.target.value }; setDraft({ ...draft, features }); }} />
                         <input className={inputCls} value={f.copy} placeholder={t("featureCopy")} onChange={(e) => { const features = [...draft.features]; features[i] = { ...f, copy: e.target.value }; setDraft({ ...draft, features }); }} />
                         <button onClick={() => setDraft({ ...draft, features: draft.features.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">{t("deleteItem")}</button>
@@ -838,7 +838,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                       <button onClick={() => setDraft({ ...draft, stats: [...draft.stats, { value: "", label: "" }] })} className={ghostBtn}>{t("add")}</button>
                     </div>
                     {draft.stats.map((s, i) => (
-                      <div key={i} className="grid gap-2 rounded-2xl border border-navy-900/10 bg-white p-3 sm:grid-cols-[0.8fr_1.4fr_auto] sm:items-center dark:border-white/10 dark:bg-[#0d1117]">
+                      <div key={i} className="liquid-glass liquid-glass--rounded grid gap-2 overflow-hidden rounded-2xl p-3 sm:grid-cols-[0.8fr_1.4fr_auto] sm:items-center">
                         <input className={inputCls} value={s.value} placeholder="20W" onChange={(e) => { const stats = [...draft.stats]; stats[i] = { ...s, value: e.target.value }; setDraft({ ...draft, stats }); }} />
                         <input className={inputCls} value={s.label} placeholder="قوة الشحن" onChange={(e) => { const stats = [...draft.stats]; stats[i] = { ...s, label: e.target.value }; setDraft({ ...draft, stats }); }} />
                         <button onClick={() => setDraft({ ...draft, stats: draft.stats.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">{t("deleteItem")}</button>
@@ -853,7 +853,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                       <button onClick={() => setDraft({ ...draft, testimonials: [...draft.testimonials, { quote: "", name: "", city: "" }] })} className={ghostBtn}>{t("add")}</button>
                     </div>
                     {draft.testimonials.map((tm, i) => (
-                      <div key={i} className="grid gap-2 rounded-2xl border border-navy-900/10 bg-white p-3 dark:border-white/10 dark:bg-[#0d1117]">
+                      <div key={i} className="liquid-glass liquid-glass--rounded grid gap-2 overflow-hidden rounded-2xl p-3">
                         <textarea className={`${inputCls} min-h-20 resize-y`} value={tm.quote} placeholder={t("testimonialQuote")} onChange={(e) => { const testimonials = [...draft.testimonials]; testimonials[i] = { ...tm, quote: e.target.value }; setDraft({ ...draft, testimonials }); }} />
                         <div className="grid gap-2 sm:grid-cols-2">
                           <input className={inputCls} value={tm.name} placeholder={t("nameField")} onChange={(e) => { const testimonials = [...draft.testimonials]; testimonials[i] = { ...tm, name: e.target.value }; setDraft({ ...draft, testimonials }); }} />

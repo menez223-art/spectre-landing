@@ -55,7 +55,7 @@ const ORDER_BENEFITS = ["دفع آمن عند الاستلام", "توصيل س�
 
 // رابط الموقع الرئيسي — يُحقن إجبارياً في كل صفحة هبوط منتجة.
 // قابل للتهيئة عبر NEXT_PUBLIC_SITE_URL كي يبقى صحيحاً عند نقل الملكية.
-const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-tau-five.vercel.app/";
+const SITE_HOME_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-dz.vercel.app/";
 
 // مدة صلاحية صفحة الاحتياط (GitHub Pages): أسبوع واحد ثم تُحرق ذاتياً
 const FALLBACK_EXPIRY_DAYS = 7;
@@ -78,10 +78,35 @@ export async function generateLandingHtml(
     ? Object.fromEntries(
         Object.entries(product.wilayaPrices ?? {}).map(([code, entry]) => [
           Number(code),
-          normalizeWilayaEntry(entry as WilayaPrices[number], DELIVERY_PRICES.office),
-        ])
+          normalizeWilayaEntry(entry, DELIVERY_PRICES.office),
+        ]),
       )
     : {};
+  // Meta Pixel: يُحقَن فقط لو المعرّف يطابق /^\d{5,30}$/ (نفس regex في صفحة React).
+  // التحقق يُطبَّق هنا لتجنّب حقن أي محتوى غير آمن في الـHTML الاحتياطي.
+  const pixelIdRaw = (product.pixelId ?? "").trim();
+  const pixelId = /^\d{5,30}$/.test(pixelIdRaw) ? pixelIdRaw : "";
+  // TikTok Pixel: صيغة أبجدية رقمية (مثل CC3KVBDC77U4B4F4HKCG).
+  // التحقق يُطبَّق هنا لتجنّب حقن أي محتوى غير آمن في الـHTML الاحتياطي.
+  const tiktokPixelIdRaw = (product.tiktokPixelId ?? "").trim();
+  const tiktokPixelId = /^[A-Za-z0-9]{5,30}$/.test(tiktokPixelIdRaw) ? tiktokPixelIdRaw : "";
+  // مقطع السكريبت الذي يُحقَن في <head> — يبني fbq stub + يحمّل fbevents.js + يُهيّئ + PageView.
+  // يُولَّد فقط لو pixelId صالح، وإلا فالـ<head> يبقى نظيفاً بلا أي تسرّب.
+  const pixelHeadScript = pixelId
+    ? `<script>
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init','${pixelId}');
+fbq('track','PageView');
+</script>`
+    : "";
+  // TikTok Pixel: يُحمَّل عبر ttq loader + يُهيَّأ + يُسجّل PageView.
+  const tiktokHeadScript = tiktokPixelId
+    ? `<script>
+!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=i;ttq._t=ttq._t||{};ttq._t[e]=+new Date;ttq._o=ttq._o||{};ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript";o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
+ttq.load('${tiktokPixelId}');
+ttq.page();
+</script>`
+    : "";
   const vars = buildCssVars(theme);
   const varsString = Object.entries(vars)
     .map(([key, value]) => `  ${key}: ${value};`)
@@ -141,7 +166,7 @@ export async function generateLandingHtml(
         ${navItems.map((item) => `<a href="${esc(item.href)}">${esc(item.label)}</a>`).join("")}
       </nav>
       <a href="#order" class="header-cta">اطلب الآن</a>
-      <a href="${esc(SITE_HOME_URL)}" class="header-home" target="_blank" rel="noopener">Studio Store Gen</a>
+      <a href="${esc(SITE_HOME_URL)}" class="header-home" target="_blank" rel="noopener"><span aria-hidden="true">✨</span> Studio Store Gen</a>
     </header>`;
 
   // ---------------------------------------------------------------- Showcase
@@ -523,6 +548,8 @@ export async function generateLandingHtml(
   var WEBHOOK = ${jsStr(webhook)};
   var SHEET_KEY = ${jsStr(product.sheetKey ?? "")};
   var SHEET_EMAIL = ${jsStr(product.sheetEmail ?? "")};
+  var PIXEL_ID = ${jsStr(pixelId)};
+  var TIKTOK_PIXEL_ID = ${jsStr(tiktokPixelId)};
 
   // ── بيانات المتجر (منتجات متعددة) ──
   // ITEMS يحوي لكل منتج: اسمه الحقيقي، سعره، سعره القديم، وصوره (data URL).
@@ -544,6 +571,7 @@ export async function generateLandingHtml(
   var PRICE = ITEMS[activeIndex].price;
   var PRODUCT = ITEMS[activeIndex].name;       // اسم المنتج المختار (يُعرض)
   var PRODUCT_NAME = ITEMS[activeIndex].name;   // اسم المنتج الحقيقي (يُرسل للجدول)
+  var PRODUCT_ID = ITEMS[activeIndex].id;       // معرّف المنتج (يُرسل لـ Meta Pixel)
   var MODE = ${jsStr(theme.mode)};
   var PAGE_CREATED_AT = ${jsStr(createdAt ?? "")};
   var PAGE_EXPIRY_DAYS = ${FALLBACK_EXPIRY_DAYS};
@@ -751,6 +779,34 @@ export async function generateLandingHtml(
     PRODUCT = item.name;
     PRODUCT_NAME = item.name;
 
+    // === META PIXEL: ViewContent ===
+    // عند تبديل المنتج في وضع المتجر نُسجّل اختيار الزبون (مشاهدة) سعر المنتج.
+    if (PIXEL_ID && typeof fbq === "function") {
+      try {
+        fbq("track", "ViewContent", {
+          content_type: "product",
+          content_ids: [item.id],
+          content_name: item.name,
+          value: item.price,
+          currency: "DZD"
+        });
+      } catch (e) { /* تتبّع اختياري */ }
+    }
+    // === TIKTOK PIXEL: ViewContent ===
+    // نفس الحدث لتتبع تيكتوك بالتوازي.
+    if (TIKTOK_PIXEL_ID && typeof ttq === "object" && typeof ttq.track === "function") {
+      try {
+        ttq.track("ViewContent", {
+          content_type: "product",
+          content_id: item.id,
+          content_name: item.name,
+          value: item.price,
+          currency: "DZD"
+        });
+      } catch (e) { /* تتبّع اختياري */ }
+    }
+    // === END META + TIKTOK ===
+
     // الصورة الرئيسية
     var main = document.getElementById("jsMainImg");
     if (main && item.images[0]) main.src = item.images[0];
@@ -898,6 +954,13 @@ export async function generateLandingHtml(
       return;
     }
     var q = qty();
+    // UTM من URL إن وُجد — يُسجَّل في الصف لتتبع مصدر الزيارة (Facebook/Instagram/etc).
+    var utm = function (key) {
+      try {
+        var u = new URL(window.location.href);
+        return u.searchParams.get(key) || "";
+      } catch (e) { return ""; }
+    };
     var payload = {
       timestamp: new Date().toISOString(),
       name: document.getElementById("fName").value.trim(),
@@ -908,8 +971,53 @@ export async function generateLandingHtml(
       deliveryType: deliveryLabel(),
       totalPrice: PRICE * q + deliveryPrice(),
       product: PRODUCT,
-      productName: PRODUCT_NAME
+      productName: PRODUCT_NAME,
+      utmSource: utm("utm_source"),
+      utmMedium: utm("utm_medium"),
+      utmCampaign: utm("utm_campaign")
     };
+
+    // === META PIXEL: Lead + Purchase tracking ===
+    // يُطلق فقط لو PIXEL_ID مُحقَن (نفس التحقق في صفحة React).
+    // يُسجَّل الحدثان قبل محاولة الإرسال حتى لو فشل webhook لاحقاً — الزبون
+    // أتمّ نية الشراء (Lead) وأكّد البيانات (Purchase). التتبع لا ينهار مع فشل الجدول.
+    if (PIXEL_ID && typeof fbq === "function") {
+      try {
+        fbq("track", "Lead", {
+          content_name: PRODUCT,
+          content_category: payload.deliveryType,
+          value: payload.totalPrice,
+          currency: "DZD",
+          wilaya: payload.wilaya
+        });
+        fbq("track", "Purchase", {
+          content_name: PRODUCT,
+          content_type: "product",
+          content_ids: [PRODUCT_ID],
+          num_items: payload.quantity,
+          value: payload.totalPrice,
+          currency: "DZD"
+        });
+      } catch (e) { /* فشل التتبّع لا يوقف إرسال الطلب */ }
+    }
+    // === END META PIXEL ===
+
+    // === TIKTOK PIXEL: CompletePayment (مرادف Purchase في تيكتوك) ===
+    // يُطلق بالتوازي مع فيسبوك قبل محاولة الإرسال.
+    if (TIKTOK_PIXEL_ID && typeof ttq === "object" && typeof ttq.track === "function") {
+      try {
+        ttq.track("CompletePayment", {
+          content_type: "product",
+          content_id: PRODUCT_ID,
+          content_name: PRODUCT,
+          num_items: payload.quantity,
+          value: payload.totalPrice,
+          currency: "DZD",
+          wilaya: payload.wilaya
+        });
+      } catch (e) { /* فشل التتبّع لا يوقف إرسال الطلب */ }
+    }
+    // === END TIKTOK PIXEL ===
     try {
       // نمرّ عبر نقطة الوكيل الثابتة على نفس النطاق (/api/sheet/order) التي تبني
       // الرابط الحيّ من FACTORY_URL + المفتاح الثابت ثم تعيد التوجيه إلى Apps Script
@@ -1008,6 +1116,8 @@ export async function generateLandingHtml(
 <meta property="og:type" content="product">
 <meta property="og:locale" content="ar_DZ">
 ${ogImage}
+${pixelHeadScript}
+${tiktokHeadScript}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -1075,7 +1185,8 @@ input, select, textarea { font-family: inherit; }
 .topbar { padding: 0.625rem 0; text-align: center; font-size: 0.75rem; font-weight: 600; background: var(--c-promo-bg); color: var(--c-promo-text); }
 
 /* ---- Header ---- */
-.site-header { display: flex; align-items: center; justify-content: space-between; padding-top: 1.75rem; padding-bottom: 1.75rem; }
+.site-header { display: flex; align-items: center; justify-content: space-between; padding-top: 1rem; padding-bottom: 1rem; }
+@media (min-width: 640px) { .site-header { padding-top: 1.75rem; padding-bottom: 1.75rem; } }
 .brand { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.025em; color: var(--c-text); }
 .brand span { color: var(--c-accent); }
 .nav { display: none; align-items: center; gap: 2rem; font-size: 0.875rem; color: var(--c-muted); }
@@ -1089,10 +1200,16 @@ input, select, textarea { font-family: inherit; }
 }
 .header-cta:hover { background: var(--c-primary); color: var(--c-primary-text); }
 .header-home {
-  display: inline-flex; align-items: center; gap: 0.35rem; margin-inline-start: 0.75rem;
-  font-size: 0.75rem; font-weight: 700; color: var(--c-muted);
-  border-radius: 9999px; padding: 0.45rem 0.9rem; border: 1px solid var(--c-border);
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  margin-inline-start: 0.5rem;
+  font-size: 0.7rem; font-weight: 700; color: var(--c-muted);
+  border-radius: 9999px; padding: 0.35rem 0.7rem; border: 1px solid var(--c-border);
+  background: var(--c-surface);
   transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+@media (min-width: 640px) {
+  .header-home { gap: 0.35rem; margin-inline-start: 0.75rem;
+    font-size: 0.75rem; padding: 0.45rem 0.9rem; }
 }
 .header-home:hover { color: var(--c-accent); border-color: var(--c-accent); background: var(--c-surface); }
 .footer-home { margin-top: 0.5rem; text-align: center; }
@@ -1285,7 +1402,7 @@ input, select, textarea { font-family: inherit; }
   background: var(--c-input-bg); color: var(--c-input-text);
   padding: 0.75rem 1rem; font-size: 0.875rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
 }
-.input::placeholder { color: var(--c-placeholder); }
+@media (max-width: 639px) { .input { font-size: 16px; } } .input::placeholder { color: var(--c-placeholder); }
 .input:focus { border-color: var(--c-primary); box-shadow: 0 0 0 2px var(--c-primary-soft); }
 .input:disabled { opacity: 0.5; cursor: not-allowed; }
 .span-2 { grid-column: 1 / -1; }
@@ -1360,7 +1477,7 @@ input, select, textarea { font-family: inherit; }
   position: fixed; inset-inline: 0; bottom: 0; z-index: 50; border-top: 1px solid var(--c-border);
   background: var(--c-sticky-bg); backdrop-filter: blur(12px); padding-bottom: env(safe-area-inset-bottom);
 }
-@media (min-width: 1024px) { .sticky-cta { display: none; } }
+@media (min-width: 1024px) { .sticky-cta { display: none; } } @media (max-width: 1023px) { body { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); } }
 .sticky-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .sticky-text { min-width: 0; }
 .sticky-name { margin: 0; font-size: 0.6875rem; font-weight: 600; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

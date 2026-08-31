@@ -40,14 +40,20 @@ export function signAdminSession(email: string): string {
 
 // يتحقّق من كلمة مرور الأدمن (مقارنة ثابتة زمنياً).
 export function verifyAdminCredentials(email: string, password: string): boolean {
-  const emailOk = timingSafeEqual(
-    Buffer.from(email.toLowerCase()),
-    Buffer.from(ADMIN_EMAIL)
-  );
-  const passOk = timingSafeEqual(
-    Buffer.from(password),
-    Buffer.from(ADMIN_PASSWORD)
-  );
+  // مقارنة ثابتة زمنياً مع حارس طول: timingSafeEqual يرمي
+  // ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH إذا اختلف طول المخزنين، فأي محاولة
+  // دخول بطول بريد/كلمة مرور مختلف كانت تُسقط 500 بدل رفض نظيف. نحرس الطول
+  // أولاً (نفس نمط getAdminSession أدناه) ثم نقارن، فنُرجع false على اختلاف الطول.
+  const emailBuf = Buffer.from(email.toLowerCase());
+  const adminEmailBuf = Buffer.from(ADMIN_EMAIL);
+  const passBuf = Buffer.from(password);
+  const adminPassBuf = Buffer.from(ADMIN_PASSWORD);
+  const emailOk =
+    emailBuf.length === adminEmailBuf.length &&
+    timingSafeEqual(emailBuf, adminEmailBuf);
+  const passOk =
+    passBuf.length === adminPassBuf.length &&
+    timingSafeEqual(passBuf, adminPassBuf);
   return emailOk && passOk;
 }
 
@@ -83,11 +89,14 @@ export function getAdminSession(): string | null {
 }
 
 // خيارات الكوكي الآمن.
+// ملاحظة: لا نفرض Secure إلا في الإنتاج (https). على http:// (التطوير/المحلي)
+// يرفض المتصفح تخزين الكوكي الآمن، فتضيع جلسة الأدمن وترجع الصفحة بلا نهاية.
 export function adminCookieOptions() {
+  const isProd = process.env.NODE_ENV === "production";
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
-    secure: true,
+    sameSite: "strict" as const,
+    secure: isProd,
     path: "/",
     maxAge: SESSION_MAX_AGE,
   };

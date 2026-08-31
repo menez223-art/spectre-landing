@@ -1,20 +1,69 @@
 // عميل المصادقة — دخول موحّد + ربط جهاز برمز يرسله المشرف — client only
-// الجلسة في localStorage، وبصمة الجهاز تُرسل للخادم الذي يتحقق من اعتمادها.
+// كلمات الدخول في credentials.ts (server-only) ولا تُصدَّر هنا.
+// اسم المستخدم للعرض فقط ويُرسل مع كل طلب لا أكثر.
+// الأمان الفعلي: الخادم يقارن القيم بـ process.env.MASTER_USERNAME/MASTER_PASSWORD.
 
-import { MASTER_USERNAME, MASTER_PASSWORD } from "./credentials";
-export { MASTER_USERNAME, MASTER_PASSWORD };
 export { computeDeviceFingerprint } from "./device";
+// ثابت عرض للعميل فقط. لا يستعمل لأمان (الفحص في الخادم في /api/auth/login).
+// في حال تغيير اسم المستخدم في الخادم يجب تحديث هذا الثابت.
+const DISPLAY_USERNAME = "project";
 
 const SESSION_KEY = "landing-studio-session";
 // مفتاح قديم لرابط الجدول في localStorage — يُهاجَر مرة واحدة إلى ملف تعريف الجهاز ثم يُحذف
 const LEGACY_SHEET_URL_KEY = "landing-studio-sheet-url";
 const LEGACY_USERS_KEY = "landing-studio-users";
 
+// ── تخزين الجلسة المزدوج (localStorage + cookie) ──
+// المشكلة: الجلسة كانت تعتمد كلياً على localStorage، فأي مسح عرضي (تصفّح خاص،
+// مسح الكاش، متصفّحات التطبيقات المدمجة كفيسبوك/إنستغرام التي تعزل التخزين)
+// كان يُسقط المستخدم خارج الاستوديو ويتطلّب إعادة دخول. الحل: نكتب الجلسة
+// أيضاً في ملف تعريف ارتباط (cookie) بعمر طويل كاحتياطي. تُستعاد الجلسة من أي
+// من المصدرين، فلا يكفي مسح أحدهما لإسقاطها. لا تُخزَّن بيانات حسّاسة — فقط
+// اسم المستخدم. **لا يمسّ هذا بأي شكل نظام الحظر** (حظر/تفعيل يُنفَّذ خادمياً
+// عبر apiCheckDevice ويُطبَّق في AuthGate كما كان).
+const SESSION_COOKIE = "landing-studio-session";
+const SESSION_MAX_AGE = 60 * 60 * 24 * 365; // سنة واحدة
+
+function setSessionCookie(username: string): void {
+  if (typeof document === "undefined") return;
+  try {
+    // تحذير: هذه الكوكي لا تحمي بيانات حساسة، فقط اسم المستخدم للعرض.
+    // غير موقع (httpOnly) عمداً: الخادم هو المصدر الوحيد للحولة بواسطة البصمة.
+    document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(username)}; path=/; max-age=${SESSION_MAX_AGE}; samesite=lax`;
+  } catch {
+    // تجاهل
+  }
+}
+
+function getSessionCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)landing-studio-session=([^;]*)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearSessionCookie(): void {
+  if (typeof document === "undefined") return;
+  try {
+    document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; samesite=lax`;
+  } catch {
+    // تجاهل
+  }
+}
+
 export interface DeviceProfile {
   email: string | null;
   sheetUrl: string | null;
   sheetId: string | null;
   sheetKey?: string | null; // مفتاح الجدول الثابت — يبقى صالحاً عبر إعادة النشر
+  pixelId?: string | null; // معرّف Meta Pixel — يُحقن في صفحة المتجر المنشورة
+  tiktokPixelId?: string | null; // معرّف TikTok Pixel — يُحقن بالتوازي مع فيسبوك
+  whatsapp?: string | null; // رقم واتساب استلام الطلبات — يبني زر wa.me بعد الطلب
+  storeName?: string | null;
+  showNamePublicly?: boolean | null;
 }
 
 export interface Session {
@@ -25,27 +74,32 @@ export interface Session {
 
 export function getSession(): Session | null {
   if (typeof window === "undefined") return null;
+  // نقرأ من localStorage أولاً، ثم نتراجع إلى ملف تعريف الارتباط إن غاب
+  // (المسح العرضي لأحدهما لا يُسقط الجلسة ما دام الآخر سالماً).
+  let username: string | null = null;
   try {
     const raw = window.localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<Session> | null;
-    if (!parsed || typeof parsed.username !== "string") {
-      window.localStorage.removeItem(SESSION_KEY);
-      return null;
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Session> | null;
+      if (parsed && typeof parsed.username === "string") username = parsed.username;
     }
-    return { username: parsed.username };
   } catch {
-    return null;
+    // تجاهل قراءة localStorage — سنجرّب ملف تعريف الارتباط كاحتياطي
   }
+  if (!username) username = getSessionCookie();
+  if (!username) return null;
+  return { username };
 }
 
 export function setSession(): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify({ username: MASTER_USERNAME }));
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify({ username: DISPLAY_USERNAME }));
   } catch {
-    // تجاهل
+    // تجاهل — الاحتياطي في ملف تعريف الارتباط سيعوّض
   }
+  // احتياطي: نكتب ملف تعريف الارتباط بنفس القيمة كي تنجو الجلسة من مسح localStorage.
+  setSessionCookie(DISPLAY_USERNAME);
 }
 
 export function clearSession(): void {
@@ -55,16 +109,16 @@ export function clearSession(): void {
   } catch {
     // تجاهل
   }
+  // نمسح الاحتياطي أيضاً كي يختفي تسجيل الدخول فعلياً عند الخروج أو الحظر.
+  clearSessionCookie();
 }
 
 // ── ملف تعريف الجهاز (البريد + رابط Google Sheets) ──────
 // يُخزَّن خادميًا في Blob (profileStore) — ليس في localStorage.
 
-const WEBHOOK_RE = /^https:\/\/script\.google\.com\/macros\/s\/AKfycb[A-Za-z0-9_-]+\/exec$/;
-
-export function isValidWebhook(url: string): boolean {
-  return WEBHOOK_RE.test(url.trim());
-}
+// WEBHOOK_RE centralized in utils/validation.ts as PATTERNS.WEBHOOK.
+import { isValidWebhook as _isValidWebhook } from "./utils/validation";
+export const isValidWebhook = _isValidWebhook;
 
 export async function apiGetProfile(fingerprint: string): Promise<DeviceProfile | null> {
   try {
@@ -180,6 +234,79 @@ export async function apiSetWebhook(
   }
 }
 
+// حفظ الحقول التسويقية (بيكسل حر؛ واتساب يستلزم رمز مشرف عند تغييره على
+// جهاز غير موثَّق — نفس بروتوكول ربط البريد، مرة واحدة لكل بصمة متصفح).
+export async function apiSetMarketing(
+  fingerprint: string,
+  pixelId: string | undefined,
+  tiktokPixelId: string | undefined,
+  whatsapp: string | undefined,
+  adminCode?: string,
+  storeName?: string,
+  showNamePublicly?: boolean
+): Promise<
+  | { status: "ok" }
+  | { status: "pending"; step: "marketing" }
+  | { status: "bad_pixel" }
+  | { status: "bad_tiktok" }
+  | { status: "bad_whatsapp" }
+  | { status: "email_config" }
+  | { status: "email_failed" }
+  | { status: "no_pending" }
+  | { status: "code_expired" }
+  | { status: "too_many_attempts" }
+  | { status: "wrong_admin_code" }
+  | { status: "unauthorized" }
+  | { status: "storage" }
+  | { status: "error" }
+> {
+  try {
+    const res = await fetch("/api/auth/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({
+        fingerprint,
+        action: "set_marketing",
+        pixelId,
+        tiktokPixelId,
+        whatsapp,
+        adminCode,
+        storeName,
+        showNamePublicly,
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      pending?: boolean;
+      step?: "marketing";
+      error?: string;
+    };
+    if (res.ok && data.pending && data.step === "marketing")
+      return { status: "pending", step: "marketing" };
+    if (res.ok) return { status: "ok" };
+    const ERRORS = {
+      bad_pixel: "bad_pixel",
+      bad_whatsapp: "bad_whatsapp",
+      email_config: "email_config",
+      email_failed: "email_failed",
+      no_pending: "no_pending",
+      code_expired: "code_expired",
+      too_many_attempts: "too_many_attempts",
+      wrong_admin_code: "wrong_admin_code",
+      unauthorized: "unauthorized",
+      storage: "storage",
+    } as const;
+    type MarketingErrorStatus = (typeof ERRORS)[keyof typeof ERRORS];
+    const st: MarketingErrorStatus | undefined = data.error
+      ? ERRORS[data.error as keyof typeof ERRORS]
+      : undefined;
+    if (st) return { status: st };
+    return { status: "error" };
+  } catch {
+    return { status: "error" };
+  }
+}
+
 export async function apiClearProfile(fingerprint: string): Promise<boolean> {
   try {
     const res = await fetch("/api/auth/profile", {
@@ -241,12 +368,6 @@ export async function migrateLegacySheetUrl(fingerprint: string): Promise<void> 
   }
 }
 
-// ── التحقق المحلي (احتياطي — المصادقة الحقيقية عبر الخادم) ──
-
-export function verifyMasterLogin(username: string, password: string): boolean {
-  return username.trim().toLowerCase() === MASTER_USERNAME && password === MASTER_PASSWORD;
-}
-
 // ── استدعاءات الخادم ──────────────────────────────────
 
 export type LoginResult =
@@ -280,18 +401,27 @@ export async function apiLogin(
       cache: "no-store",
       body: JSON.stringify({ username, password, fingerprint }),
     });
-    const data = (await res.json().catch(() => ({}))) as {
-      approved?: boolean;
-      codeRequestedAt?: string;
+    const wrapper = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      data?: {
+        approved?: boolean;
+        codeRequestedAt?: string;
+      };
       error?: string;
     };
-    if (res.ok && data.approved) return { status: "approved" };
-    if (res.ok && !data.approved) return { status: "needs_code", codeRequestedAt: data.codeRequestedAt ?? "" };
-    if (data.error === "invalid_credentials") return { status: "invalid_credentials" };
-    if (data.error === "banned") return { status: "banned" };
-    if (data.error === "email_config") return { status: "email_config" };
-    if (data.error === "email_failed") return { status: "email_failed" };
-    if (data.error === "missing_fingerprint") return { status: "missing_fingerprint" };
+
+    // استخرج البيانات الفعلية من غلاف { ok, data, error }
+    const error = wrapper.error;
+    const approved = wrapper.data?.approved;
+    const codeRequestedAt = wrapper.data?.codeRequestedAt;
+
+    if (res.ok && approved) return { status: "approved" };
+    if (res.ok && !approved) return { status: "needs_code", codeRequestedAt: codeRequestedAt ?? "" };
+    if (error === "invalid_credentials") return { status: "invalid_credentials" };
+    if (error === "banned") return { status: "banned" };
+    if (error === "email_config") return { status: "email_config" };
+    if (error === "email_failed") return { status: "email_failed" };
+    if (error === "missing_fingerprint") return { status: "missing_fingerprint" };
     return { status: "error" };
   } catch {
     return { status: "error" };
@@ -306,13 +436,26 @@ export async function apiVerify(username: string, code: string, fingerprint: str
       cache: "no-store",
       body: JSON.stringify({ username, code, fingerprint }),
     });
-    const data = (await res.json().catch(() => ({}))) as { approved?: boolean; error?: string };
-    if (res.ok && data.approved) return { status: "approved" };
-    if (data.error === "wrong_code") return { status: "wrong_code" };
-    if (data.error === "code_expired") return { status: "code_expired" };
-    if (data.error === "too_many_attempts") return { status: "too_many_attempts" };
-    if (data.error === "no_pending") return { status: "no_pending" };
-    if (data.error === "invalid_code") return { status: "invalid_code" };
+
+    const text = await res.text();
+    let wrapper: { ok?: boolean; data?: { approved?: boolean }; error?: string } = {};
+    try {
+      wrapper = JSON.parse(text);
+    } catch {
+      return { status: "error" };
+    }
+
+    // استخرج البيانات الفعلية من غلاف { ok, data, error }
+    const data = wrapper.data || wrapper;
+    const error = wrapper.error;
+
+    if (res.ok && (data as { approved?: boolean }).approved) return { status: "approved" };
+    if (error === "wrong_code") return { status: "wrong_code" };
+    if (error === "code_expired") return { status: "code_expired" };
+    if (error === "too_many_attempts") return { status: "too_many_attempts" };
+    if (error === "no_pending") return { status: "no_pending" };
+    if (error === "invalid_code") return { status: "invalid_code" };
+
     return { status: "error" };
   } catch {
     return { status: "error" };
@@ -331,6 +474,10 @@ export interface AccountSubscription {
   validityDays?: number | null;
   validityExpiresAt?: string | null;
   remainingDays?: number | null;
+  notice?: string | null;
+  // حدود النشر حسب الخطة (يوفّرها الخادم في /api/auth/account عبر نشر صف الاشتراك)
+  maxProducts?: number;
+  maxImages?: number;
 }
 
 export async function apiCheckDevice(

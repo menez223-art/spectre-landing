@@ -3,16 +3,18 @@ import type { Product } from "@/app/lib/types";
 import {
   deletePublishedProduct,
   getPublishedProduct,
+  getPublishedMeta,
   hasPublishStore,
   listPublishedOwned,
   setPublishedMeta,
   setPublishedProduct,
   getPublishedOwner,
+  type PublishMeta,
 } from "@/app/lib/publishStore";
 import { getDeviceOwner, isDeviceApprovedOnly, isDeviceBanned } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
-import { getSubscription } from "@/app/lib/subsStore";
-import { getKv, setKv, deleteKv } from "@/app/lib/kvStore";
+import { getSubscription, PLAN_QUOTAS, type Plan } from "@/app/lib/subsStore";
+import { getKv, setKv } from "@/app/lib/kvStore";
 import { deployHtmlToGithubPages, hasGithubPages } from "@/app/lib/githubPages";
 import { generateLandingHtml } from "@/app/lib/generateHtml";
 import { buildWebhook } from "@/app/lib/sheetResolver";
@@ -25,12 +27,9 @@ import {
 export const dynamic = "force-dynamic";
 
 // حد أقصى لحجم جسم الطلب — صور data:URL قد تجعل الصفحة كبيرة جدًا
-const MAX_BODY_BYTES = 800_000;
+const MAX_BODY_BYTES = 3_800_000; // ≈ 3.8 ميغابايت — يتّسع لصفحة Gold بـ 10 صور مضغوطة دون سقف Vercel (~4.5MB)
 
-// مفتاح KV يربط كل مالك بسلاغه الثابت (رابط واحد لكل حساب).
-const ownerSlugKey = (owner: string) => `owner-slug/${owner}`;
-
-// يولّد سلاغاً جديداً غير مستخدم لصفحة هبوط (رابط ثابت للمالك).
+// يولّد سلاغاً جديداً فريداً (10 أحرف base36) لصفحة هبوط.
 async function generateSlug(): Promise<string> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const candidate =
@@ -43,26 +42,26 @@ async function generateSlug(): Promise<string> {
   return `p${Date.now().toString(36)}`;
 }
 
-// يثبّت للملاك رابطاً واحداً: إن وُجد سلاغه الثابت يُعاد استخدامه (تحديث في
-// مكانه = رابط ثابت)، وإلا يولّد سلاغاً جديداً ويخزّنه. يُرجع السلاغ النهائي.
-async function resolveOwnerSlug(owner: string): Promise<string> {
-  const existing = await getKv<string>(ownerSlugKey(owner));
-  if (typeof existing === "string" && existing.length > 0) return existing;
-  const fresh = await generateSlug();
-  await setKv(ownerSlugKey(owner), fresh);
-  return fresh;
+// عدّ الصفحات الفعّالة للمالك (المحروقة لا تُحسب — ليست متاحة للزوار).
+async function countOwnedPages(owner: string): Promise<number> {
+  try {
+    const entries = await listPublishedOwned(owner);
+    let count = 0;
+    for (const _ of entries) count++;
+    return count;
+  } catch {
+    return 0;
+  }
 }
 
-// يحرر منشور المالك المثبّت (الرابط القديم) نهائياً، ثم يولّد سلاغاً جديداً
-// ويخزّنه — «رابط جديد» يحرق القديم تماماً (404 فوري) ويمهّد رابطاً جديداً.
-async function rotateOwnerSlug(owner: string): Promise<string> {
-  const old = await getKv<string>(ownerSlugKey(owner));
-  if (typeof old === "string" && old.length > 0) {
-    await deletePublishedProduct(old);
+// فحص ملكية السلاغ: هل ينتمي فعلاً لهذا المالك؟
+async function isOwnedBy(slug: string, owner: string): Promise<boolean> {
+  try {
+    const publishedOwner = await getPublishedOwner(slug);
+    return publishedOwner === owner;
+  } catch {
+    return false;
   }
-  const fresh = await generateSlug();
-  await setKv(ownerSlugKey(owner), fresh);
-  return fresh;
 }
 
 function isValidProduct(p: unknown): p is Product {
@@ -149,6 +148,12 @@ export async function POST(request: Request) {
     );
   }
 
+  // اختيار العميل لإدراج صفحته في المتجر العام (Pro/Gold فقط — يُفرض خادمياً أدناه).
+  const wantListPublic = (searchParams.get("listPublic") ?? "") === "1";
+  let listed = false;
+  // سلاغ الصفحة المُحدَّد لاحقاً (إما editingId أو سلاغ جديد).
+  let slug = "";
+
   const owner = await resolveOwner(fingerprint);
 
   // الحماية: لا يمكن نشر/إنتاج رابط جديد لمن لم يربط بريده بعد (حساب غير مكتمل).
@@ -171,25 +176,95 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
+
+    // ── فحص الحصص حسب الخطة (نموذج التسعير الجديد) ──
+    // لا توجد خطة مجانية — يجب أن يكون هناك اشتراك (basic أو pro)
+    if (!sub) {
+      return NextResponse.json(
+        { error: "quota_exceeded", reason: "يجب الاشتراك لنشر صفحات هبوط." },
+        { status: 403 }
+      );
+    }
+
+    // إدراج المتجر العام حصري لـ Pro/Gold — basic يُجبَر على «خاص» مهما طلب.
+    listed = (sub.plan === "pro" || sub.plan === "gold") && wantListPublic;
+
+    // كل صفحة = سلاغ مستقل. النشر = إنشاء صفحة جديدة (ما عدا التحديث على نفس السلاغ).
+    // التحديث على نفس الرابط (editingId يملكه المالك) مجاني ولا يستهلك الحصة.
+    // إنشاء صفحة جديدة يستلزم التحقق من maxPages.
+    const editingId = (searchParams.get("editingId") ?? "").trim();
+    let isUpdate = false;
+    if (editingId && (await isOwnedBy(editingId, owner))) {
+      // تحديث على نفس الرابط — مجاني ولا يستهلك الحصة.
+      slug = editingId;
+      isUpdate = true;
+    } else {
+      // إنشاء صفحة جديدة — يجب ألّا يتجاوز المستخدم maxPages.
+      const currentPages = await countOwnedPages(owner);
+      const maxPages = sub.maxPages ?? 1;
+      if (currentPages >= maxPages) {
+        return NextResponse.json(
+          {
+            error: "max_pages_reached",
+            field: "pages",
+            current: currentPages,
+            max: maxPages,
+            reason: `لقد وصلت للحد الأقصى من الصفحات (${maxPages}). احذف صفحة قديمة أو رقِّ خطتك إلى Pro/Gold.`,
+          },
+          { status: 403 }
+        );
+      }
+      const fresh = await generateSlug();
+      // ضمان أن السلاغ المُولَّد لا يصطدم بسلاغ يملكه شخص آخر (احتمال ضئيل).
+      const collision = await getPublishedProduct(fresh);
+      if (collision) {
+        return NextResponse.json({ error: "storage" }, { status: 502 });
+      }
+      slug = fresh;
+    }
+
+    // فحص عدد المنتجات في الصفحة (per-page).
+    const newProductCount = products.length;
+    if (newProductCount > sub.maxProducts) {
+      return NextResponse.json(
+        { error: "quota_exceeded", reason: `خطتك الحالية (${sub.plan}) تسمح بـ ${sub.maxProducts} منتج فقط. للمزيد رقِّ خطتك إلى Pro.` },
+        { status: 403 }
+      );
+    }
+
+    const newImages = countPageImages(products);
+    if (newImages > sub.maxImages) {
+      return NextResponse.json(
+        { error: "quota_exceeded", reason: `خطتك الحالية (${sub.plan}) تسمح بـ ${sub.maxImages} صورة فقط. للمزيد رقِّ خطتك إلى Pro.` },
+        { status: 403 }
+      );
+    }
   } catch {
     // تعذّر قراءة حالة الاشتراك — نرفض النشر احتياطياً (fail-closed).
     // هذا يمنع المحظور من إنتاج روابط جديدة حتى لو تعثّر التخزين.
     return NextResponse.json({ error: "banned" }, { status: 403 });
   }
 
-  // ── الرابط الثابت لكل مالك ──
-  // كل مالك (بريده) له سلاغ واحد ثابت: النشر يعيد الكتابة فوق نفس الرابط
-  // (تحديث في المكان = رابط لا يتغيّر). طلب ?newLink=1 من الاستوديو يحرّق
-  // الرابط القديم نهائياً ويولّد رابطاً جديداً للمالك.
-  const wantNewLink = (searchParams.get("newLink") ?? "") === "1";
-  let slug: string;
-  try {
-    slug = wantNewLink ? await rotateOwnerSlug(owner) : await resolveOwnerSlug(owner);
-  } catch {
-    return NextResponse.json({ error: "storage" }, { status: 502 });
-  }
-  // نثبّت السلاغ الخادمي على المنتج (نيتجهّل أي id أرسله العميل).
+  // نثبّت السلاغ الخادمي على المنتج (نتجاهل أي id أرسله العميل).
   (product as Product).id = slug;
+
+  // ── دمج الميتا القائمة قبل الكتابة (حماية إشرافية) ──
+  // إعادة النشر كانت تمسح الميتا من الصفر فتُسقط علمَي hidden (الإخفاء
+  // الإشرافي للمتجر) وbanned (الحرق المباشر) — فيعود المخفي ظاهراً
+  // بمجرد ضغطة «تحديث الرابط». الدمج يحفظ الحقلين، مع فرض الحقول
+  // المشروعة للمالك (owner/createdAt/listed/host) فوقها.
+  let prevMeta: Awaited<ReturnType<typeof getPublishedMeta>> = null;
+  try {
+    prevMeta = await getPublishedMeta(slug);
+  } catch {
+    prevMeta = null;
+  }
+  const mergedBase: PublishMeta = {
+    ...(prevMeta ?? {}),
+    owner,
+    createdAt: new Date().toISOString(),
+    listed,
+  };
 
   // توجيه الاحتياط: إن كان وضع الاحتياط مفعّلاً (اقتربنا من حد السعة) ننتج
   // صفحة HTML مستقلة ونرفعها على GitHub Pages بدل التخزين على Vercel — كي لا
@@ -206,8 +281,8 @@ export async function POST(request: Request) {
       const createdAt = new Date().toISOString();
       // حقن webhook مباشر نحو Apps Script كي تشتغل الطلبات على GitHub Pages.
       const webhook = await buildWebhook({
-        sheetKey: (product as unknown as Record<string, unknown>).sheetKey as string | null,
-        sheetEmail: (product as unknown as Record<string, unknown>).sheetEmail as string | null,
+        sheetKey: product.sheetKey ?? null,
+        sheetEmail: product.sheetEmail ?? null,
       });
       const html = await generateLandingHtml(
         product as Product,
@@ -215,16 +290,18 @@ export async function POST(request: Request) {
         createdAt
       );
       const dep = await deployHtmlToGithubPages(slug, html);
-      if (dep.ok && dep.url) {
+      if (dep.ok && dep.url && dep.served) {
         await setPublishedMeta(slug, {
-          owner,
-          createdAt,
+          ...mergedBase,
           host: "github",
         });
         return NextResponse.json({ url: dep.url, slug, host: "github" });
       }
-      // فشل الرفع على GitHub Pages → نسقط هادئاً إلى المسار العادي (Vercel/Supabase)
-      console.error("[publish] فشل الرفع على GitHub Pages، السقوط لـ Vercel:", dep.error);
+      // فشل الرفع، أو رُفع الملف لكن Pages لم يجهز بعد (served=false) → لا نحوّل
+      // الزائر إلى صفحة قد تردّ 404 أثناء بناء Pages؛ نسقط هادئاً إلى المسار
+      // العادي (Vercel/Supabase) فتعمل الصفحة فوراً، وتُلتقط لاحقاً عند تشغيلة
+      // جاهزة (نشر لاحق أو فحص المراقبة) بعد اكتمال البناء.
+      console.error("[publish] لم يُؤكَّد نشر GitHub Pages (ok=%s served=%s)، السقوط لـ Vercel:", dep.ok, dep.served, dep.error ?? "");
     } catch (err) {
       console.error("[publish] خطأ في مسار الاحتياط:", err);
     }
@@ -233,8 +310,8 @@ export async function POST(request: Request) {
   try {
     await setPublishedProduct(product as Product);
     await setPublishedMeta(slug, {
-      owner,
-      createdAt: new Date().toISOString(),
+      ...mergedBase,
+      host: "vercel",
     });
   } catch (err) {
     console.error("[publish] فشل الحفظ في Blob:", err);
@@ -258,6 +335,19 @@ export async function GET(request: Request) {
     if (slug) {
       const product = await getPublishedProduct(slug);
       if (!product) return NextResponse.json({ error: "not_found" }, { status: 404 });
+      // المنشور المحروق (banned) لا يُخدَم عبر الـAPI — الصفحة تحجبه للزوار
+      // والباب الخام هنا كان يكشف محتواه كاملاً. رفض 404 نفسه كي لا يؤكد
+      // وجوده أصلاً.
+      try {
+        const meta = await getPublishedMeta(slug);
+        if (meta?.banned) return NextResponse.json({ error: "not_found" }, { status: 404 });
+        // تجربة Agent منتهية وغير محوَّلة → الرابط ميت هنا أيضاً (404)
+        if (meta?.trialUntil && Date.now() > new Date(meta.trialUntil).getTime()) {
+          return NextResponse.json({ error: "not_found" }, { status: 404 });
+        }
+      } catch {
+        // فشل قراءة الميتا لا يجب أن يحجب مالكاً شرعياً عن محرّره
+      }
       return NextResponse.json({ product });
     }
 
@@ -302,14 +392,8 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
     const deleted = await deletePublishedProduct(slug);
-    // حذف الرابط كلياً = تحرير ربط السلاغ الثابت للمالك، كي ينشئ رابطاً
-    // جديداً عند نشره القادم (الرابط القديم يُحرق ولا يعود صالحاً).
-    try {
-      const bound = await getKv<string>(ownerSlugKey(owner));
-      if (bound === slug) await deleteKv(ownerSlugKey(owner));
-    } catch {
-      // تجاهل فشل تحرير الربط — الحذف نفسه تم
-    }
+    // في نموذج متعدد الصفحات، حذف صفحة واحدة لا يحرر شيئاً إضافياً —
+    // المالك يحتفظ بباقي صفحاته في KV ويمكنه نشر صفحة جديدة لتحلّ محلّها.
     return NextResponse.json({ deleted });
   } catch (err) {
     console.error("[publish] فشل إلغاء النشر:", err);

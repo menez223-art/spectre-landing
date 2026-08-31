@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────────────────────────────
+   متغيرات الألوان المخصصة — يمكن للمستخدم تغييرها
+   الألوان الافتراضية: emerald/teal
+   ────────────────────────────────────────────────────────────── */
+:root {
+  --theme-primary: #10b981;
+  --theme-secondary: #0d9488;
+  --theme-primary-rgb: 16, 185, 129;
+  --theme-secondary-rgb: 13, 148, 136;
+}
+
+/* مخططات ألوان بديلة */
+[data-theme="blue"] {
+  --theme-primary: #3b82f6;
+  --theme-secondary: #2563eb;
+  --theme-primary-rgb: 59, 130, 246;
+  --theme-secondary-rgb: 37, 99, 235;
+}
+
+[data-theme="purple"] {
+  --theme-primary: #8b5cf6;
+  --theme-secondary: #7c3aed;
+  --theme-primary-rgb: 139, 92, 246;
+  --theme-secondary-rgb: 124, 58, 237;
+}
+
+[data-theme="rose"] {
+  --theme-primary: #f43f5e;
+  --theme-secondary: #e11d48;
+  --theme-primary-rgb: 244, 63, 94;
+  --theme-secondary-rgb: 225, 29, 72;
+}
+
+[data-theme="orange"] {
+  --theme-primary: #f97316;
+  --theme-secondary: #ea580c;
+  --theme-primary-rgb: 249, 115, 22;
+  --theme-secondary-rgb: 234, 88, 12;
+}
+
+[data-theme="cyan"] {
+  --theme-primary: #06b6d4;
+  --theme-secondary: #0891b2;
+  --theme-primary-rgb: 6, 182, 212;
+  --theme-secondary-rgb: 8, 145, 178;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -13,7 +60,33 @@
 
   /* الخلفية الموحّدة للوضع الليلي — يطبّقها الصنف .dark على <html> */
   .dark body {
-    @apply bg-[#0d1117] text-ivory-50;
+    @apply bg-[#05080c] text-ivory-50;
+  }
+
+  /* تطبيق ألوان الثيم على العناصر */
+  .theme-primary-bg {
+    background-color: var(--theme-primary);
+  }
+  .theme-secondary-bg {
+    background-color: var(--theme-secondary);
+  }
+  .theme-primary-text {
+    color: var(--theme-primary);
+  }
+  .theme-secondary-text {
+    color: var(--theme-secondary);
+  }
+  .theme-gradient {
+    background-image: linear-gradient(to right, var(--theme-primary), var(--theme-secondary));
+  }
+  .theme-shadow {
+    box-shadow: 0 10px 15px -3px rgba(var(--theme-primary-rgb), 0.3), 0 4px 6px -4px rgba(var(--theme-primary-rgb), 0.3);
+  }
+  .theme-shadow-lg {
+    box-shadow: 0 20px 25px -5px rgba(var(--theme-primary-rgb), 0.4), 0 8px 10px -6px rgba(var(--theme-primary-rgb), 0.4);
+  }
+  .theme-glow {
+    box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.5);
   }
 
 /* ──────────────────────────────────────────────────────────────
@@ -123,6 +196,62 @@
 @layer components {
   .container-landing {
     @apply mx-auto max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* ── Apple Liquid Glass (web-approximation) ──
+     تدرّج شبه شفاف + ضبابية قوية + لمسات إضاءة داخلية.
+     العناصر المستهلكة تضيف overflow-hidden + radius الخاصة بها. */
+  .liquid-glass {
+    position: relative;
+    isolation: isolate;
+    border: 1px solid rgb(255 255 255 / .32);
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / .30), rgb(255 255 255 / .08)),
+      rgb(255 255 255 / .12);
+    backdrop-filter: blur(24px) saturate(180%) contrast(1.05);
+    -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(1.05);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / .48),
+      inset 0 -1px 0 rgb(255 255 255 / .12),
+      0 18px 60px rgb(0 0 0 / .18);
+  }
+  .liquid-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle at 50% 0%, rgb(255 255 255 / .55), transparent 34%),
+      linear-gradient(90deg, rgb(255 255 255 / .18), transparent 42%, rgb(255 255 255 / .14));
+    pointer-events: none;
+  }
+  .liquid-glass::after {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: inherit;
+    border: 1px solid rgb(255 255 255 / .14);
+    pointer-events: none;
+  }
+  .dark .liquid-glass {
+    border-color: rgb(255 255 255 / .14);
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / .08), rgb(255 255 255 / .02)),
+      rgb(5 8 12 / .72);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / .18),
+      0 18px 70px rgb(0 0 0 / .72);
+  }
+  .liquid-glass--rounded { border-radius: 1.5rem; }
+  .liquid-glass--pill { border-radius: 9999px; }
+  @media (prefers-reduced-transparency: reduce) {
+    .liquid-glass {
+      background: rgb(255 255 255 / .96);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    .dark .liquid-glass { background: #161b22; }
   }
 }
 
@@ -296,4 +425,46 @@
     opacity: 0.7;
     transform: scale(1.04);
   }
+}
+
+/* ── تأثير التدرّج المتحرك للنص ── */
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 3s ease infinite;
+}
+
+/* تأثير glow للأزرار */
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-glow:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Glass morphism */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }

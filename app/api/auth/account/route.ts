@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureAccount, isDeviceApproved, isDeviceBanned, getDeviceOwner } from "@/app/lib/authStore";
-import { getProfile, getProfileEmail } from "@/app/lib/profileStore";
+import { getProfileEmail } from "@/app/lib/profileStore";
+import { getMergedProfileView } from "@/app/lib/marketingStore";
 import { reassignOwner } from "@/app/lib/publishStore";
 import { getSubscription, ensureSubscription, recomputeStatus, remainingDays, reconcileSubscription } from "@/app/lib/subsStore";
 
@@ -91,7 +92,8 @@ export async function GET(request: Request) {
     }
 
     const account = await ensureAccount();
-    const profile = await getProfile(fingerprint);
+    // عرض مدموج: الحقول التسويقية من سجل البريد (تتبع الحساب عبر المتصفحات)
+    const profile = await getMergedProfileView(fingerprint);
     return NextResponse.json({
       ok: true,
       approved: true,
@@ -103,6 +105,7 @@ export async function GET(request: Request) {
         ? {
             ...sub,
             remainingDays: remainingDays(sub),
+            notice: sub.notice ?? null,
           }
         : null,
     });
