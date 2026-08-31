@@ -2075,3 +2075,42 @@ features-e2e BASE=إنتاج **26/0** · ban-real-flow **12/0** + ban-e2e **18/0
 **انتهيت من النشر الشامل.** ✓
 
 **انتهيت من كل شيء.** ✓
+
+---
+
+## ل2. إصلاحات سريعة (2026-08-31) — Bugfix Round
+
+> **3 إصلاحات** + **تأكيد نظام الحظر لم يُمَس**.
+> الـcommit: `8d736bf fix: FB.png path + edit-ownership + category persistence`.
+> النشر: `spectre-ifs1zivwb` (Vercel production) + `https://spectre-dz.vercel.app` (الرسمي).
+> GitHub: `54371bd..8d736bf main`.
+
+### أ) إصلاح صورة الاشتراكات
+- **المشكلة**: `src="/FB.png"` (أحرف كبيرة) → الملف موجود `fb.png` (أحرف صغيرة) → الصورة لا تظهر على Vercel/Linux (حساس لحالة الأحرف).
+- **الإصلاح**: `app/page.tsx` — `src="/FB.png"` → `src="/fb.png"`.
+- **التحقق**: `curl /` يرجع 200 + الصفحة تحوي الصورة.
+
+### ب) إصلاح "تعديل ينشئ رابط جديد"
+- **المشكلة**: عند ربط البريد بعد النشر، `resolveOwner` يعيد البريد، لكن `meta.owner` ما زال `device:<hash>`. `isOwnedBy(editingId, owner)` يفشل → ينشئ رابط جديد بدلاً من التحديث.
+- **الإصلاح**: `app/api/publish/route.ts` — `isOwnedBy` يقبل الحالة الانتقالية: لو `owner` بريد و `publishedOwner` بـ `device:` → `return true` (معتمدة على أن `reassignOwner` يحدث في account/route عند فتح الاستوديو).
+- **التأثير**: كل صفحة منشورة قديماً بهوية جهاز تُحدَّث بنجاح بعد ربط البريد، بدون فقدان الرابط.
+
+### ج) إصلاح الكاتيغوري في المتجر
+- **المشكلة**: `draftToProduct` في `app/studio/page.tsx` كان يبني `Product` بدون حقل `category` → يُحفظ المنتج بـ `undefined` → المتجر يجمع كل المنتجات في "عام".
+- **الإصلاح**: إضافة `...(d.category && d.category !== "عام" ? { category: d.category } : {})` في `base` داخل `draftToProduct`.
+- **التأثير**: التصنيفات في `/store` تعمل الآن (إلكترونيات، ملابس، أحذية، إكسسوارات، منزل ومطبخ، عناية وجمال).
+
+### د) نظام الحظر — لم يُمَس (تأكيد)
+- **`git diff HEAD~1 HEAD --stat`**: 3 ملفات فقط (publish/page/studio) — لا علاقة لها بالحظر.
+- **12 ملفاً** يستخدم `isDeviceBanned`, `burnAllForEmail`, `unburnAllForEmail`, `reassignOwner`, `setDeviceBannedByPepper`, `removeApprovedDeviceByPepper` — كلها سليمة.
+- **صلاحيات الأدمن**: `assertAdmin()` سليمة، `getAdminSession()` سليمة.
+
+### هـ) نتائج الإنتاج بعد الإصلاحات
+| الفحص | spectre-dz | spectre-ifs1zivwb |
+|---|---|---|
+| `/` | 200 | 200 |
+| `/api/catalog` | 200 | — |
+| `/api/admin/subscription` | 403 | — |
+| `/api/admin/link-health` | 403 | — |
+
+**انتهيت من كل شيء.** ✓
