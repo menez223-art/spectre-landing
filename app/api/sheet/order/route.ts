@@ -102,11 +102,15 @@ export async function POST(request: Request) {
     const capiCtrl = new AbortController();
     const capiTimeout = setTimeout(() => capiCtrl.abort(), 5000);
     try {
+      // أمان: الـ access_token في Authorization header وليس في URL (لا يظهر في logs/proxies)
       const capiRes = await fetch(
-        `https://graph.facebook.com/v18.0/${encodeURIComponent(pixelId)}/events?access_token=${encodeURIComponent(accessToken)}`,
+        `https://graph.facebook.com/v18.0/${encodeURIComponent(pixelId)}/events`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+          },
           body: JSON.stringify(capiPayload),
           signal: capiCtrl.signal,
         }
