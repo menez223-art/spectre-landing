@@ -49,6 +49,7 @@ export interface PublishedItem {
   createdAt?: string;
   updatedAt?: string;
   listed?: boolean;
+  visits?: number; // إحصائيات الزيارات الشهرية من /api/publish
 }
 
 // ينسّق مدة الصلاحية للعرض في الستوديو (عربية RTL).
@@ -1813,6 +1814,16 @@ function StudioInner() {
                       >
                         {p.url}
                       </a>
+                    </div>
+                    {/* إحصائيات الزيارات بجانب كل رابط (هذا الشهر) */}
+                    <div
+                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 dark:border-sky-500/30 dark:bg-sky-500/10"
+                      title={t("myVisitsLabel") || "زيارات هذا الشهر"}
+                    >
+                      <span className="text-[11px]">📊</span>
+                      <span className="text-[11px] font-extrabold text-sky-700 dark:text-sky-300 tabular-nums">
+                        {(p.visits ?? 0).toLocaleString()}
+                      </span>
                     </div>
                     {/* الإجراءات الدائمة لكل صفحة: تعديل (يحمّلها للمحرّر) · نسخ · إلغاء */}
                     <div className="flex shrink-0 flex-wrap items-center gap-1.5">

@@ -15,6 +15,7 @@ import { getDeviceOwner, isDeviceApprovedOnly, isDeviceBanned } from "@/app/lib/
 import { getProfileEmail } from "@/app/lib/profileStore";
 import { getSubscription, PLAN_QUOTAS, type Plan } from "@/app/lib/subsStore";
 import { getKv, setKv } from "@/app/lib/kvStore";
+import { getPageVisits } from "@/app/lib/statsStore";
 import { deployHtmlToGithubPages, hasGithubPages } from "@/app/lib/githubPages";
 import { generateLandingHtml } from "@/app/lib/generateHtml";
 import { buildWebhook } from "@/app/lib/sheetResolver";
@@ -367,15 +368,21 @@ export async function GET(request: Request) {
     const owner = await resolveOwner(fingerprint);
     const entries = await listPublishedOwned(owner);
     const origin = new URL(request.url).origin;
-    return NextResponse.json({
-      products: entries.map(({ slug: s, product }) => ({
-        id: product.id,
-        name: product.name,
-        image: product.image,
-        price: product.price,
-        url: `${origin}/p/${s}`,
-      })),
-    });
+    // إحصائيات الزيارات لكل منتج — تُجلب بالتوازي (سريعة) لتظهر بجانب كل رابط في الاستوديو
+    const products = await Promise.all(
+      entries.map(async ({ slug: s, product }) => {
+        const stats = await getPageVisits(s);
+        return {
+          id: product.id,
+          name: product.name,
+          image: product.image,
+          price: product.price,
+          url: `${origin}/p/${s}`,
+          visits: stats?.visits ?? 0,
+        };
+      })
+    );
+    return NextResponse.json({ products });
   } catch (err) {
     console.error("[publish] فشل قراءة المنشورات:", err);
     return NextResponse.json({ error: "storage" }, { status: 502 });
