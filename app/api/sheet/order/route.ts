@@ -96,26 +96,32 @@ export async function POST(request: Request) {
         ],
       };
 
-      // fire-and-forget: لا نحجب ردّ المتجر على CAPI، نسجّل النتيجة في الكونسول.
-      fetch(
+      // CAPI: نطلقه متزامناً مع حد أقصى 5 ثوانٍ. Vercel serverless يقتل الخلفية
+    // (fire-and-forget) بعد إرسال الرد، فلا خيار سوى الانتظار هنا.
+    // Apps Script نفسه يأخذ 5-15s، فالـ 5s إضافية لا تأثير يذكر على UX.
+    const capiCtrl = new AbortController();
+    const capiTimeout = setTimeout(() => capiCtrl.abort(), 5000);
+    try {
+      const capiRes = await fetch(
         `https://graph.facebook.com/v18.0/${encodeURIComponent(pixelId)}/events?access_token=${encodeURIComponent(accessToken)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(capiPayload),
+          signal: capiCtrl.signal,
         }
-      )
-        .then(async (r) => {
-          const body = await r.text().catch(() => "");
-          if (!r.ok) {
-            console.error("[capi] Meta رفض الطلب:", r.status, body.slice(0, 200));
-          } else {
-            console.info("[capi] Meta ok:", body.slice(0, 200));
-          }
-        })
-        .catch((err) => {
-          console.error("[capi] فشل الاتصال بـ Meta:", err);
-        });
+      );
+      const capiBody = await capiRes.text().catch(() => "");
+      if (!capiRes.ok) {
+        console.error("[capi] Meta رفض الطلب:", capiRes.status, capiBody.slice(0, 200));
+      } else {
+        console.info("[capi] Meta ok:", capiBody.slice(0, 200));
+      }
+    } catch (err) {
+      console.warn("[capi] فشل/انتهت المهلة:", err instanceof Error ? err.message : String(err));
+    } finally {
+      clearTimeout(capiTimeout);
+    }
     }
     // === END CAPI ===
 
