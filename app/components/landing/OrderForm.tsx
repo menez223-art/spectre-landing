@@ -15,6 +15,8 @@ import {
 } from "@/app/data/delivery";
 import type { Product } from "@/app/lib/types";
 import { useLandingLang } from "./LandingLang";
+import { computeDeviceFingerprint } from "@/app/lib/device";
+import { buildMetaUserData, splitFullName } from "@/app/lib/utils/metaHash";
 
 const inputClass =
   "w-full rounded-xl border px-4 py-3 text-[16px] outline-none transition sm:text-sm bg-[var(--c-input-bg)] border-[var(--c-input-border)] text-[var(--c-input-text)] placeholder:text-[var(--c-placeholder)] focus:border-[var(--c-primary)] focus:ring-2 focus:ring-[var(--c-primary-soft)]";
@@ -74,8 +76,18 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!wilaya) return;
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
+    // UTM من URL (تتبع مصدر الزيارة: فيسبوك/إنستغرام/إعلان) — يُسجَّل في الصف.
+    const utm = (key: string): string => {
+      if (typeof window === "undefined") return "";
+      try {
+        return new URL(window.location.href).searchParams.get(key) ?? "";
+      } catch {
+        return "";
+      }
+    };
     const payload = {
       timestamp: new Date().toISOString(),
       name: String(formData.get("name") ?? "").trim(),
@@ -88,7 +100,26 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
         : DELIVERY_TYPES.find((t) => t.value === deliveryType)?.label ?? deliveryType,
       totalPrice: total,
       product: product.name,
+      utmSource: utm("utm_source"),
+      utmMedium: utm("utm_medium"),
+      utmCampaign: utm("utm_campaign"),
+      // حقول خاصة بـ Meta CAPI — Apps Script سيخزّنها كأعمدة إضافية دون كسر المخطط.
+      _landingUrl: typeof window !== "undefined" ? window.location.href : "",
+      _productId: product.id,
     };
+
+    // === Meta Advanced Matching prep ===
+    // نقسّم الاسم + نحسب بصمة الجهاز + نولّد معرّف حدث ثابت للجلسة.
+    // يُستخدم مرة على العميل (fbq) ومرة على الخادم (CAPI) للدمج (dedup).
+    const { first, last } = splitFullName(payload.name);
+    const fingerprint = await computeDeviceFingerprint().catch(() => "");
+    const userData = await buildMetaUserData({
+      phone: payload.phone,
+      firstName: first,
+      lastName: last,
+      fingerprint,
+    });
+    const eventId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     // وجهة الطلب: نمرّ عبر نقطة الوكيل الثابتة على نفس نطاقنا (/api/sheet/order)،
     // وهي تبني الرابط الحيّ من FACTORY_URL + المفتاح الثابت (sheetKey) ثم تعيد
@@ -110,33 +141,50 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
     }
     setBlocked(false);
 
-    // === META PIXEL: Lead + Purchase tracking ===
-    // يُطلق فقط إذا صاحب المتجر ضبط pixelId في إعداداته (افتراضياً معطّل
-    // للجميع — لا Lead ولا Purchase لمن لم يُضف البيكسل). يُسجَّل الحدثان
-    // بعد اجتياز فحص نظام الحظر وقبل تصفير النموذج، كي يحتوي على كل بيانات
-    // الطلب (السعر، الكمية، الولاية). لا يُطلق في وضع المعاينة (preview).
-    const pixelId = product.pixelId?.trim();
-    if (pixelId && typeof window !== "undefined") {
+    // === META PIXEL + TIKTOK PIXEL: Lead + Purchase tracking ===
+    // يُطلقان بالتوازي بعد اجتياز فحص نظام الحظر وقبل تصفير النموذج.
+    if (typeof window !== "undefined") {
+      // Meta Pixel
       const fbq = (window as unknown as { fbq?: (...args: unknown[]) => void }).fbq;
       if (typeof fbq === "function") {
-        fbq("track", "Lead", {
-          content_name: payload.product,
-          content_category: payload.deliveryType,
-          value: payload.totalPrice,
-          currency: "DZD",
-          wilaya: payload.wilaya,
-        });
-        fbq("track", "Purchase", {
-          content_name: payload.product,
-          content_type: "product",
-          content_ids: [product.id],
-          num_items: payload.quantity,
-          value: payload.totalPrice,
-          currency: "DZD",
-        });
+        try {
+          fbq("track", "Lead", {
+            content_name: payload.product,
+            content_category: payload.deliveryType,
+            value: payload.totalPrice,
+            currency: "DZD",
+            wilaya: payload.wilaya,
+            event_id: eventId,
+            user_data: userData,
+          });
+          fbq("track", "Purchase", {
+            content_name: payload.product,
+            content_type: "product",
+            content_ids: [product.id],
+            num_items: payload.quantity,
+            value: payload.totalPrice,
+            currency: "DZD",
+            event_id: eventId,
+            user_data: userData,
+          });
+        } catch { /* فشل التتبّع لا يوقف إرسال الطلب */ }
+      }
+      // TikTok Pixel — CompletePayment = Purchase في تيكتوك.
+      const ttq = (window as unknown as { ttq?: { track?: (...args: unknown[]) => void } }).ttq;
+      if (ttq && typeof ttq.track === "function") {
+        try {
+          ttq.track("CompletePayment", {
+            content_type: "product",
+            content_id: product.id,
+            content_name: payload.product,
+            num_items: payload.quantity,
+            value: payload.totalPrice,
+            currency: "DZD",
+          });
+        } catch { /* فشل التتبّع لا يوقف إرسال الطلب */ }
       }
     }
-    // === END META PIXEL ===
+    // === END META + TIKTOK ===
 
     // رسالة واتساب الجاهزة — تُبنى قبل تصفير النموذج كي نحتفظ بالقيم.
     // اسم المنتج المطلوب يظهر في سطر مستقل واضح كي يعرف البائع ما المطلوب.
@@ -154,7 +202,7 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
     });
 
     setSubmitted(true);
-    event.currentTarget.reset();
+    form.reset();
     setWilayaCode("");
     setCommune("");
     setQuantity(1);
@@ -171,7 +219,13 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
       const res = await fetch("/api/sheet/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheetKey, sheetEmail, order: payload }),
+        body: JSON.stringify({
+          sheetKey,
+          sheetEmail,
+          order: payload,
+          // يُمرَّر للخادم كي يستخدم نفس event_id في طلب CAPI (dedup).
+          meta: { eventId, userData },
+        }),
       });
       const txt = await res.text().catch(() => "");
       console.info("[OrderForm] رد الوكيل:", res.status, txt.slice(0, 120));
