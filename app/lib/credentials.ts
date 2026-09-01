@@ -1,18 +1,20 @@
 // بيانات الدخول الموحّد — خادمية فقط
 // الفحص الفعلي في POST /api/auth/login عبر === بعد قراءة MASTER_USERNAME
-// و MASTER_PASSWORD من متغيّرات البيئة. في الإنتاج يجب ضبطهما في Vercel
-// (Settings → Environment Variables) قبل النشر.
+// و MASTER_PASSWORD من متغيّرات البيئة. مطلوب ضبطهما في Vercel
+// (Settings → Environment Variables) قبل النشر. أي غياب يفشل التشغيل.
 
 import "server-only";
 
-const FALLBACK_USERNAME = "project";
-const FALLBACK_PASSWORD = "SPECTRE";
-
-function readEnv(name: string, fallback: string): string {
+function requireEnv(name: string): string {
   const v = process.env[name];
-  if (v && v.length > 0) return v;
-  return fallback;
+  if (!v || v.length === 0) {
+    throw new Error(
+      `Missing required environment variable: ${name}. ` +
+        `Set it in Vercel Project Settings → Environment Variables (Production).`
+    );
+  }
+  return v;
 }
 
-export const MASTER_USERNAME: string = readEnv("MASTER_USERNAME", FALLBACK_USERNAME);
-export const MASTER_PASSWORD: string = readEnv("MASTER_PASSWORD", FALLBACK_PASSWORD);
+export const MASTER_USERNAME: string = requireEnv("MASTER_USERNAME");
+export const MASTER_PASSWORD: string = requireEnv("MASTER_PASSWORD");

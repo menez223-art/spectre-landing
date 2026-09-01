@@ -9,16 +9,29 @@ if (typeof window !== "undefined") {
   throw new Error("adminAuth.ts is server-only");
 }
 
-export const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "menez223@gmail.com").toLowerCase();
-// كلمة مرور الأدمن — تُفضَّل عبر متغيّر البيئة ADMIN_PASSWORD، وإلا القيمة الافتراضية المطلوبة.
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Aline";
+// أمان: مطلوب ضبط هذه المتغيرات في Vercel (Settings → Environment Variables).
+// أي غياب يفشل البناء/التشغيل فوراً بدلاً من قبول قيم افتراضية ضعيفة.
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v || v.length === 0) {
+    throw new Error(
+      `Missing required environment variable: ${name}. ` +
+        `Set it in Vercel Project Settings → Environment Variables (Production).`
+    );
+  }
+  return v;
+}
+
+export const ADMIN_EMAIL = requireEnv("ADMIN_EMAIL").toLowerCase();
+export const ADMIN_PASSWORD = requireEnv("ADMIN_PASSWORD");
+const ADMIN_SESSION_SECRET = requireEnv("ADMIN_SESSION_SECRET");
 
 const COOKIE_NAME = "spectre_admin";
 const SESSION_MAX_AGE = 60 * 60 * 12; // 12 ساعة
 
-// سر التوقيع: متغيّر مخصّص إن وُجد، وإلا فلفلفة الأجهزة (سريّة خادمية موجودة).
+// سر التوقيع: متغيّر مخصّص فقط. لا fallback — أي غياب يفشل التشغيل.
 function secret(): string {
-  return process.env.ADMIN_SESSION_SECRET || process.env.DEVICE_PEPPER || "spectre-admin-session-secret";
+  return ADMIN_SESSION_SECRET;
 }
 
 function hmac(data: string): string {
