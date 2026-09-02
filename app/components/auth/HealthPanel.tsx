@@ -97,9 +97,13 @@ export function HealthPanel() {
       ) : (
         <div className="grid gap-2">
           {entries.map((e) => (
-            <div
+            <a
               key={e.slug}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-navy-900/10 bg-white p-3 dark:border-white/10 dark:bg-[#11161d]"
+              href={`/p/${e.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-navy-900/10 bg-white p-3 transition hover:border-blue-500 hover:bg-blue-50 dark:border-white/10 dark:bg-[#11161d] dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+              title={`فتح /p/${e.slug} في تبويب جديد`}
             >
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                 e.ok
@@ -108,7 +112,7 @@ export function HealthPanel() {
               }`}>
                 {e.ok ? "✅ سليم" : `❌ ${e.status}`}
               </span>
-              <code className="flex-1 truncate text-xs" dir="ltr">
+              <code className="flex-1 truncate text-xs underline decoration-dotted" dir="ltr">
                 /p/{e.slug}
               </code>
               {e.host && (
@@ -116,7 +120,8 @@ export function HealthPanel() {
                   host: {e.host}
                 </span>
               )}
-            </div>
+              <span aria-hidden className="text-blue-600 dark:text-blue-400">👁</span>
+            </a>
           ))}
         </div>
       )}
