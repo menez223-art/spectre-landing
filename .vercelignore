@@ -1,0 +1,28 @@
+node_modules
+.next
+out
+backup-untracked-2026-08-30
+
+# أسرار وملفات بيئة — لا يجب أن تصل لـ Vercel build context أبداً
+.env*
+!.env.example
+.vercel
+.vercel-test
+
+# سكربتات تشخيص/اختبار محلية
+scripts/
+
+# بقايا الجلسات وأدوات التطوير
+.claude
+.agents
+.openclaude
+memory
+test-results
+playwright-report
+graphify-out
+link
+*.log
+*.tsbuildinfo
+env_dump.json
+cookies.txt
+*.backup
