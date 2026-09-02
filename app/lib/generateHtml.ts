@@ -1060,53 +1060,31 @@ ttq.page();
     }
     // === END TIKTOK PIXEL ===
     try {
-      // المسار الأساسي: المتصفح يرسل الطلب مباشرةً إلى Apps Script في وضع no-cors
-      // عبر الرابط المضمّن في المنتج (WEBHOOK). هذا المسار موثوق ولا يعتمد على
-      // خادمنا أو KV أو FACTORY_URL. الوكيل /api/sheet/order يبقى كاحتياط فقط.
+      // المسار الوحيد الموثوق: نمرّ عبر نقطة الوكيل /api/sheet/order على نفس
+      // النطاق. السبب الجذري (تحقّقناه تجريبياً على الإنتاج 2026-09-02):
+      // Apps Script web app المنشور "Anyone" يردّ بـ 302 redirect إلى
+      // script.googleusercontent.com/macros/echo، والمتصفح يتبع التوجيه لكن
+      // يُسقط Content-Length فيُرجع 411 → الإرسال المباشر يضيع بصمت.
+      // الخادم عبر fetch يُعيد إرسال POST مع Content-Length فيصل الطلب.
+      // فلا خيار سوى تمرير كل طلب عبر /api/sheet/order.
       if (!SHEET_KEY && !SHEET_EMAIL) {
         console.warn("[order] لا وجهة للطلب — لم يُرسَل (افتح الملف عبر الموقع أو اربط جدولاً).");
         return;
       }
-      console.info("[order] إرسال الطلب مباشرةً إلى Apps Script");
-      var directUrl = WEBHOOK;
-      if (!directUrl && SHEET_KEY) {
-        try {
-          var fr = await fetch("/api/sheet/factory-base", { cache: "no-store" });
-          var fd = await fr.json().catch(function () { return null; });
-          if (fd && fd.base) directUrl = fd.base + "?key=" + encodeURIComponent(SHEET_KEY);
-        } catch (e2) { /* تجاهل */ }
-      }
-      var directOk = false;
-      if (directUrl) {
-        try {
-          await fetch(directUrl, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "text/plain;charset=UTF-8" },
-            body: JSON.stringify(payload),
-            keepalive: true,
-          });
-          directOk = true;
-        } catch (e) {
-          console.warn("[order] فشل الإرسال المباشر، محاولة عبر الوكيل:", e);
-        }
-      }
-      // احتياط: إن لم يتوفّر WEBHOOK أو فشل الإرسال المباشر، نمرّ عبر الوكيل.
-      if (!directOk) {
-        try {
-          var metaForCapi = (typeof window !== "undefined" && window.__lastMetaEvent)
-            ? { eventId: window.__lastMetaEvent.eventId, userData: window.__lastMetaEvent.userData }
-            : undefined;
-          var res = await fetch("/api/sheet/order", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sheetKey: SHEET_KEY, sheetEmail: SHEET_EMAIL, order: payload, meta: metaForCapi })
-          });
-          var txt = await res.text().catch(function () { return ""; });
-          console.info("[order] رد الوكيل:", res.status, txt.slice(0, 120));
-        } catch (e3) {
-          console.error("تعذر إرسال الطلب إلى Google Sheets:", e3);
-        }
+      console.info("[order] إرسال الطلب عبر الوكيل");
+      try {
+        var metaForCapi = (typeof window !== "undefined" && window.__lastMetaEvent)
+          ? { eventId: window.__lastMetaEvent.eventId, userData: window.__lastMetaEvent.userData }
+          : undefined;
+        var res = await fetch("/api/sheet/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sheetKey: SHEET_KEY, sheetEmail: SHEET_EMAIL, order: payload, meta: metaForCapi })
+        });
+        var txt = await res.text().catch(function () { return ""; });
+        console.info("[order] رد الوكيل:", res.status, txt.slice(0, 120));
+      } catch (e2) {
+        console.error("تعذر إرسال الطلب إلى Google Sheets:", e2);
       }
     } catch (e) {
       console.error("تعذر إرسال الطلب إلى Google Sheets:", e);

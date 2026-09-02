@@ -116,14 +116,16 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
       utmCampaign: utm("utm_campaign"),
     };
 
-    // مسار التسليم: المتصفح يرسل الطلب مباشرةً إلى Apps Script في وضع no-cors
-    // عبر الرابط المضمّن في المنتج (sheetWebhook). هذا المسار موثوق (لا يعتمد
-    // على خادمنا ولا على KV ولا على FACTORY_URL، ولا يمرّ بأي redirect 302 من
-    // Apps Script لأن وضع no-cors يُسكت الرد). الوكيل /api/sheet/order يبقى
-    // كاحتياط عند غياب sheetWebhook (يستخدم FACTORY_URL من الخادم).
+    // مسار التسليم: الخادم (Vercel) هو الوسيط الإلزامي بين المتصفح و Apps Script.
+    // السبب الجذري: Apps Script web app المنشور "Anyone" يردّ بـ 302 redirect إلى
+    // script.googleusercontent.com/macros/echo. المتصفح يتبع التوجيه لكن يُسقط
+    // Content-Length فيُرجع 411 Length Required → الطلب يضيع بصمت. الخادم
+    // عبر fetch يُعيد إرسال POST مع Content-Length فيصل الطلب. هذه حقيقة
+    // اختبرناها مباشرة على الإنتاج اليوم (2026-09-02): الـ proxy يُرجع ok:true
+    // ويُسجَّل الصف في Google Sheets، بينما الإرسال المباشر من المتصفح يمرّ
+    // بصمت لكن لا يصل. فلا خيار سوى تمرير كل طلب عبر /api/sheet/order.
     const sheetKey = product.sheetKey ?? "";
     const sheetEmail = product.sheetEmail ?? "";
-    const directWebhook = product.sheetWebhook ?? "";
 
     // وجهة الطلب: جدول Google أو واتساب صاحب المتجر — واحدة منهما تكفي.
     // واتساب قناة مستقلة: متجر بلا جدول لكن برقم واتساب يستقبل طلباته طبيعياً
@@ -241,59 +243,26 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
     // على رسالة الزبون الظاهرة أعلاه ولا يحتاج أي استدعاء شبكي.
     if (!hasSheetDestination) return;
 
-    // المسار الأساسي: المتصفح يرسل الطلب مباشرةً لـ Apps Script عبر الرابط
-    // المضمّن في المنتج. Apps Script يتلقى البيانات ويضيف الصف للجدول.
-    // (وضع no-cors مقبول لأن Apps Script webhook لا يرد JSON قابل للقراءة.)
-    const sendDirect = async (): Promise<boolean> => {
-      let url = directWebhook;
-      if (!url && sheetKey) {
-        try {
-          const fr = await fetch("/api/sheet/factory-base", { cache: "no-store" });
-          const fd = await fr.json().catch(() => null);
-          if (fd && fd.base) url = fd.base + "?key=" + encodeURIComponent(sheetKey);
-        } catch {
-          /* تجاهل */
-        }
-      }
-      if (!url) return false;
-      try {
-        await fetch(url, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=UTF-8" },
-          body: JSON.stringify(payload),
-          keepalive: true,
-        });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-
-    // المسار الاحتياطي: نمرّ عبر نقطة الوكيل /api/sheet/order كي يبني الخادم
-    // الرابط من FACTORY_URL ويعيد التوجيه لـ Apps Script. نلجأ إليه فقط إذا
-    // فشل المسار المباشر أو لم يتوفّر (مثلاً منتج نُشر قبل حقن sheetWebhook).
-    const sendViaProxy = async (): Promise<void> => {
-      try {
-        const lastMeta = window.__lastMetaEvent;
-        const meta = lastMeta
-          ? { eventId: lastMeta.eventId, userData: lastMeta.userData }
-          : undefined;
-        console.info("[OrderForm] احتياط: إرسال الطلب عبر الوكيل");
-        const res = await fetch("/api/sheet/order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sheetKey, sheetEmail, order: payload, meta }),
-        });
-        const txt = await res.text().catch(() => "");
-        console.info("[OrderForm] رد الوكيل:", res.status, txt.slice(0, 120));
-      } catch (error) {
-        console.error("تعذر إرسال الطلب إلى Google Sheets عبر الوكيل:", error);
-      }
-    };
-
-    const directOk = await sendDirect();
-    if (!directOk) await sendViaProxy();
+    // المسار الوحيد الموثوق: نمرّ عبر نقطة الوكيل /api/sheet/order. الخادم
+    // يبني الرابط من FACTORY_URL + sheetKey ثم يعيد POST إلى Apps Script
+    // مع Content-Length صحيح. الإرسال المباشر من المتصفح يفشل بصمت بسبب
+    // redirect 302 → 411 على Apps Script (تحقّقناه تجريبياً).
+    try {
+      const lastMeta = window.__lastMetaEvent;
+      const meta = lastMeta
+        ? { eventId: lastMeta.eventId, userData: lastMeta.userData }
+        : undefined;
+      console.info("[OrderForm] إرسال الطلب عبر الوكيل");
+      const res = await fetch("/api/sheet/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetKey, sheetEmail, order: payload, meta }),
+      });
+      const txt = await res.text().catch(() => "");
+      console.info("[OrderForm] رد الوكيل:", res.status, txt.slice(0, 120));
+    } catch (error) {
+      console.error("تعذر إرسال الطلب إلى Google Sheets:", error);
+    }
   }
 
   const successClass =
