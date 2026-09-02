@@ -101,17 +101,3 @@ export const RESOURCE_LIMITS_ADDITIONAL = {
   DEFAULT_VALIDITY_DAYS: 30, // صلاحية افتراضية للاشتراك
   DEVICE_HASH_PREFIX_LENGTH: 24, // طول الجزء المستخدم لتعريف الجهاز
 };
-
-// ── سعر الصرف (DZD → USD) لتتبع Meta Pixel ──
-// Meta Pixel يقبل 50+ عملة رسمية لكنه لا يقبل DZD. نُحوّل المبلغ إلى USD
-// بدقة 2 رقم عشري عند إطلاق events: Lead / Purchase / ViewContent.
-// آخر تحديث للسعر: 2026-09-02 (XE.com) — يُعدَّل يدوياً عند تغيّر ملحوظ.
-export const DZD_TO_USD_RATE = 1 / 133.48; // 1 USD ≈ 133.48 DZD
-
-// يُحوّل مبلغاً بالدينار الجزائري إلى دولار أمريكي بدقة 2 رقم.
-// يُستخدم في كل أحداث Meta Pixel (Lead / Purchase / ViewContent).
-// الـ return نوعه number ليسمح بحسابات لاحقة (مثل ضرب في الكمية).
-export function dzdToUsd(amount: number): number {
-  if (!Number.isFinite(amount) || amount <= 0) return 0;
-  return Math.round(amount * DZD_TO_USD_RATE * 100) / 100;
-}

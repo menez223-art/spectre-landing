@@ -3,7 +3,6 @@
 import { useState, useEffect, CSSProperties } from "react";
 import type { Product } from "@/app/lib/types";
 import { buildCssVars } from "@/app/lib/theme";
-import { dzdToUsd } from "@/app/lib/utils/constants";
 import { LandingLangProvider, useLandingLang } from "./LandingLang";
 import { Header, TopBar } from "./Header";
 import { Showcase } from "./Showcase";
@@ -94,8 +93,7 @@ function ProductLandingInner({ product, preview = false }: { product: Product; p
   // في المنتج المفرد: نُسجّل مرة واحدة عند التحميل لقياس PageView كـ ViewContent.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Meta Pixel — يقبل USD فقط (DZD غير مدعوم). نحول السعر عبر dzdToUsd().
-    const valueUsd = dzdToUsd(active.price);
+    // Meta Pixel
     const fbq = (window as unknown as { fbq?: (...a: unknown[]) => void }).fbq;
     if (typeof fbq === "function") {
       try {
@@ -103,12 +101,12 @@ function ProductLandingInner({ product, preview = false }: { product: Product; p
           content_type: "product",
           content_ids: [active.id],
           content_name: active.name,
-          value: valueUsd,
-          currency: "USD",
+          value: active.price,
+          currency: "DZD",
         });
       } catch { /* تتبّع اختياري */ }
     }
-    // TikTok Pixel — يقبل DZD فلا حاجة للتحويل.
+    // TikTok Pixel — يُطلق بالتوازي مع فيسبوك.
     const ttq = (window as unknown as { ttq?: { track?: (...a: unknown[]) => void } }).ttq;
     if (ttq && typeof ttq.track === "function") {
       try {

@@ -5,7 +5,6 @@
 import { NextResponse } from "next/server";
 import { resolveOrderTarget } from "@/app/lib/sheetResolver";
 import { buildMetaUserData, splitFullName } from "@/app/lib/utils/metaHash";
-import { dzdToUsd } from "@/app/lib/utils/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -87,11 +86,8 @@ export async function POST(request: Request) {
             action_source: "website",
             user_data: mergedUserData,
             custom_data: {
-              // Meta CAPI يقبل USD فقط (DZD غير مدعوم). نُحوّل المبلغ عبر dzdToUsd().
-              currency: "USD",
-              value: dzdToUsd(
-                typeof o.totalPrice === "number" ? o.totalPrice : Number(o.totalPrice) || 0
-              ),
+              currency: "DZD",
+              value: typeof o.totalPrice === "number" ? o.totalPrice : Number(o.totalPrice) || 0,
               content_name: typeof o.product === "string" ? o.product : "",
               content_type: "product",
               content_ids: typeof o._productId === "string" ? [o._productId] : undefined,

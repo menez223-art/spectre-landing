@@ -1,82 +1,9 @@
 # نقطة توقف شاملة — مشروع Spectre (صفحات الهبوط التجارية)
 
-> آخر تحديث: **2026-09-02** (المرحلة 8: تنظيف كاش + تحديث + إدارة منتجات المتجر + تبسيط /admin).
+> آخر تحديث: 2026-08-22 ليلًا (إصلاح جذري لثبات جلسة/بصمة الموبايل + عرض الاسم والهاتف في لوحة الأدمن — نُشر وتحقّق حيًّا 8/0 و18/0 — انظر §ط2).
 > **اللغة الإلزامية للردود: العربية فقط** (من MEMORY.md + CLAUDE.md العام + تعليمة المستخدم).
 > **الأسرار حسّاسة:** `.env.local` / `.env.prod` / `.env.test` — لا تُكشف محتوياتها أبداً.
 > **قيد حسّاس جداً:** لا أي مساس بنظام الحظر/السماح (`authStore`, `isDeviceBanned`, قائمة الأجهزة). أي تعديل على حماية النشر = بالرجوع للمستخدم أولاً.
-
-## 0. آخر 10 commits (HEAD = `81d5b70`)
-
-```
-81d5b70 refactor(admin): simplify layout, remove duplicate sections
-21803c9 refactor(admin): scroll-anchor nav + clickable links in health panel
-295120a feat(admin): 4-button header nav (subscriptions, ban list, link health, studio link)
-0ac2988 refactor(admin): flatten layout — remove duplicate tabs
-9d791f0 fix(admin): merge shell into single client component to fix hang
-7a9e77e feat(admin): unified AdminShell with sidebar, tabs, drawer + new panels
-5cdeb79 feat(studio): show visit count next to each published link
-19c826b feat(pricing): subscribe buttons open WhatsApp with pre-filled message
-9724006 security: require ADMIN_*/MASTER_* env vars (remove weak fallbacks)
-792407d security: Meta CAPI via Bearer header + tighten .vercelignore
-```
-
-**آخر deployment في الإنتاج**: `spectre-dz.vercel.app` (READY) — `/admin` = 13.4 kB.
-
----
-
-## 8. المرحلة 8 (2026-09-01 → 2026-09-02) — تحسينات + تنظيف
-
-### 8.1 تحسينات أمنية (الأمان أولاً)
-
-| # | الإجراء | Commit | الملف |
-|---|---|---|---|
-| 1 | `META_ACCESS_TOKEN` انتقل من URL إلى `Authorization: Bearer` | `792407d` | `app/api/sheet/order/route.ts:106` |
-| 2 | `.vercelignore` يحمي `.env*`, `scripts/`, `.vercel/` | `792407d` | `.vercelignore` |
-| 3 | حذف fallbacks في `adminAuth.ts` و `credentials.ts` | `9724006` | `app/lib/adminAuth.ts`, `app/lib/credentials.ts` |
-| 4 | تنظيف scripts/ المحلية (16 ملف) | محلي | `C:\Users\C-Ron\.spectre-archive\scripts-2026-09-01\` |
-
-### 8.2 ميزات جديدة
-
-| # | الميزة | Commit | الوصف |
-|---|---|---|---|
-| 1 | إحصائيات الزيارات بجانب كل رابط في الاستوديو | `5cdeb79` | بدلاً من بطاقة عامة، كل `/p/<slug>` يعرض زياراته |
-| 2 | أزرار "اشترك الآن" في `/pricing` → WhatsApp بطلب جاهز | `19c826b` | رقم الأدمن: `213658123545` (env `NEXT_PUBLIC_ADMIN_WHATSAPP`) |
-| 3 | إحصائيات admin (admin/subscription) ترجع `visits` لكل منتج | `5cdeb79` | `app/api/publish/route.ts` |
-
-### 8.3 تبسيط /admin (المرحلة النهائية)
-
-| # | الإجراء | Commit | النتيجة |
-|---|---|---|---|
-| 1 | إنشاء `AdminShell` (Sidebar + Tabs + Drawer + Breadcrumb) | `7a9e77e` | فشل: render function كـ child سبّب hang |
-| 2 | إصلاح: دمج كل شيء في `AdminPageClient` واحد | `9d791f0` | يعمل (13.4 kB) |
-| 3 | 4 أزرار Header (Subscriptions/Banned/Health/Studio) | `295120a` | تكرار — تم الإلغاء |
-| 4 | Scroll-anchor nav (بدون تبديل محتوى) | `21803c9` | تكرار — تم الإلغاء |
-| 5 | **الحل النهائي**: Header بسيط + AdminPanel واحد | `81d5b70` | بدون تكرار، كل شيء في صفحة واحدة |
-
-**الهيكل النهائي لـ /admin**:
-```
-Header: [إدارة الاشتراكات] [🛒 إدارة منتجات المتجر ↗] [email] [🌓] [خروج]
-└── AdminPanel (صفحة واحدة، 6 أقسام داخلية):
-    1. 📊 ملخص الاشتراكات (4 بطاقات)
-    2. 🔍 البحث + filter الحالة + filter الخطة
-    3. [الكل] [أساسي] [متقدم] [الذهبية] Tabs
-    4. 👥 المستخدمون (مع [✏️ تعديل] [⏸️ إيقاف] [🚫 حظر])
-    5. 🚫 قائمة المحظورين (داخل AdminPanel)
-    6. 🔗 رصد صحة الروابط (داخل AdminPanel)
-    7. 🛒 إدارة منتجات المتجر (داخل AdminPanel)
-    8. ⚠️ الاحتياط وإنذار السعة (داخل AdminPanel)
-```
-
-### 8.4 تنظيف الكاش (2026-09-02)
-
-| الإجراء | الحجم قبل | الحجم بعد |
-|---|---|---|
-| حذف `.next/` | 117 MB | 0 (rebuilt on demand) |
-| حذف `node_modules/.cache/` | (فارغ) | — |
-| حذف `tsconfig.tsbuildinfo` | موجود | محذوف |
-| حذف ملفات `/tmp` المؤقتة | 10+ ملفات | 0 |
-
-**النتيجة**: المشروع نظيف، git نظيف (لا تغييرات معلّقة)، HEAD = `81d5b70`.
 
 ---
 
