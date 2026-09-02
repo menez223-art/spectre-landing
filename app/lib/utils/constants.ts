@@ -101,3 +101,13 @@ export const RESOURCE_LIMITS_ADDITIONAL = {
   DEFAULT_VALIDITY_DAYS: 30, // صلاحية افتراضية للاشتراك
   DEVICE_HASH_PREFIX_LENGTH: 24, // طول الجزء المستخدم لتعريف الجهاز
 };
+
+// ── تحويل العملات ──
+// Meta CAPI و Meta Pixel يقبلان USD فقط (DZD غير مدعومة). نحول من DZD إلى USD
+// بسعر تقريبي ثابت. كان مُعرَّفاً محلياً في route.ts ثم نُقل هنا ليُستخدم من
+// OrderForm.tsx أيضاً.
+const DZD_PER_USD = 135; // سعر تقريبي: 1 USD ≈ 135 DZD
+export function dzdToUsd(dzd: number): number {
+  if (!Number.isFinite(dzd) || dzd <= 0) return 0;
+  return Number((dzd / DZD_PER_USD).toFixed(2));
+}
