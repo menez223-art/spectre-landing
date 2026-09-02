@@ -368,8 +368,6 @@ function StudioInner() {
   const [publishedInfo, setPublishedInfo] = useState<{ url: string; slug: string } | null>(null);
   const [publishedList, setPublishedList] = useState<PublishedItem[]>([]);
   const [copiedPublished, setCopiedPublished] = useState(false);
-  // إحصائيات زيارات صفحة المالك هذا الشهر — تُجلب مرة عند توفر البصمة
-  const [myVisits, setMyVisits] = useState<number | null>(null);
   // تحميل الصفحة المنشورة إلى المحرّر («تعديل السعر والصور»): السلاغ قيد
   // الجلب حالياً (لتعطيل الأزرار وعرض «جارٍ التحميل» في مكانه) + إشعار يظهر
   // أعلى النموذج بعد التحميل + آخر سلاغ نُسِخ (لزر النسخ في قائمة المنشورات).
@@ -444,11 +442,6 @@ function StudioInner() {
   useEffect(() => {
     if (!fingerprint) return;
     loadPublishedList();
-    // إحصائيات زيارات صفحة المالك هذا الشهر
-    fetch(`/api/my-page-stats?fingerprint=${encodeURIComponent(fingerprint)}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setMyVisits(typeof d?.visits === "number" ? d.visits : null))
-      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fingerprint]);
 
@@ -1779,16 +1772,6 @@ function StudioInner() {
               <p className="text-xs leading-5 text-navy-900/55">
                 {t("publishSub")}
               </p>
-            )}
-
-            {/* بطاقة إحصائيات زيارات صفحة المالك هذا الشهر */}
-            {myVisits !== null && (
-              <div className="flex items-center justify-between gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-500/30 dark:bg-sky-500/10">
-                <span className="text-xs font-semibold text-sky-900 dark:text-sky-200">📊 {t("myVisitsLabel")}</span>
-                <span className="font-display text-lg font-extrabold text-sky-700 dark:text-sky-300">
-                  {myVisits.toLocaleString()}
-                </span>
-              </div>
             )}
 
             {/* مدير المنشورات */}
