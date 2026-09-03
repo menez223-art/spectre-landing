@@ -116,21 +116,20 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
       utmCampaign: utm("utm_campaign"),
     };
 
-    // مسار التسليم: الخادم (Vercel) هو الوسيط الإلزامي بين المتصفح و Apps Script.
+    // مسار التسليم الأساسي: الخادم (Vercel) هو الوسيط بين المتصفح و Apps Script.
     // السبب الجذري: Apps Script web app المنشور "Anyone" يردّ بـ 302 redirect إلى
-    // script.googleusercontent.com/macros/echo. المتصفح يتبع التوجيه لكن يُسقط
-    // Content-Length فيُرجع 411 Length Required → الطلب يضيع بصمت. الخادم
-    // عبر fetch يُعيد إرسال POST مع Content-Length فيصل الطلب. هذه حقيقة
-    // اختبرناها مباشرة على الإنتاج اليوم (2026-09-02): الـ proxy يُرجع ok:true
-    // ويُسجَّل الصف في Google Sheets، بينما الإرسال المباشر من المتصفح يمرّ
-    // بصمت لكن لا يصل. فلا خيار سوى تمرير كل طلب عبر /api/sheet/order.
+    // script.googleusercontent.com/macros/echo. الخادم عبر fetch يُعيد إرسال POST
+    // مع Content-Length فيصل الطلب. اختبرنا ذلك على الإنتاج 2026-09-02.
+    // Fallback: إذا sheetKey/sheetEmail فارعان في المنتج المنشور (KV قديم أو
+    // صفحة نُشرت قبل أن يحفظ الستوديو هذين الحقلين)، نُرسل الطلب مباشرةً
+    // عبر sheetWebhook المضمّن — كي لا يضيع أي طلب. الكود هنا لا يُعدّل
+    // sheetKey/sheetEmail في KV، فقط يستخدم الموجود في المنتج وقت الإرسال.
     const sheetKey = product.sheetKey ?? "";
     const sheetEmail = product.sheetEmail ?? "";
+    const directWebhook = product.sheetWebhook ?? "";
 
-    // وجهة الطلب: جدول Google أو واتساب صاحب المتجر — واحدة منهما تكفي.
-    // واتساب قناة مستقلة: متجر بلا جدول لكن برقم واتساب يستقبل طلباته طبيعياً
-    // (زر الإرسال بعد النجاح)، فلا نحجب النموذج إلا إذا لم توجد أيّ جهة.
-    const hasSheetDestination = Boolean(sheetKey || sheetEmail);
+    // وجهة الطلب: جدول Google (sheetKey/sheetEmail أو sheetWebhook) أو واتساب.
+    const hasSheetDestination = Boolean(sheetKey || sheetEmail || directWebhook);
     const hasWhatsapp = Boolean(product.whatsapp);
     if (!hasSheetDestination && !hasWhatsapp) {
       setBlocked(true);
@@ -243,25 +242,47 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
     // على رسالة الزبون الظاهرة أعلاه ولا يحتاج أي استدعاء شبكي.
     if (!hasSheetDestination) return;
 
-    // المسار الوحيد الموثوق: نمرّ عبر نقطة الوكيل /api/sheet/order. الخادم
-    // يبني الرابط من FACTORY_URL + sheetKey ثم يعيد POST إلى Apps Script
-    // مع Content-Length صحيح. الإرسال المباشر من المتصفح يفشل بصمت بسبب
-    // redirect 302 → 411 على Apps Script (تحقّقناه تجريبياً).
-    try {
-      const lastMeta = window.__lastMetaEvent;
-      const meta = lastMeta
-        ? { eventId: lastMeta.eventId, userData: lastMeta.userData }
-        : undefined;
-      console.info("[OrderForm] إرسال الطلب عبر الوكيل");
-      const res = await fetch("/api/sheet/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheetKey, sheetEmail, order: payload, meta }),
-      });
-      const txt = await res.text().catch(() => "");
-      console.info("[OrderForm] رد الوكيل:", res.status, txt.slice(0, 120));
-    } catch (error) {
-      console.error("تعذر إرسال الطلب إلى Google Sheets:", error);
+    // الإرسال: المسار الأساسي عبر /api/sheet/order (يحتاج sheetKey/sheetEmail).
+    // Fallback: إذا فشلا أو لم تتوفر هوية، نُرسل الطلب مباشرةً لـ sheetWebhook
+    // المضمّن في المنتج (no-cors) — كي لا يضيع أي طلب حتى لو الـ KV قديم.
+    const lastMeta = window.__lastMetaEvent;
+    const meta = lastMeta
+      ? { eventId: lastMeta.eventId, userData: lastMeta.userData }
+      : undefined;
+
+    // المسار الأول: الخادم الوكيل (يحتاج هوية جدول)
+    if (sheetKey || sheetEmail) {
+      try {
+        console.info("[OrderForm] إرسال الطلب عبر الوكيل");
+        const res = await fetch("/api/sheet/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sheetKey, sheetEmail, order: payload, meta }),
+        });
+        const txt = await res.text().catch(() => "");
+        console.info("[OrderForm] رد الوكيل:", res.status, txt.slice(0, 120));
+      } catch (error) {
+        console.error("تعذر إرسال الطلب إلى Google Sheets عبر الوكيل:", error);
+      }
+      return;
+    }
+
+    // المسار البديل: المتصفح يرسل مباشرةً لـ Apps Script عبر الرابط المضمّن.
+    // يُستخدم فقط إذا sheetKey/sheetEmail فارعان في المنتج المنشور. Apps Script
+    // يتلقى البيانات ويضيف الصف؛ وضع no-cors مقبول لأن الـ webhook لا يرد JSON.
+    if (directWebhook) {
+      try {
+        console.info("[OrderForm] fallback: إرسال مباشر عبر sheetWebhook");
+        await fetch(directWebhook, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=UTF-8" },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        });
+      } catch (error) {
+        console.error("فشل الإرسال المباشر عبر sheetWebhook:", error);
+      }
     }
   }
 
