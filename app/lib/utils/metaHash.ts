@@ -48,13 +48,33 @@ export async function hashExternalId(fingerprint: string): Promise<string> {
   return sha256Hex(fingerprint);
 }
 
-/** بناء كائن user_data الجاهز للإرسال لـ Meta (يُرجع فقط الحقول غير الفارغة). */
+/** تطبيع اسم مدينة لإرسال Meta ct. Meta تتوقع lowercase ascii قدر الإمكان. */
+function normLocation(raw: string): string {
+  return (raw ?? "").trim().toLowerCase();
+}
+
+/** بناء كائن user_data الجاهز للإرسال لـ Meta (يُرجع فقط الحقول غير الفارغة).
+ *  حقول Meta المدعومة:
+ *  - em (hashed) - البريد الإلكتروني
+ *  - ph (hashed) - الهاتف
+ *  - fn (hashed) - الاسم الأول
+ *  - ln (hashed) - اسم العائلة
+ *  - external_id (hashed) - معرّف ثابت للجهاز/الزبون
+ *  - ct (raw) - المدينة/البلدية
+ *  - st (raw) - الولاية/المحافظة (كود أو اسم)
+ *  - zp (raw) - الرمز البريدي
+ *  - country (raw) - رمز الدولة ISO 3166-1 alpha-2 (DZ للجزائر)
+ */
 export async function buildMetaUserData(input: {
   email?: string;
   phone?: string;
   firstName?: string;
   lastName?: string;
   fingerprint?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
 }): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   if (input.email) out.em = await hashEmail(input.email);
@@ -62,5 +82,13 @@ export async function buildMetaUserData(input: {
   if (input.firstName) out.fn = await hashFirstName(input.firstName);
   if (input.lastName) out.ln = await hashLastName(input.lastName);
   if (input.fingerprint) out.external_id = await hashExternalId(input.fingerprint);
+  const city = normLocation(input.city ?? "");
+  const state = normLocation(input.state ?? "");
+  const zip = (input.zip ?? "").trim();
+  const country = (input.country ?? "").trim().toLowerCase();
+  if (city) out.ct = city;
+  if (state) out.st = state;
+  if (zip) out.zp = zip;
+  if (country) out.country = country;
   return out;
 }

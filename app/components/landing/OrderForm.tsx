@@ -42,7 +42,7 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
   const [commune, setCommune] = useState("");
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("home");
   const [quantity, setQuantity] = useState(1);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(""); // فعلاً يُقرأ في `payload.email` ويُمرَّر للـ CAPI
   const [submitted, setSubmitted] = useState(false);
   // آخر طلب ناجح — يُستخدم لبناء رسالة واتساب الجاهزة في زر الإرسال بعد النجاح.
   const [lastOrder, setLastOrder] = useState<{ text: string } | null>(null);
@@ -103,8 +103,10 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
     const payload = {
       timestamp: new Date().toISOString(),
       name: String(formData.get("name") ?? "").trim(),
+      email: String(formData.get("email") ?? "").trim().toLowerCase(),
       phone: String(formData.get("phone") ?? "").trim(),
       wilaya: wilaya.name,
+      wilayaCode: String(wilayaCode),
       commune: commune.trim(),
       quantity,
       deliveryType: wilayaMode
@@ -157,20 +159,41 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
         ? crypto.randomUUID()
         : `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
       // بصمة الجهاز تُحسب من الـ localStorage (نفس deviceId المستخدم في auth).
+      // لو غابت نولّد واحدة من بصمة المتصفح كي تصل external_id إلى 100%.
       let deviceFp = "";
       try {
         deviceFp = window.localStorage?.getItem("studio-device-fingerprint-v1") ?? "";
       } catch { /* localStorage غير متاح */ }
+      if (!deviceFp) {
+        // بصمة طارئة مستقرة لكل متصفح (userAgent + lang + screen) — تُحفظ
+        // بعد أول استخدام كي لا تتغير بين الأحداث.
+        try {
+          const seed = [
+            navigator.userAgent,
+            navigator.language,
+            String(screen.width),
+            String(screen.height),
+            String(new Date().getTimezoneOffset()),
+          ].join("|");
+          let h = 0;
+          for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+          deviceFp = `fb_anon_${(h >>> 0).toString(16)}_${seed.length}`;
+          window.localStorage?.setItem("studio-device-fingerprint-v1", deviceFp);
+        } catch { /* localStorage مقفل */ }
+      }
       // Advanced Matching: لو فشل الـ SHA-256 لأي سبب، نكمل بدونه
       // (لن نحجب الطلب بسبب خطأ في تتبّع).
       let advancedMatching: Record<string, string> = {};
       try {
         advancedMatching = await buildMetaUserData({
-          email: "",
+          email: payload.email,
           phone: payload.phone,
           firstName: split.first,
           lastName: split.last,
           fingerprint: deviceFp,
+          city: payload.commune,
+          state: payload.wilaya,
+          country: "DZ",
         });
       } catch { /* فشل التتبّع — نكمل بدون advanced matching */ }
       const fbq = (window as unknown as { fbq?: (...args: unknown[]) => void }).fbq;
@@ -317,6 +340,20 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
       <label className={labelClass}>
         {t("phone")}
         <input required name="phone" type="tel" placeholder={t("phonePh")} className={inputClass} />
+      </label>
+
+      <label className={labelClass}>
+        {t("email")}
+        <input
+          name="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder={t("emailPh")}
+          className={inputClass}
+        />
       </label>
 
       <label className={labelClass}>

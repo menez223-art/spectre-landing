@@ -43,6 +43,8 @@ const LANDING_AR: Record<string, string> = {
   // ── النموذج ──
   fullName: "الاسم الكامل",
   fullNamePh: "اكتب اسمك الكامل",
+  email: "البريد الإلكتروني (اختياري)",
+  emailPh: "name@example.com",
   phone: "رقم الهاتف",
   phonePh: "05 xx xx xx xx",
   wilaya: "الولاية",
@@ -110,6 +112,8 @@ const LANDING_EN: Record<string, string> = {
 
   fullName: "Full name",
   fullNamePh: "Enter your full name",
+  email: "Email (optional)",
+  emailPh: "name@example.com",
   phone: "Phone number",
   phonePh: "05 xx xx xx xx",
   wilaya: "Wilaya",
