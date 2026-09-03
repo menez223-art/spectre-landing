@@ -59,13 +59,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "upstream_error", detail: text.trim() }, { status: 502 });
     }
 
-    // === Meta Conversions API (CAPI) — تكامل اختياري للمالك فقط، يفشل بصمت ===
-    // يُطلق بعد نجاح التحويل لـ Apps Script ولا يحبس ردّ العميل. غياب
-    // META_AMINE_PIXEL_ID / META_ACCESS_TOKEN = تكامل متعطّل (سلوك آمن
-    // للوكلاء الآخرين — لا يحدث خلط). الخطأ يُسجَّل فقط دون إعادة 502.
+    // === Meta Conversions API (CAPI) — تكامل حصري لمالك AMINE فقط، يفشل بصمت ===
+    // يُطلق بعد نجاح التحويل لـ Apps Script ولا يحبس ردّ العميل. شروط الإطلاق
+    // كلها يجب أن تتحقق معاً كي لا يحدث أي خلط بين بيكسلات المستخدمين:
+    //   1. META_AMINE_PIXEL_ID + META_ACCESS_TOKEN معرّفان في البيئة
+    //   2. sheetEmail المُقدّم يطابق بريد مالك AMINE الكنسي
+    //   3. eventId مرره OrderForm (يمنع الإطلاق بدون قصد المتصفح)
+    // غياب أي شرط = CAPI لا يُطلق (سلوك آمن لكل الـ tenants).
     const pixelId = process.env.META_AMINE_PIXEL_ID;
     const accessToken = process.env.META_ACCESS_TOKEN;
-    if (pixelId && accessToken && /^\d{5,30}$/.test(pixelId) && eventId) {
+    const AMINE_OWNER_EMAIL = "spectre1v99@gmail.com";
+    if (
+      pixelId &&
+      accessToken &&
+      /^\d{5,30}$/.test(pixelId) &&
+      eventId &&
+      sheetEmail === AMINE_OWNER_EMAIL
+    ) {
       const o = order as Record<string, unknown>;
       const nameStr = typeof o.name === "string" ? o.name : "";
       const split = splitFullName(nameStr);
