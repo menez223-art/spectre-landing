@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   COMMUNES,
   DELIVERY_TYPES,
@@ -48,6 +48,7 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
   const [lastOrder, setLastOrder] = useState<{ text: string } | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [colorName, setColorName] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   // يستبعد الألوان غير الصالحة (اسم فارغ أو كود لون باطل) للعرض فقط
   const colors = (product.colors ?? []).filter(
@@ -88,7 +89,7 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!wilaya) return;
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(formRef.current ?? event.currentTarget);
 
     // UTM من URL (تتبع مصدر الزيارة: فيسبوك/إنستغرام/إعلان) — يُسجَّل في الصف.
     const utm = (key: string): string => {
@@ -230,7 +231,15 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
     });
 
     setSubmitted(true);
-    event.currentTarget.reset();
+    if (formRef.current) {
+      formRef.current.reset();
+    } else {
+      try {
+        event.currentTarget.reset();
+      } catch {
+        // event.currentTarget قد يكون null بعد React 17 — لا نمنع الإرسال
+      }
+    }
     setWilayaCode("");
     setCommune("");
     setQuantity(1);
@@ -293,6 +302,7 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
 
   return (
     <form
+      ref={formRef}
       onSubmit={handleSubmit}
       className="grid gap-4 rounded-3xl border border-[var(--c-border)] bg-[var(--c-surface)] p-6 sm:grid-cols-2 sm:p-8"
     >
