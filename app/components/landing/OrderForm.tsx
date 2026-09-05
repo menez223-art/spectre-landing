@@ -147,7 +147,10 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
       // Meta Pixel — يقبل USD فقط (DZD غير مدعوم). نحول المبلغ من DZD إلى USD.
       // Advanced Matching: نُمرّر email/phone/name مًجزّأة (SHA-256) لرفع
       // Match Quality في Events Manager. fingerprint الجهاز تتحول إلى external_id.
-      const valueUsd = dzdToUsd(payload.totalPrice);
+      // ضمان قيمة موجبة لـ fbq: فيسبوك يرفض events ذات value ≤ 0 ويُسجّلها
+      // "Missing value/currency" في Events Manager. dzdToUsd ترجع 0 لو totalPrice
+      // غير صالح؛ هنا نضمن حداً أدنى موجباً.
+      const valueUsd = Math.max(0.01, dzdToUsd(payload.totalPrice));
       const split = splitFullName(payload.name);
       // نتولّد eventId واحد لكل محاولة (dedup بين fbq و CAPI).
       const eventId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")

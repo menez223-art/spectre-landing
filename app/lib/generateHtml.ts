@@ -987,7 +987,10 @@ ttq.page();
     // eventId واحد يُرسل للـ fbq() وللـ CAPI server-side كي لا يُحسب الـ Purchase مرتين.
     if (PIXEL_ID && typeof fbq === "function") {
       try {
-        var totalUsd = dzdToUsd(payload.totalPrice);
+        // ضمان قيمة موجبة لـ fbq: فيسبوك يرفض events ذات value ≤ 0 ويُسجّلها
+        // "Missing value/currency" في Events Manager. dzdToUsd ترجع 0 لو totalPrice
+        // غير صالح؛ هنا نضمن حداً أدنى موجباً.
+        var totalUsd = Math.max(0.01, dzdToUsd(payload.totalPrice));
         // توليد eventId مشترك بين fbq و CAPI.
         var evtId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
           ? crypto.randomUUID()
