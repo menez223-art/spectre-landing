@@ -314,6 +314,7 @@ export async function POST(request: Request) {
     //  • whatsapp: أرقام دولية 8–15، حفظ حر بعد ربط البريد (بلا رموز إضافية).
     if (action === "set_marketing") {
       const providesPixel = body.pixelId !== undefined;
+      const providesTestCode = body.pixelTestEventCode !== undefined;
       const providesTiktok = body.tiktokPixelId !== undefined;
       const providesWhatsapp = body.whatsapp !== undefined;
       const providesStoreName = body.storeName !== undefined;
@@ -323,6 +324,13 @@ export async function POST(request: Request) {
       const pixelId = String(body.pixelId ?? "").trim();
       if (providesPixel && pixelId && !/^\d{5,30}$/.test(pixelId)) {
         return NextResponse.json({ error: "bad_pixel" }, { status: 400 });
+      }
+      // Meta Test Event Code: أرقام/حروف لاتينية 4–30 — يُمرَّر إلى fbq('init',…) كي
+      // تظهر أحداث هذا الحساب في Events Manager → Test Events. لا قيود على القيمة
+      // الفارغة (تُحفظ null ويُحذف السلوك من init). حفظ حر دائماً كـ pixelId.
+      const pixelTestEventCode = String(body.pixelTestEventCode ?? "").trim();
+      if (providesTestCode && pixelTestEventCode && !/^[A-Za-z0-9]{4,30}$/.test(pixelTestEventCode)) {
+        return NextResponse.json({ error: "bad_test_code" }, { status: 400 });
       }
       // TikTok Pixel: صيغته الحرفية مثل Meta (أرقام 5–30، لكن نقبل أنماط
       // إضافية كـ C... و CC... للحسابات الإقليمية). حفظ حر دائماً.
@@ -350,8 +358,9 @@ export async function POST(request: Request) {
       // الترحيل الشفاف يحدث داخل الجلب: قيم الجهاز/الأجهزة القديمة لنفس
       // البريد تُنسى إلى سجل البريد مرة واحدة قبل أول كتابة فوقه.
       const cur = await getMarketingForEmailWithMigration(ownerEmail);
-      const patch: Partial<Pick<MarketingSettings, "pixelId" | "tiktokPixelId" | "whatsapp" | "storeName" | "showNamePublicly">> = {};
+      const patch: Partial<Pick<MarketingSettings, "pixelId" | "pixelTestEventCode" | "tiktokPixelId" | "whatsapp" | "storeName" | "showNamePublicly">> = {};
       if (providesPixel) patch.pixelId = pixelId || null;
+      if (providesTestCode) patch.pixelTestEventCode = pixelTestEventCode || null;
       if (providesTiktok) patch.tiktokPixelId = tiktokPixelId || null;
       if (providesWhatsapp) patch.whatsapp = whatsapp || null;
       if (providesStoreName) patch.storeName = storeNameRaw || null;

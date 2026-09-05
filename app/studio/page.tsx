@@ -462,6 +462,7 @@ function StudioInner() {
     if (account?.email) next.sheetEmail = account.email;
     if (account?.sheetKey) next.sheetKey = account.sheetKey;
     if (account?.pixelId) next.pixelId = account.pixelId;
+    if (account?.pixelTestEventCode) next.pixelTestEventCode = account.pixelTestEventCode;
     if (account?.tiktokPixelId) next.tiktokPixelId = account.tiktokPixelId;
     if (account?.whatsapp) next.whatsapp = account.whatsapp;
     // اسم المتجر الودّي — يظهر في المتجر العام فقط إن أذن صاحبه صراحةً.

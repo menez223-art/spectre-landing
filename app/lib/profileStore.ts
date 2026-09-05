@@ -19,6 +19,9 @@ export interface DeviceProfile {
   // ── حقول تسويقية اختيارية (لا علاقة لهما بالحظر/الربط) ──
   // Meta Pixel: يُحقن تلقائياً في صفحة المتجر المنشورة لقياس إعلانات فيسبوك.
   pixelId?: string | null;
+  // Meta Test Event Code (من Events Manager → Test Events): يُمرَّر إلى fbq('init',…) كي
+  // تظهر أحداث هذا الحساب في لوحة الاختبار.
+  pixelTestEventCode?: string | null;
   // TikTok Pixel: يُحقن تلقائياً بالتوازي مع فيسبوك لقياس إعلانات تيكتوك.
   tiktokPixelId?: string | null;
   // رقم واتساب استلام الطلبات (بصيغة دولية بلا +): تُبنى منه رسالة الطلب الجاهزة.

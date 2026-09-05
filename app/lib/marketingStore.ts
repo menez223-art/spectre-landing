@@ -17,6 +17,7 @@ if (typeof window !== "undefined") {
 export interface MarketingSettings {
   email: string;
   pixelId?: string | null;
+  pixelTestEventCode?: string | null;
   tiktokPixelId?: string | null;
   whatsapp?: string | null;
   storeName?: string | null;
@@ -50,13 +51,16 @@ export async function getMarketingForEmailWithMigration(
   const existing = await getMarketingByEmail(lower);
   if (existing) return existing;
 
-  let migrated: Partial<Pick<MarketingSettings, "pixelId" | "tiktokPixelId" | "whatsapp" | "storeName" | "showNamePublicly">> = {};
+  let migrated: Partial<Pick<MarketingSettings, "pixelId" | "pixelTestEventCode" | "tiktokPixelId" | "whatsapp" | "storeName" | "showNamePublicly">> = {};
   try {
     const rows = await listKv("studio-auth/profiles/");
     for (const row of rows) {
       const p = row.value as DeviceProfile | null;
       if (!p?.email || p.email.toLowerCase() !== lower) continue;
       if (migrated.pixelId === undefined && p.pixelId != null) migrated.pixelId = p.pixelId;
+      if (migrated.pixelTestEventCode === undefined && p.pixelTestEventCode != null) {
+        migrated.pixelTestEventCode = p.pixelTestEventCode;
+      }
       if (migrated.tiktokPixelId === undefined && p.tiktokPixelId != null) migrated.tiktokPixelId = p.tiktokPixelId;
       if (migrated.whatsapp === undefined && p.whatsapp != null) migrated.whatsapp = p.whatsapp;
       if (migrated.storeName === undefined && p.storeName != null) migrated.storeName = p.storeName;
@@ -70,6 +74,7 @@ export async function getMarketingForEmailWithMigration(
 
   const hasAny =
     migrated.pixelId != null ||
+    migrated.pixelTestEventCode != null ||
     migrated.tiktokPixelId != null ||
     migrated.whatsapp != null ||
     migrated.storeName != null ||
@@ -79,6 +84,7 @@ export async function getMarketingForEmailWithMigration(
     return {
       email: lower,
       pixelId: null,
+      pixelTestEventCode: null,
       tiktokPixelId: null,
       whatsapp: null,
       storeName: null,
@@ -102,13 +108,17 @@ export async function getMarketingForEmailWithMigration(
 
 export async function saveMarketing(
   email: string,
-  patch: Partial<Pick<MarketingSettings, "pixelId" | "tiktokPixelId" | "whatsapp" | "storeName" | "showNamePublicly">>
+  patch: Partial<Pick<MarketingSettings, "pixelId" | "pixelTestEventCode" | "tiktokPixelId" | "whatsapp" | "storeName" | "showNamePublicly">>
 ): Promise<MarketingSettings> {
   const lower = email.toLowerCase();
   const existing = await getMarketingByEmail(lower);
   const rec: MarketingSettings = {
     email: lower,
     pixelId: patch.pixelId !== undefined ? patch.pixelId : (existing?.pixelId ?? null),
+    pixelTestEventCode:
+      patch.pixelTestEventCode !== undefined
+        ? patch.pixelTestEventCode
+        : (existing?.pixelTestEventCode ?? null),
     tiktokPixelId:
       patch.tiktokPixelId !== undefined ? patch.tiktokPixelId : (existing?.tiktokPixelId ?? null),
     whatsapp: patch.whatsapp !== undefined ? patch.whatsapp : (existing?.whatsapp ?? null),
@@ -132,6 +142,7 @@ export async function getMergedProfileView(rawFp: string): Promise<DeviceProfile
     try {
       const mk = await getMarketingForEmailWithMigration(prof.email);
       merged.pixelId = mk.pixelId ?? null;
+      merged.pixelTestEventCode = mk.pixelTestEventCode ?? null;
       merged.tiktokPixelId = mk.tiktokPixelId ?? null;
       merged.whatsapp = mk.whatsapp ?? null;
       merged.storeName = mk.storeName ?? null;

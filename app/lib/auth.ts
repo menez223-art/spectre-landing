@@ -60,6 +60,7 @@ export interface DeviceProfile {
   sheetId: string | null;
   sheetKey?: string | null; // مفتاح الجدول الثابت — يبقى صالحاً عبر إعادة النشر
   pixelId?: string | null; // معرّف Meta Pixel — يُحقن في صفحة المتجر المنشورة
+  pixelTestEventCode?: string | null; // Meta Test Event Code (من Events Manager → Test Events) — يُمرَّر إلى fbq('init',…) لتُسجَّل أحداث المالك في لوحة الاختبار
   tiktokPixelId?: string | null; // معرّف TikTok Pixel — يُحقن بالتوازي مع فيسبوك
   whatsapp?: string | null; // رقم واتساب استلام الطلبات — يبني زر wa.me بعد الطلب
   storeName?: string | null;
@@ -239,6 +240,7 @@ export async function apiSetWebhook(
 export async function apiSetMarketing(
   fingerprint: string,
   pixelId: string | undefined,
+  pixelTestEventCode: string | undefined,
   tiktokPixelId: string | undefined,
   whatsapp: string | undefined,
   adminCode?: string,
@@ -250,6 +252,7 @@ export async function apiSetMarketing(
   | { status: "bad_pixel" }
   | { status: "bad_tiktok" }
   | { status: "bad_whatsapp" }
+  | { status: "bad_test_code" }
   | { status: "email_config" }
   | { status: "email_failed" }
   | { status: "no_pending" }
@@ -269,6 +272,7 @@ export async function apiSetMarketing(
         fingerprint,
         action: "set_marketing",
         pixelId,
+        pixelTestEventCode,
         tiktokPixelId,
         whatsapp,
         adminCode,
@@ -287,6 +291,7 @@ export async function apiSetMarketing(
     const ERRORS = {
       bad_pixel: "bad_pixel",
       bad_whatsapp: "bad_whatsapp",
+      bad_test_code: "bad_test_code",
       email_config: "email_config",
       email_failed: "email_failed",
       no_pending: "no_pending",

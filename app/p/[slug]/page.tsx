@@ -204,6 +204,13 @@ export default async function ProductSlugPage({ params }: { params: { slug: stri
   // حقن Meta Pixel + TikTok Pixel بالتوازي — يقيس إعلانات فيسبوك وتيكتوك
 // لهذه الصفحة تحديداً. تُحقَن فقط لو المعرّفات تطابق regex (لا XSS).
   const pixelId = resolved?.pixelId && /^\d{5,30}$/.test(resolved.pixelId) ? resolved.pixelId : null;
+  // Meta Test Event Code: 4–30 alphanumeric، يُمرَّر إلى fbq('init',…) إن وُجد كي
+  // تظهر أحداث هذه الصفحة في Events Manager → Test Events. التحقق بـ regex يحمي
+  // من XSS (لا يُمرَّر أي نص خام).
+  const pixelTestEventCode =
+    resolved?.pixelTestEventCode && /^[A-Za-z0-9]{4,30}$/.test(resolved.pixelTestEventCode)
+      ? resolved.pixelTestEventCode
+      : null;
   const tiktokPixelId =
     resolved?.tiktokPixelId && /^[A-Za-z0-9]{5,30}$/.test(resolved.tiktokPixelId)
       ? resolved.tiktokPixelId
@@ -214,7 +221,7 @@ export default async function ProductSlugPage({ params }: { params: { slug: stri
       {pixelId ? (
         <script
           dangerouslySetInnerHTML={{
-            __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');fbq('track','PageView');`,
+            __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}'${pixelTestEventCode ? `,{test_event_code:'${pixelTestEventCode}'}` : ""});fbq('track','PageView');`,
           }}
         />
       ) : null}

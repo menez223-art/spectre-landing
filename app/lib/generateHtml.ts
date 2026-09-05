@@ -87,6 +87,13 @@ export async function generateLandingHtml(
   // التحقق يُطبَّق هنا لتجنّب حقن أي محتوى غير آمن في الـHTML الاحتياطي.
   const pixelIdRaw = (product.pixelId ?? "").trim();
   const pixelId = /^\d{5,30}$/.test(pixelIdRaw) ? pixelIdRaw : "";
+  // Meta Test Event Code: 4–30 alphanumeric — يُمرَّر إلى fbq('init',…) إن وُجد كي
+  // تظهر أحداث هذه الصفحة في Events Manager → Test Events. التحقق بـ regex يحمي
+  // من XSS في الـHTML الاحتياطي (نفس نمط pixelId).
+  const pixelTestEventCodeRaw = (product.pixelTestEventCode ?? "").trim();
+  const pixelTestEventCode = /^[A-Za-z0-9]{4,30}$/.test(pixelTestEventCodeRaw)
+    ? pixelTestEventCodeRaw
+    : "";
   // TikTok Pixel: صيغة أبجدية رقمية (مثل CC3KVBDC77U4B4F4HKCG).
   // التحقق يُطبَّق هنا لتجنّب حقن أي محتوى غير آمن في الـHTML الاحتياطي.
   const tiktokPixelIdRaw = (product.tiktokPixelId ?? "").trim();
@@ -96,7 +103,7 @@ export async function generateLandingHtml(
   const pixelHeadScript = pixelId
     ? `<script>
 !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
-fbq('init','${pixelId}');
+fbq('init','${pixelId}'${pixelTestEventCode ? `,{test_event_code:'${pixelTestEventCode}'}` : ""});
 fbq('track','PageView');
 </script>`
     : "";

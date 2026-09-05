@@ -126,6 +126,7 @@ export interface Product {
   wilayaPrices?: WilayaPrices; // أسعار التوصيل المخصّصة (للمنزل + للمكتب) لكل ولاية — تُستخدم عند deliveryMode="wilaya"
   colors?: ProductColor[]; // خيارات الألوان المتاحة — يختارها الزبون للعرض فقط (لا تُرسل للجدول)
   pixelId?: string; // Meta Pixel لصاحب المتجر — يُحقن سكريبته في صفحة /p/<slug> إن وُجد
+  pixelTestEventCode?: string; // Meta Test Event Code (من Events Manager → Test Events) — يُمرَّر إلى fbq('init',…, {test_event_code}) ليُسجَّل الحدث في لوحة الاختبار
   tiktokPixelId?: string; // TikTok Pixel لصاحب المتجر — يُحقن سكريبته (ttq) في صفحة الهبوط بالتوازي مع فيسبوك
   whatsapp?: string; // رقم واتساب صاحب المتجر (دولي بلا +) — يبني زر إرسال الطلب بعد نجاح النموذج
   ownerDisplayName?: string; // الاسم الودّي للمتجر — يظهر في بطاقة المتجر العام فقط إذا أذن صاحبه

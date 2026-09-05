@@ -773,6 +773,10 @@ function MarketingSection() {
   const [busy, setBusy] = useState(false);
   const [mMsg, setMMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  // منبثقة Test Event Code: تفتح/تُغلق من زر صغير بجانب حقل البكسل.
+  const [testCodeOpen, setTestCodeOpen] = useState(false);
+  // قيمة Test Code الحالية (تُحفظ في الحساب عبر apiSetMarketing).
+  const [pixelTestCode, setPixelTestCode] = useState("");
   // خطوة رمز المشرف لرقم الواتساب (مرة واحدة على الجهاز — نفس بروتوكول البريد)
   const [waCode, setWaCode] = useState<string | null>(null);
 
@@ -784,6 +788,7 @@ function MarketingSection() {
     setWa(account.whatsapp ?? "");
     setStoreName(account.storeName ?? "");
     setShowPublicly(Boolean(account.showNamePublicly));
+    setPixelTestCode(account.pixelTestEventCode ?? "");
     setSyncedFor(account.email);
   }, [account, syncedFor]);
 
@@ -796,6 +801,7 @@ function MarketingSection() {
     const res = await apiSetMarketing(
       fingerprint,
       pixel.trim(),
+      pixelTestCode.trim(),
       tiktok.trim(),
       undefined,
       undefined,
@@ -829,7 +835,7 @@ function MarketingSection() {
     }
     setBusy(true);
     setMMsg(null);
-    const res = await apiSetMarketing(fingerprint, undefined, undefined, wa.trim());
+    const res = await apiSetMarketing(fingerprint, undefined, undefined, undefined, wa.trim());
     setBusy(false);
     switch (res.status) {
       case "ok":
@@ -862,7 +868,7 @@ function MarketingSection() {
   async function confirmWhatsappCode() {
     if (!fingerprint || busy || waCode === null) return;
     setBusy(true);
-    const res = await apiSetMarketing(fingerprint, undefined, wa.trim(), waCode);
+    const res = await apiSetMarketing(fingerprint, undefined, undefined, undefined, wa.trim(), waCode);
     setBusy(false);
     switch (res.status) {
       case "ok":
@@ -944,7 +950,17 @@ function MarketingSection() {
       </label>
 
       <label className="grid gap-1.5">
-        <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("pixelLabel")}</span>
+        <span className="flex items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("pixelLabel")}</span>
+          <button
+            type="button"
+            onClick={() => setTestCodeOpen(true)}
+            className="rounded-full border border-emerald-300/60 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+            aria-label="Meta Pixel Test Event Code"
+          >
+            🧪 Test Code
+          </button>
+        </span>
         <input
           className={inputCls}
           dir="ltr"
@@ -954,6 +970,11 @@ function MarketingSection() {
           onChange={(e) => setPixel(e.target.value.replace(/\D/g, "").slice(0, 30))}
           placeholder="123456789012345"
         />
+        {pixelTestCode && (
+          <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+            🟢 Test Event Code فعّال: <span className="font-mono">{pixelTestCode}</span>
+          </span>
+        )}
       </label>
 
       <label className="grid gap-1.5">
@@ -1081,6 +1102,82 @@ function MarketingSection() {
           </div>
         </div>
       )}
+
+      {testCodeOpen && (
+        <div
+          className="fixed inset-0 z-[80] grid place-items-center bg-navy-950/60 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setTestCodeOpen(false);
+          }}
+        >
+          <div className="liquid-glass liquid-glass--rounded w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
+            <div className="bg-gradient-to-l from-emerald-600 to-teal-500 px-5 py-4 text-center text-white">
+              <p className="font-display text-base font-extrabold">Meta Pixel Test Event Code</p>
+              <p className="mt-0.5 text-[11px] opacity-90">Events Manager → Test Events</p>
+            </div>
+            <div className="grid gap-3 p-5">
+              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium leading-5 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                افتح <strong>Events Manager → Test Events</strong> في فيسبوك، ثم انسخ <strong>TEST CODE</strong> والصقه هنا. بعد الحفظ، كل حدث يُرسَل من صفحاتك سيظهر في لوحة Test Events فوراً (يتطلّب إعادة نشر الصفحة لتفعيله على /p/&lt;slug&gt;).
+              </p>
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">Test Event Code</span>
+                <input
+                  className={inputCls}
+                  dir="ltr"
+                  maxLength={30}
+                  value={pixelTestCode}
+                  onChange={(e) => setPixelTestCode(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 30))}
+                  placeholder="TEST12345"
+                />
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (!fingerprint || busy) return;
+                    setBusy(true);
+                    setMMsg(null);
+                    const res = await apiSetMarketing(
+                      fingerprint,
+                      pixel.trim(),
+                      pixelTestCode.trim(),
+                      tiktok.trim(),
+                      undefined,
+                      undefined,
+                      storeName.trim(),
+                      showPublicly && Boolean(storeName.trim())
+                    );
+                    setBusy(false);
+                    if (res.status === "ok") {
+                      setMMsg({ ok: true, text: t("marketingSaved") });
+                      void refreshAccount();
+                      setTestCodeOpen(false);
+                    } else if (res.status === "bad_test_code") {
+                      setMMsg({ ok: false, text: "كود الاختبار غير صالح (4–30 حرف/رقم)." });
+                    } else {
+                      setMMsg({ ok: false, text: t("errRetry") });
+                    }
+                  }}
+                  className={primaryBtn + " flex-1"}
+                >
+                  {busy ? t("saving") : t("saveLink")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTestCodeOpen(false)}
+                  className="rounded-xl border border-navy-300 px-4 py-2 text-xs font-semibold text-navy-700 transition hover:bg-navy-50 dark:border-navy-700 dark:text-ivory-50 dark:hover:bg-navy-800"
+                >
+                  {t("close")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </section>
   );
 }
