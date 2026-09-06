@@ -212,16 +212,23 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
             wilaya: payload.wilaya,
             ...advancedMatching,
           });
-          fbq("track", "Purchase", {
-            content_name: payload.product,
-            content_type: "product",
-            content_ids: [product.id],
-            num_items: payload.quantity,
-            value: valueUsd,
-            currency: "USD",
-            event_id: eventId,
-            ...advancedMatching,
-          });
+          // dedup مع CAPI server-side: eventID يُمرَّر كمعامل رابع (camelCase)
+          // وفق مواصفات Meta — وليس داخل الـpayload (snake_case الذي يتجاهله Meta).
+          // fbq('track', '<event>', <data>, {eventID: '<same uuid as CAPI event_id>'})
+          fbq(
+            "track",
+            "Purchase",
+            {
+              content_name: payload.product,
+              content_type: "product",
+              content_ids: [product.id],
+              num_items: payload.quantity,
+              value: valueUsd,
+              currency: "USD",
+              ...advancedMatching,
+            },
+            { eventID: eventId }
+          );
         } catch { /* فشل التتبّع لا يوقف إرسال الطلب */ }
       }
       // TikTok Pixel — يقبل DZD فلا حاجة للتحويل.
