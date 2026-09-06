@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     metaRaw && typeof metaRaw === "object"
       ? (metaRaw as {
           eventId?: unknown;
+          leadEventId?: unknown;
           userData?: unknown;
           fbc?: unknown;
           fbp?: unknown;
@@ -33,6 +34,8 @@ export async function POST(request: Request) {
         })
       : {};
   const eventId = typeof meta.eventId === "string" && meta.eventId ? meta.eventId : "";
+  const leadEventId =
+    typeof meta.leadEventId === "string" && meta.leadEventId ? meta.leadEventId : "";
   const userData =
     meta.userData && typeof meta.userData === "object"
       ? (meta.userData as Record<string, string>)
@@ -151,14 +154,37 @@ export async function POST(request: Request) {
               content_ids: typeof o._productId === "string" ? [o._productId] : undefined,
             },
           },
+          // Lead event يُرسل كحدث ثانٍ بنفس dedup id — Meta يربط Lead بـPurchase
+          // في سلسلة العميل ويحسّن التحويل عند ضمّ الاثنين. event_id مختلف حتى لا
+          // يحسب Meta نفس العميل مرتين كـ Lead (واحد فقط لكل رحلة شراء).
+          ...(leadEventId
+            ? [
+                {
+                  event_name: "Lead",
+                  event_time: Math.floor(Date.now() / 1000),
+                  event_id: leadEventId,
+                  ...(eventSourceUrl ? { event_source_url: eventSourceUrl } : {}),
+                  action_source: "website",
+                  user_data: mergedUserData,
+                  ...(clientIp ? { client_ip_address: clientIp } : {}),
+                  ...(clientUa ? { client_user_agent: clientUa } : {}),
+                  custom_data: {
+                    currency: "DZD",
+                    value: typeof o.totalPrice === "number" ? o.totalPrice : Number(o.totalPrice) || 0,
+                    content_name: typeof o.product === "string" ? o.product : "",
+                    content_type: "product",
+                    content_ids: typeof o._productId === "string" ? [o._productId] : undefined,
+                  },
+                },
+              ]
+            : []),
         ],
       };
 
-      // CAPI: نطلقه متزامناً مع حد أقصى 5 ثوانٍ. Vercel serverless يقتل الخلفية
-    // (fire-and-forget) بعد إرسال الرد، فلا خيار سوى الانتظار هنا.
-    // Apps Script نفسه يأخذ 5-15s، فالـ 5s إضافية لا تأثير يذكر على UX.
-    const capiCtrl = new AbortController();
-    const capiTimeout = setTimeout(() => capiCtrl.abort(), 5000);
+      // CAPI: نطلقه متزامناً مع حد أقصى 10 ثوانٍ. Apps Script يأخذ 5-15s
+      // فالـ 10s إضافية لا تأثير يُذكر على UX. مهلة أقصر تُسقط أحداثاً تحت ضغط.
+      const capiCtrl = new AbortController();
+      const capiTimeout = setTimeout(() => capiCtrl.abort(), 10000);
     try {
       // أمان: الـ access_token في Authorization header وليس في URL (لا يظهر في logs/proxies)
       const capiRes = await fetch(

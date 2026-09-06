@@ -25,6 +25,7 @@ declare global {
   interface Window {
     __lastMetaEvent?: {
       eventId: string;
+      leadEventId?: string;
       userData: Record<string, string>;
       fbc?: string;
       fbp?: string;
@@ -116,6 +117,9 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
         : DELIVERY_TYPES.find((t) => t.value === deliveryType)?.label ?? deliveryType,
       totalPrice: total,
       product: product.name,
+      // product.id يُستخدم في CAPI content_ids (مطلوب من Meta لـ Purchase events).
+      // نُمرّره بحقل سفلي `_productId` لتمييزه من اسم المنتج `product`.
+      _productId: product.id,
       utmSource: utm("utm_source"),
       utmMedium: utm("utm_medium"),
       utmCampaign: utm("utm_campaign"),
@@ -163,6 +167,8 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
       const eventId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
         ? crypto.randomUUID()
         : `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      // Lead يُرسل مع نفس eventID أيضاً كي يخصم Meta أي Lead لاحق من CAPI/الـserver.
+      const leadEventId = `${eventId}.l`;
       // بصمة الجهاز تُحسب من الـ localStorage (نفس deviceId المستخدم في auth).
       // لو غابت نولّد واحدة من بصمة المتصفح كي تصل external_id إلى 100%.
       let deviceFp = "";
@@ -187,7 +193,8 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
         } catch { /* localStorage مقفل */ }
       }
       // Advanced Matching: لو فشل الـ SHA-256 لأي سبب، نكمل بدونه
-      // (لن نحجب الطلب بسبب خطأ في تتبّع).
+      // (لن نحجب الطلب بسبب خطأ في تتبّع). نُسجّل التحذير في console كي يظهر
+      // في DevTools للمراجعة.
       let advancedMatching: Record<string, string> = {};
       try {
         advancedMatching = await buildMetaUserData({
@@ -200,18 +207,33 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
           state: payload.wilaya,
           country: "DZ",
         });
-      } catch { /* فشل التتبّع — نكمل بدون advanced matching */ }
+      } catch (err) {
+        // فشل التتبّع — نُكمل بدون advanced matching لكن نُسجّل التحذير للمراجعة.
+        console.warn("[OrderForm] Advanced matching hash failed:", err);
+      }
       const fbq = (window as unknown as { fbq?: (...args: unknown[]) => void }).fbq;
+      // حقول محتوى موحّدة بين Lead و Purchase — Meta يقيس جودة المطابقة بناءً
+      // على ثبات الهوية بين الحدثين. subscription_id يربط Lead بـPurchase للسلعة.
+      const contentName = payload.product;
+      const contentType = "product";
+      const contentIds = [product.id];
       if (typeof fbq === "function") {
         try {
-          fbq("track", "Lead", {
-            content_name: payload.product,
-            content_category: payload.deliveryType,
-            value: valueUsd,
-            currency: "USD",
-            wilaya: payload.wilaya,
-            ...advancedMatching,
-          });
+          fbq(
+            "track",
+            "Lead",
+            {
+              content_name: contentName,
+              content_category: payload.deliveryType,
+              content_type: contentType,
+              content_ids: contentIds,
+              value: valueUsd,
+              currency: "USD",
+              wilaya: payload.wilaya,
+              ...advancedMatching,
+            },
+            { eventID: leadEventId }
+          );
           // dedup مع CAPI server-side: eventID يُمرَّر كمعامل رابع (camelCase)
           // وفق مواصفات Meta — وليس داخل الـpayload (snake_case الذي يتجاهله Meta).
           // fbq('track', '<event>', <data>, {eventID: '<same uuid as CAPI event_id>'})
@@ -219,9 +241,9 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
             "track",
             "Purchase",
             {
-              content_name: payload.product,
-              content_type: "product",
-              content_ids: [product.id],
+              content_name: contentName,
+              content_type: contentType,
+              content_ids: contentIds,
               num_items: payload.quantity,
               value: valueUsd,
               currency: "USD",
@@ -229,7 +251,12 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
             },
             { eventID: eventId }
           );
-        } catch { /* فشل التتبّع لا يوقف إرسال الطلب */ }
+        } catch (err) {
+          console.warn("[OrderForm] fbq track failed:", err);
+        }
+      } else if (typeof window !== "undefined") {
+        // Pixel غير محمَّل (AdBlock، أو حدث خطأ init) — نُسجّل للمراجعة.
+        console.warn("[OrderForm] window.fbq غير متاح — Pixel غير مُحمَّل");
       }
       // TikTok Pixel — يقبل DZD فلا حاجة للتحويل.
       const ttq = (window as unknown as { ttq?: { track?: (...args: unknown[]) => void } }).ttq;
@@ -263,6 +290,7 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
       // حفظ eventId + advancedMatching + fbc/fbp للطلب للـ CAPI server-side.
       window.__lastMetaEvent = {
         eventId,
+        leadEventId,
         userData: advancedMatching,
         fbc,
         fbp,
@@ -312,7 +340,12 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
     const lastMeta = window.__lastMetaEvent;
     const landingUrl = typeof window !== "undefined" ? window.location.href : "";
     const meta = lastMeta
-      ? { eventId: lastMeta.eventId, userData: lastMeta.userData, _landingUrl: landingUrl }
+      ? {
+          eventId: lastMeta.eventId,
+          leadEventId: lastMeta.leadEventId,
+          userData: lastMeta.userData,
+          _landingUrl: landingUrl,
+        }
       : { _landingUrl: landingUrl };
 
     // المسار الأول: الخادم الوكيل (يحتاج هوية جدول)

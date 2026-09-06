@@ -2484,3 +2484,70 @@ if (pixelId && accessToken && /^\d{5,30}$/.test(pixelId)
 - **Pixel setup 50%:** تحذير إعداد أولي — لا يحتاج كود.
 
 **انتهيت من تحقّق §ل6.** ✓
+
+---
+
+## ل7. إصلاح شامل للبيكسل AMINE من جميع النواحي (2026-09-06)
+
+**السياق:** المستخدم طلب "إصلاح كلي للبيكسل الحالي Amine من جميع النواحي". بعد فحص Meta UI (§ل6) + الكود، تم تحديد 7 نقاط ضعف:
+
+### أ) الفجوات الحرجة المُكتشفة
+1. `OrderForm.tsx:207` — `Lead` event بدون `eventID` → CAPI dedup ناقص (لا خصم لـ Lead مكرر).
+2. `OrderForm.tsx:155` و `:189` — `try/catch` يبتلع أخطاء hash بصمت (لا تسجيل).
+3. `OrderForm.tsx:172-187` — بصمة device مبنية على userAgent/lang/screen فقط (fallback ضعيف).
+4. `route.ts:148-151` — `content_ids` يقرأ `o._productId` غير المرسل في payload (فارغ في CAPI).
+5. `route.ts:164-186` — CAPI timeout 5s ضيق (يضيع أحداث تحت ضغط Apps Script 5-15s).
+6. `route.ts:184` — CAPI يرسل Purchase فقط (Lead مفقود في server-side).
+7. لا `/api/pixel-health` endpoint (لا مراقبة آلية).
+
+### ب) الإصلاحات المُنفَّذة
+
+**1) `app/components/landing/OrderForm.tsx`:**
+- `Lead` event يُرسل مع `eventID` (مُشتقّ من eventId + `.l` suffix) → dedup صحيح مع CAPI.
+- `subscription_id` ضمن content (يحسّن Match Quality).
+- محتوى موحّد بين Lead و Purchase (`contentName`, `contentType`, `contentIds` ثوابت).
+- تحذيرات `console.warn` بدل `catch {}` الصامت (المراجعة في DevTools).
+- تحذير مخصّص عند غياب `window.fbq` (AdBlock).
+
+**2) `app/api/sheet/order/route.ts`:**
+- نوع `meta` يقبل `leadEventId`.
+- CAPI يرسل **حدثين**: Purchase + Lead (مع event_id منفصل لكل).
+- `content_ids` يستقبل `o._productId` (الآن يُرسل من OrderForm).
+- CAPI timeout **10s** (بدل 5s) لاستيعاب بطء Vercel serverless + Apps Script.
+- تنظيف البيانات مع TypeScript safe (لا `any`).
+
+**3) `app/api/admin/pixel-health/route.ts` (جديد):**
+- يفحص `META_AMINE_PIXEL_ID` + `META_ACCESS_TOKEN` في env.
+- يجرب اتصال CAPI (GET على `/v18.0/<pixel_id>`) ويتحقق من تطابق الـid.
+- يستخرج `event_source_url` من رؤوس Vercel (x-forwarded-proto + host + referer).
+- بوابة أمان: `getAdminSession` + `CRON_SECRET`.
+- يستخدم للأدمن اليدوي أو Vercel Cron.
+
+**4) `scripts/pixel-e2e.mjs` (جديد):**
+- Playwright يفتح الصفحة، يملأ النموذج، يُرسل.
+- يتحقق من: `fbq` loaded, Lead + Purchase firing, eventID لكلاهما, Advanced Matching `em`/`ph` (هاش 64 hex), `content_ids` غير فارغ, POST `/api/sheet/order` 200.
+- يشتغل محلياً أو production عبر `PROD_BASE_URL` env.
+
+### ج) التحقّق
+- `npx tsc --noEmit` → 0 errors ✓
+- `npx next build` → 0 errors, route `ƒ /api/admin/pixel-health` مُولَّد ✓
+- `npx next lint` → فقط التحذيرات الموثّقة مسبقاً (§ل5) ✓
+- E2E script صالح للتفعيل بعد النشر: يكشف أي drift في التتبع (تم اختباره ضد production الحالي — فشل متوقّع عند فحص Lead eventID لأن production لم يُحدَّث بعد).
+
+### د) الملفات المعدَّلة
+| ملف | نوع التغيير |
+|---|---|
+| `app/components/landing/OrderForm.tsx` | تحسينات (Lead eventID, logging, محتوى موحّد) |
+| `app/api/sheet/order/route.ts` | Lead CAPI, content_ids, timeout 10s |
+| `app/api/admin/pixel-health/route.ts` | جديد |
+| `scripts/pixel-e2e.mjs` | جديد |
+
+### هـ) ما لم يتغيّر عمداً
+- **نظام الحظر/السماح** — لم يُمَس إطلاقاً.
+- **TikTok Pixel** — لم يتغيّر (المستخدم طلب AMINE فقط).
+- **Aggregated Event Measurement في Events Manager** — إعداد UI يدوي، المستخدم يتولاه.
+
+### و) قيود
+- **لم يُنشَر بعد** (§ل7 يحتاج أمر صريح للنشر).
+- **لم يُلتزَم بعد** (§ل7 يحتاج أمر صريح للـcommit).
+- **E2E يفشل على production الحالي** (متوقع — production لم يستقبل الكود الجديد). سيُفعَّل تلقائياً بعد النشر.
