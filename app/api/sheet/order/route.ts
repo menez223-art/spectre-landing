@@ -24,13 +24,26 @@ export async function POST(request: Request) {
   const metaRaw = (body as { meta?: unknown }).meta;
   const meta =
     metaRaw && typeof metaRaw === "object"
-      ? (metaRaw as { eventId?: unknown; userData?: unknown })
+      ? (metaRaw as {
+          eventId?: unknown;
+          userData?: unknown;
+          fbc?: unknown;
+          fbp?: unknown;
+          _landingUrl?: unknown;
+        })
       : {};
   const eventId = typeof meta.eventId === "string" && meta.eventId ? meta.eventId : "";
   const userData =
     meta.userData && typeof meta.userData === "object"
       ? (meta.userData as Record<string, string>)
       : {};
+  // fbc/fbp يأتيان من كوكيز المتصفح عبر OrderForm — يربطان حدث CAPI بحدث fbq().
+  const fbc = typeof meta.fbc === "string" && meta.fbc ? meta.fbc : "";
+  const fbp = typeof meta.fbp === "string" && meta.fbp ? meta.fbp : "";
+  // _landingUrl يمرّره OrderForm في meta أو داخل order؛ يُفضَّل للـevent_source_url
+  // (مطلوب من Meta CAPI لربط Purchase بالصفحة الفعلية).
+  const metaLandingUrl =
+    typeof meta._landingUrl === "string" && meta._landingUrl ? meta._landingUrl : "";
 
   if (!sheetKey && !(sheetEmail && EMAIL_RE.test(sheetEmail))) {
     return NextResponse.json({ error: "missing_identity" }, { status: 400 });
@@ -76,7 +89,30 @@ export async function POST(request: Request) {
       eventId &&
       sheetEmail === AMINE_OWNER_EMAIL
     ) {
+      // event_source_url: Meta CAPI يستلزمه لـPurchase. الأولوية:
+      // 1) meta._landingUrl (OrderForm يُمرّره صراحةً عبر meta) — الأدق.
+      // 2) order._landingUrl (احتياط إذا أرسله OrderForm داخل الـorder بدلاً من meta).
+      // 3) referer header — يُعاد بناؤه كـURL مكتمل من scheme+host+path.
+      // 4) فارغ — يُحذف من الـpayload بدل إرسال "" (Meta يرفضه أيضاً).
       const o = order as Record<string, unknown>;
+      const orderLandingUrl =
+        typeof o._landingUrl === "string" && o._landingUrl ? (o._landingUrl as string) : "";
+      let eventSourceUrl = metaLandingUrl || orderLandingUrl;
+      if (!eventSourceUrl) {
+        const proto = request.headers.get("x-forwarded-proto") || "https";
+        const host = request.headers.get("host") || "";
+        const ref = request.headers.get("referer") || "";
+        if (ref) {
+          try {
+            const u = new URL(ref);
+            eventSourceUrl = `${u.protocol}//${u.host}${u.pathname}${u.search}`;
+          } catch {
+            eventSourceUrl = host ? `${proto}://${host}/` : "";
+          }
+        } else if (host) {
+          eventSourceUrl = `${proto}://${host}/`;
+        }
+      }
       const nameStr = typeof o.name === "string" ? o.name : "";
       const split = splitFullName(nameStr);
       const fallbackUserData = await buildMetaUserData({
@@ -85,6 +121,16 @@ export async function POST(request: Request) {
         lastName: split.last,
       });
       const mergedUserData: Record<string, string> = { ...fallbackUserData, ...userData };
+      // fbc/fbp: تُرسل raw (لا hashing). Meta تحدد المطابقة على المتصفح.
+      if (fbc) mergedUserData.fbc = fbc;
+      if (fbp) mergedUserData.fbp = fbp;
+      // client_ip_address + client_user_agent: Vercel يضخهما في x-forwarded-for و
+      // user-agent. نُمررهما كحقول علوية في CAPI (ليست داخل user_data).
+      const clientIp =
+        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        request.headers.get("x-real-ip")?.trim() ||
+        "";
+      const clientUa = request.headers.get("user-agent") || "";
 
       const capiPayload = {
         data: [
@@ -92,9 +138,11 @@ export async function POST(request: Request) {
             event_name: "Purchase",
             event_time: Math.floor(Date.now() / 1000),
             event_id: eventId,
-            event_source_url: typeof o._landingUrl === "string" ? o._landingUrl : undefined,
+            ...(eventSourceUrl ? { event_source_url: eventSourceUrl } : {}),
             action_source: "website",
             user_data: mergedUserData,
+            ...(clientIp ? { client_ip_address: clientIp } : {}),
+            ...(clientUa ? { client_user_agent: clientUa } : {}),
             custom_data: {
               currency: "DZD",
               value: typeof o.totalPrice === "number" ? o.totalPrice : Number(o.totalPrice) || 0,

@@ -26,6 +26,8 @@ declare global {
     __lastMetaEvent?: {
       eventId: string;
       userData: Record<string, string>;
+      fbc?: string;
+      fbp?: string;
     };
   }
 }
@@ -117,6 +119,9 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
       utmSource: utm("utm_source"),
       utmMedium: utm("utm_medium"),
       utmCampaign: utm("utm_campaign"),
+      // رابط الصفحة الفعلي عند الإرسال — مطلوب من Meta CAPI كـevent_source_url.
+      // لو فُقد في الـpayload (مثلاً بيئة بلا window) يسقط الخادم على referer/host.
+      _landingUrl: typeof window !== "undefined" ? window.location.href : "",
     };
 
     // مسار التسليم الأساسي: الخادم (Vercel) هو الوسيط بين المتصفح و Apps Script.
@@ -233,10 +238,27 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
           });
         } catch { /* فشل التتبّع لا يوقف إرسال الطلب */ }
       }
-      // حفظ eventId + advancedMatching للطلب للـ CAPI server-side.
+      // استخراج fbc/fbp من الكوكيز — يرفعان Match Quality عبر ربط حدث
+      // المتصفح بحدث الخادم. fbc يُولَّد تلقائياً عند أول ضغطة إعلان من Meta.
+      const readCookie = (name: string): string => {
+        if (typeof document === "undefined") return "";
+        try {
+          const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const re = new RegExp("(?:^|; )" + escaped + "=([^;]*)");
+          const m = document.cookie.match(re);
+          return m && m[1] ? decodeURIComponent(m[1]) : "";
+        } catch {
+          return "";
+        }
+      };
+      const fbc = readCookie("_fbc");
+      const fbp = readCookie("_fbp");
+      // حفظ eventId + advancedMatching + fbc/fbp للطلب للـ CAPI server-side.
       window.__lastMetaEvent = {
         eventId,
         userData: advancedMatching,
+        fbc,
+        fbp,
       };
     }
     // === END META + TIKTOK ===
@@ -281,9 +303,10 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
     // Fallback: إذا فشلا أو لم تتوفر هوية، نُرسل الطلب مباشرةً لـ sheetWebhook
     // المضمّن في المنتج (no-cors) — كي لا يضيع أي طلب حتى لو الـ KV قديم.
     const lastMeta = window.__lastMetaEvent;
+    const landingUrl = typeof window !== "undefined" ? window.location.href : "";
     const meta = lastMeta
-      ? { eventId: lastMeta.eventId, userData: lastMeta.userData }
-      : undefined;
+      ? { eventId: lastMeta.eventId, userData: lastMeta.userData, _landingUrl: landingUrl }
+      : { _landingUrl: landingUrl };
 
     // المسار الأول: الخادم الوكيل (يحتاج هوية جدول)
     if (sheetKey || sheetEmail) {
@@ -301,6 +324,7 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
       }
       return;
     }
+    void window.__lastMetaEvent; // مرجع للحفاظ على التحليل الثابت
 
     // المسار البديل: المتصفح يرسل مباشرةً لـ Apps Script عبر الرابط المضمّن.
     // يُستخدم فقط إذا sheetKey/sheetEmail فارعان في المنتج المنشور. Apps Script
