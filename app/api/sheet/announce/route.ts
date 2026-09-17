@@ -3,6 +3,7 @@
 // دائماً محدّثاً تلقائياً بعد أي "نشر جديد"، دون تدخل يدوي.
 import { NextResponse } from "next/server";
 import { saveFactoryUrl } from "@/app/lib/sheetResolver";
+import { safeSecretEqual } from "@/app/lib/utils/security";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
   const secret = String(body.secret ?? "").trim();
-  if (secret !== process.env.FACTORY_SECRET) {
+  if (!safeSecretEqual(secret, process.env.FACTORY_SECRET ?? "")) {
     return NextResponse.json({ error: "bad_secret" }, { status: 401 });
   }
   const url = String(body.url ?? "").trim();

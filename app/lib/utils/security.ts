@@ -1,15 +1,27 @@
 // وظائف التشفير والأمان الموحدة
+//
+// ملاحظة معمارية: هذا الملف خادمي (يستورد node:crypto). الدوال الآمنة
+// للعميل (sha256Hex / escapeHtml / escapeJsString) موجودة في security.client.ts
+// ولا تُجَرّ أي polyfill إلى الحزمة. لا تنقل استيراد "crypto" إلى هنا أبداً.
 
-import { createHash, randomInt } from "crypto";
+import { createHash, randomInt, timingSafeEqual } from "crypto";
+
+export {
+  sha256Hex,
+  escapeHtml,
+  escapeJsString,
+} from "./security.client";
 
 /**
- * حساب SHA-256 لسلسلة نصية
+ * قراءة متغيّر بيئة إلزامي — الفشل فوري (fail-closed) بدل قيمة فارغة.
+ * غياب DEVICE_PEPPER كان يسقط إلى "" فتعود البصمة إلى SHA-256 خام.
  */
-export async function sha256Hex(input: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v || v.length === 0) {
+    throw new Error(`Missing required environment variable: ${name}.`);
+  }
+  return v;
 }
 
 /**
@@ -21,14 +33,24 @@ export function generateCode(): string {
 }
 
 /**
+ * مقارنة سرّ ثابتة زمنياً (تمنع تسريب البادئات عبر توقيت الاستجابة).
+ * timingSafeEqual يرمي عند اختلاف الطول ⇒ حارس طول أولاً (نفس نمط adminAuth).
+ */
+export function safeSecretEqual(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length === 0 || b.length === 0) return false;
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
+
+/**
  * تعديل البصمة بـ pepper خادمي (server-only)
+ * الفقدان المفاجئ للمتغيّر في بيئة ما يجب أن يفشل التشغيل، لا أن يُضعف التخزين بصمت.
  */
 export function pepperFingerprint(fp: string): string {
-  const pepper = process.env.DEVICE_PEPPER || "";
-  if (!pepper) {
-    console.warn("[security] DEVICE_PEPPER غير معرّف — التخزين أضعف");
-  }
-  return createHash("sha256").update(fp + "|" + pepper).digest("hex");
+  return createHash("sha256").update(fp + "|" + requireEnv("DEVICE_PEPPER")).digest("hex");
 }
 
 /**
@@ -36,24 +58,4 @@ export function pepperFingerprint(fp: string): string {
  */
 export function getDeviceOwner(rawFp: string): string {
   return "device:" + pepperFingerprint(rawFp).slice(0, 24);
-}
-
-/**
- * تهريب النصوص قبل وضعها في HTML
- */
-export function escapeHtml(value: unknown): string {
-  if (value == null) return "";
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/**
- * تهريب نص ليُكتب داخل سلسلة JS (يمنع كسر <script>)
- */
-export function escapeJsString(value: unknown): string {
-  return JSON.stringify(value == null ? "" : String(value)).replace(/</g, "\\u003c");
 }

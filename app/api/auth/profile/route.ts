@@ -104,6 +104,7 @@ async function finalizeLinkEmail(fingerprint: string, email: string): Promise<Ne
   if (existing?.sheetUrl) {
     const saved = await saveProfile(fingerprint, {
       email,
+      verifiedEmail: email, // يُعتمد كـ«إيميل معروف» لهذا الجهاز
       sheetUrl: existing.sheetUrl,
       sheetId: existing.sheetId,
       sheetKey: existing.sheetKey ?? null,
@@ -134,6 +135,7 @@ async function finalizeLinkEmail(fingerprint: string, email: string): Promise<Ne
   }
   const saved = await saveProfile(fingerprint, {
     email,
+    verifiedEmail: email, // يُعتمد كـ«إيميل معروف» لهذا الجهاز
     sheetUrl: result.url,
     sheetId: result.sheetId,
     sheetKey: result.key,
@@ -187,65 +189,71 @@ export async function POST(request: Request) {
       // نفسه): finalizeLinkEmail تعيد استخدام الجدول إن وُجد أو تُنشئه عبر
       // المصنع (المصنع نفسه idempotent ويعيد الجدول القديم لنفس البريد).
       const profile = await getProfile(fingerprint);
-      // نفس البريد مربوط أصلًا على نفس الجهاز → أعد الحالة دون أكواد (إعادة
-      // إدخال نفس الإيميل على نفس المتصفح/الجهاز، بما فيه بعد إزالة الرابط ثم
-      // إعادته — يُعاد إنشاء الجدول عند اللزوم). أي تغيير في المتصفح/الجهاز
-      // يُنتج بصمة جديدة، فيمرّ المستخدم بكود المشرف من جديد.
-      if (profile?.email === email) {
+
+      // ═══ قاعدة المالك: **بلا كود فقط إن كان الجهاز والإيميل معروفَين معاً** ═══
+      //   • الجهاز معروف   = سبق أن اجتاز كود المشرف (adminVerified).
+      //   • الإيميل معروف  = هو نفسه آخر بريد اجتاز التحقق على هذا الجهاز
+      //                      (verifiedEmail — ويُسقط للتوافق مع الملفات القديمة
+      //                       إلى email).
+      //   ⇒ إن كان **أحدهما جديداً** فكود المشرف إلزامي فوراً.
+      //
+      //   الأثر: إعادة ربط **إيميلك نفسه** بعد «فك الربط» تمرّ بلا كود (شكوى
+      //   المالك الأصلية)، بينما ربط إيميل **آخر** — أو من جهاز جديد — يطلب
+      //   الكود. وهذا يغلق ثغرة «فك الربط ثم ربط إيميل الغير» أيضاً.
+      const deviceKnown = Boolean(profile?.adminVerified);
+      const lastVerified = profile?.verifiedEmail ?? profile?.email ?? null;
+      const emailKnown = Boolean(lastVerified) && lastVerified === email;
+      if (deviceKnown && emailKnown) {
         return finalizeLinkEmail(fingerprint, email);
       }
 
-      // عند تغيير البريد: نعيد ضبط adminVerified
-      // حتى لا يمر التحقق على جهاز سابق بريد جديد (H-3).
-      if (profile?.email && profile.email !== email && profile.adminVerified) {
-        await saveProfile(fingerprint, { adminVerified: false });
-        profile.adminVerified = false;
-      }
-
       // — بروتوكول المصادقة المفردة (كود مشرف واحد) —
-      // عند ربط إيميل جديد أو تغييره أو تغيير المتصفح/الجهاز لأول مرة، نطلب
-      // كود تأكيد مكوّن من 6 أرقام يُرسَل إلى بريد الأونر (المشرف) للموافقة.
-      // يُطلب في المرة الأولى فقط: بمجرد تأكيده على هذا الجهاز نثبّت
-      // adminVerified=true فلا يُعاد الطلب لاحقًا على نفس الجهاز (يُعفى أيضًا
-      // من هجرة الرابط القديم عبر migrate). تغيير المتصفح/الجهاز يُنتج بصمة
-      // جديدة فيمرّ بالكود مجددًا (أمان كامل عبر الأجهزة).
+      // بلغنا هنا لأن **أحد الطرفين جديد**: إمّا الجهاز لم يمرّ بالكود من قبل،
+      // أو الإيميل ليس هو نفسه الذي اجتاز التحقق على هذا الجهاز. في الحالتين
+      // يُطلب كود من ٦ أرقام يُرسَل إلى بريد المشرف للموافقة.
+      //
+      // 🔒 **لا يُعفى هذا المسار من الكود أبداً.** كان يقبل `migrate:true`
+      //    فيتجاوز البوابة كلياً — و`apiLinkEmail` لا يُرسل هذا العلم إطلاقاً
+      //    (يُستعمل فقط مع `set_webhook` لهجرة الرابط القديم). فكان **باباً
+      //    خلفياً**: جهاز ببصمة معتمدة يربط أي إيميل بلا تحقّق، و`finalizeLinkEmail`
+      //    يُعيد استخدام جدول ذلك البريد ويستدعي `reassignOwner` ⇒ **استيلاء كامل**.
       const adminCode = String(body.adminCode ?? "").trim();
-      const migrate = Boolean(body.migrate);
-      if (!profile?.adminVerified && !migrate) {
-        if (!adminCode) {
-          if (!hasEmailConfig()) {
-            return NextResponse.json({ error: "email_config" }, { status: 503 });
-          }
-          const created = await createManualPendingCode(fingerprint);
-          if (!created) {
-            return NextResponse.json({ error: "storage" }, { status: 502 });
-          }
-          const sent = await sendVerificationCodeEmail(created, "link_email");
-          if (!sent.ok) {
-            return NextResponse.json({ error: "email_failed" }, { status: 502 });
-          }
-          return NextResponse.json({ ok: true, pending: true, step: "admin" });
+      if (!adminCode) {
+        if (!hasEmailConfig()) {
+          return NextResponse.json({ error: "email_config" }, { status: 503 });
         }
-        const pending = await getManualPendingCode(fingerprint);
-        if (!pending) {
-          return NextResponse.json({ error: "no_pending" }, { status: 404 });
+        const created = await createManualPendingCode(fingerprint);
+        if (!created) {
+          return NextResponse.json({ error: "storage" }, { status: 502 });
         }
-        if (new Date(pending.expiresAt).getTime() < Date.now()) {
-          await deleteManualPendingCode(fingerprint);
-          return NextResponse.json({ error: "code_expired" }, { status: 410 });
+        const sent = await sendVerificationCodeEmail(created, "link_email");
+        if (!sent.ok) {
+          // إبراز سبب الفشل الحقيقي من Resend: يُسجَّل كاملاً في لوج السيرفر،
+          // ويُعاد رمزه فقط في الرد ليُقرأ من DevTools ← Network. بلا أي سرّ.
+          console.error("[profile] تعذّر إرسال رمز الربط:", sent.error, sent.detail ?? "");
+          return NextResponse.json({ error: "email_failed", code: sent.error }, { status: 502 });
         }
-        if (pending.tries >= MAX_TRIES) {
-          await deleteManualPendingCode(fingerprint);
-          return NextResponse.json({ error: "too_many_attempts" }, { status: 429 });
-        }
-        if (pending.code !== adminCode) {
-          await incrementManualTries(fingerprint);
-          return NextResponse.json({ error: "wrong_admin_code" }, { status: 401 });
-        }
-        // كود المشرف صحيح → نحذف الرمز المعلّق ونمضي لإنهاء الربط.
-        await deleteManualPendingCode(fingerprint);
-        await saveProfile(fingerprint, { adminVerified: true });
+        return NextResponse.json({ ok: true, pending: true, step: "admin" });
       }
+      const pending = await getManualPendingCode(fingerprint);
+      if (!pending) {
+        return NextResponse.json({ error: "no_pending" }, { status: 404 });
+      }
+      if (new Date(pending.expiresAt).getTime() < Date.now()) {
+        await deleteManualPendingCode(fingerprint);
+        return NextResponse.json({ error: "code_expired" }, { status: 410 });
+      }
+      if (pending.tries >= MAX_TRIES) {
+        await deleteManualPendingCode(fingerprint);
+        return NextResponse.json({ error: "too_many_attempts" }, { status: 429 });
+      }
+      if (pending.code !== adminCode) {
+        await incrementManualTries(fingerprint);
+        return NextResponse.json({ error: "wrong_admin_code" }, { status: 401 });
+      }
+      // كود المشرف صحيح → نحذف الرمز المعلّق ونمضي لإنهاء الربط.
+      await deleteManualPendingCode(fingerprint);
+      await saveProfile(fingerprint, { adminVerified: true });
       return finalizeLinkEmail(fingerprint, email);
     }
 
@@ -274,7 +282,10 @@ export async function POST(request: Request) {
           }
           const sent = await sendVerificationCodeEmail(created, "link_email");
           if (!sent.ok) {
-            return NextResponse.json({ error: "email_failed" }, { status: 502 });
+            // إبراز سبب الفشل الحقيقي من Resend: يُسجَّل كاملاً في لوج السيرفر،
+            // ويُعاد رمزه فقط في الرد ليُقرأ من DevTools ← Network. بلا أي سرّ.
+            console.error("[profile] تعذّر إرسال رمز الربط:", sent.error, sent.detail ?? "");
+            return NextResponse.json({ error: "email_failed", code: sent.error }, { status: 502 });
           }
           return NextResponse.json({ ok: true, pending: true, step: "manual" });
         }
@@ -375,7 +386,21 @@ export async function POST(request: Request) {
     }
 
     if (action === "clear") {
-      const saved = await saveProfile(fingerprint, { email: null, sheetUrl: null, sheetId: null });
+      // ⚠️ نُبقي `adminVerified`، و**ننقل البريد الحالي إلى `verifiedEmail`
+      //    قبل تصفيره** — وهذا مقصود:
+      //      • البوابة في `link_email` لا تُعفي إلا إذا كان **الجهاز والإيميل
+      //        معروفَين معاً**، فإعادة ربط إيميلك نفسه تمرّ بلا كود (راحة المالك).
+      //      • وربط إيميل **آخر** يطلب كود المشرف ⇒ لا استيلاء.
+      //    ونقلُ البريد ضروري للتوافق: الملفات التي سبقت إضافة `verifiedEmail`
+      //    تحمل بريدها في `email` فقط، فلو صفّرناه لضاع التذكّر وطُلب الكود
+      //    بلا داعٍ عند إعادة الربط.
+      const cur = await getProfile(fingerprint);
+      const saved = await saveProfile(fingerprint, {
+        email: null,
+        verifiedEmail: cur?.verifiedEmail ?? cur?.email ?? null,
+        sheetUrl: null,
+        sheetId: null,
+      });
       return NextResponse.json({ ok: true, profile: saved });
     }
 

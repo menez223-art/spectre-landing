@@ -230,7 +230,10 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
               value: valueUsd,
               currency: "USD",
               wilaya: payload.wilaya,
-              ...advancedMatching,
+              // ⚠️ لا تُمرَّر حقول advancedMatching (em/ph/fn/ln/external_id) هنا:
+              // مواصفات Meta تحصرها في user_data الخاصة بـ CAPI (أو في fbq('init')،
+              // لا في معاملات الحدث). وضعها هنا يلوّث الحدث بخصائص مخصّصة ولا
+              // يرفع جودة المطابقة. تُرسل للخادم عبر window.__lastMetaEvent.userData.
             },
             { eventID: leadEventId }
           );
@@ -247,7 +250,7 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
               num_items: payload.quantity,
               value: valueUsd,
               currency: "USD",
-              ...advancedMatching,
+              // نفس قاعدة Lead: بيانات المطابقة المتقدّمة تذهب لـ CAPI فقط.
             },
             { eventID: eventId }
           );
@@ -361,11 +364,13 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
         console.info("[OrderForm] رد الوكيل:", res.status, txt.slice(0, 120));
       } catch (error) {
         console.error("تعذر إرسال الطلب إلى Google Sheets عبر الوكيل:", error);
+      } finally {
+        // مسح بيانات التتبّع من window بعد شحنها للطلب — لا تبقى بيانات
+        // Advanced Matching (مُجزّأة) معلّقة على الجلسة أطول من حاجتها.
+        delete window.__lastMetaEvent;
       }
       return;
     }
-    void window.__lastMetaEvent; // مرجع للحفاظ على التحليل الثابت
-
     // المسار البديل: المتصفح يرسل مباشرةً لـ Apps Script عبر الرابط المضمّن.
     // يُستخدم فقط إذا sheetKey/sheetEmail فارعان في المنتج المنشور. Apps Script
     // يتلقى البيانات ويضيف الصف؛ وضع no-cors مقبول لأن الـ webhook لا يرد JSON.

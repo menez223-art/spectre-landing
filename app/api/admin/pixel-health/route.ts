@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/app/lib/adminAuth";
+import { safeSecretEqual } from "@/app/lib/utils/security";
 import { isDeviceApproved } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
 
@@ -22,7 +23,7 @@ interface HealthCheck {
 }
 
 async function assertAdmin(request: Request, fingerprint?: string): Promise<boolean> {
-  if (CRON_SECRET && request.headers.get("authorization") === `Bearer ${CRON_SECRET}`) {
+  if (CRON_SECRET && safeSecretEqual(request.headers.get("authorization") ?? "", `Bearer ${CRON_SECRET}`)) {
     return true;
   }
   if (!ADMIN_EMAIL) return false;
@@ -68,8 +69,14 @@ async function pingCapi(
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
     const res = await fetch(
-      `https://graph.facebook.com/v18.0/${encodeURIComponent(pixelId)}?access_token=${encodeURIComponent(accessToken)}&fields=id,name,creation_time`,
-      { signal: ctrl.signal, cache: "no-store" }
+      `https://graph.facebook.com/v18.0/${encodeURIComponent(pixelId)}?fields=id,name,creation_time`,
+      {
+        signal: ctrl.signal,
+        cache: "no-store",
+        // أمان: token في Authorization header لا في URL — لا يظهر في
+        // logs/proxies (نفس نمط /api/sheet/order).
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
     );
     clearTimeout(t);
     const text = await res.text();

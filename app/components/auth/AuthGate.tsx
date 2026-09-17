@@ -246,6 +246,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }
 
 // ── شاشة منع الدخول بسبب حالة الاشتراك (محظور/موقوف/منتهٍ) ──
 function DeniedScreen({ reason }: { reason: string | null }) {
+  const { t } = useLocale();
   return (
     <div className="grid min-h-screen place-items-center bg-navy-950 px-6 py-12 text-navy-900">
       <div className="w-full max-w-md overflow-hidden rounded-3xl border border-ivory-50/10 bg-white shadow-2xl shadow-navy-950/40">
@@ -253,7 +254,7 @@ function DeniedScreen({ reason }: { reason: string | null }) {
           <p className="font-display text-2xl font-extrabold">
             استوديو<span className="text-navy-400">.</span>
           </p>
-          <p className="mt-1 text-xs text-ivory-50/70">تعذّر الدخول</p>
+          <p className="mt-1 text-xs text-ivory-50/70">{t("loginFailed")}</p>
         </div>
         <div className="grid gap-3 p-7">
           <p className="rounded-xl bg-red-50 px-3 py-3 text-[12px] font-semibold leading-6 text-red-600">

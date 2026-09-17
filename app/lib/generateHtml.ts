@@ -32,8 +32,36 @@ function jsStr(value: unknown): string {
 }
 
 // حلّ مسار صورة إلى data URL — data: تُترك كما هي، والمسارات تُحوَّل عبر fetch
+// حماية SSRF: لا نَجلب أي URL يحدّده المستخدم دون التحقق من البروتوكول والمضيف.
+// هدف محظور (loopback / رابط خاص / سحابة داخلية) ⇒ نحتفظ بالمسار الأصلي ولا نجلب.
+const SSRF_DENIED_HOSTS = new Set<string>([
+  "localhost",
+  "ip6-localhost",
+  "ip6-loopback",
+  "metadata.google.internal",
+  "169.254.169.254", // AWS/GCP/Azure metadata endpoint
+  "metadata.azure.com",
+]);
+
+function isSsrfTarget(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return true;
+    const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (SSRF_DENIED_HOSTS.has(host)) return true;
+    // عناوين خاصة/داخلية حسب RFC 1918 + loopback + link-local +Carrier-grade NAT
+    if (/^(127\.|10\.|192\.168\.|169\.254\.|100\.6[4-9]\.|100\.[7-9]\d\.|100\.[1-9]\d\d\.)/.test(host)) return true;
+    if (/^::1$|^fe80:|^fd/.test(host)) return true;
+    if (/^0\./.test(host)) return true;
+    return false;
+  } catch {
+    return true; // URL غير صالح ⇒ لا نَجلبه
+  }
+}
+
 async function toDataUrl(src: string): Promise<string> {
   if (src.startsWith("data:")) return src;
+  if (isSsrfTarget(src)) return src; // محظور — نبقي المسار ولا نجلب
   try {
     const res = await fetch(src);
     if (!res.ok) return src;
@@ -114,6 +142,7 @@ fbq('track','PageView');
 !function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=i;ttq._t=ttq._t||{};ttq._t[e]=+new Date;ttq._o=ttq._o||{};ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript";o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
 ttq.load('${tiktokPixelId}');
 ttq.page();
+}(window,document,'ttq');
 </script>`
     : "";
   const vars = buildCssVars(theme);
@@ -210,13 +239,13 @@ ttq.page();
 
   const badgeChipHtml = display.badge ? `<span class="badge-chip">${esc(display.badge)}</span>` : "";
   const mainImgHtml = mainImage
-    ? `<img id="jsMainImg" src="${esc(mainImage)}" alt="${esc(display.name)}" class="media-img">`
+    ? `<img id="jsMainImg" src="${esc(mainImage)}" alt="${esc(display.name)}" class="media-img" fetchpriority="high" decoding="async">`
     : "";
   const galleryThumbsHtml = displayImages
     .map(
       (src, i) => `
       <button type="button" class="gallery-thumb${i === 0 ? " active" : ""}" data-src="${esc(src)}" aria-label="لقطة ${i + 1}">
-        <img src="${esc(src)}" alt="لقطة ${i + 1}" class="media-img">
+        <img src="${esc(src)}" alt="لقطة ${i + 1}" class="media-img" loading="lazy" decoding="async">
       </button>`
     )
     .join("");
@@ -329,7 +358,7 @@ ttq.page();
             ? `
           <div class="extras-media">
             <div class="extras-figure">
-              <img src="${esc(extrasImage)}" alt="${esc(product.extras.heading)}" class="media-img">
+              <img src="${esc(extrasImage)}" alt="${esc(product.extras.heading)}" class="media-img" loading="lazy" decoding="async">
             </div>
             ${product.extras.imageCaption ? `<p class="extras-caption">${esc(product.extras.imageCaption)}</p>` : ""}
           </div>`
@@ -480,7 +509,7 @@ ttq.page();
               (it, i) => `
             <button type="button" class="product-card${i === 0 ? " active" : ""}" data-index="${i}" aria-pressed="${i === 0 ? "true" : "false"}">
               <span class="product-card-media">
-                ${itemImages[i]?.[0] ? `<img src="${esc(itemImages[i][0])}" alt="${esc(it.name)}" class="media-img">` : ""}
+                ${itemImages[i]?.[0] ? `<img src="${esc(itemImages[i][0])}" alt="${esc(it.name)}" class="media-img" loading="lazy" decoding="async">` : ""}
                 ${it.oldPrice && it.oldPrice > it.price ? `<span class="product-card-badge">-${Math.round((1 - it.price / it.oldPrice) * 100)}%</span>` : ""}
               </span>
               <span class="product-card-body">
@@ -559,6 +588,10 @@ ttq.page();
   var SHEET_EMAIL = ${jsStr(product.sheetEmail ?? "")};
   var PIXEL_ID = ${jsStr(pixelId)};
   var TIKTOK_PIXEL_ID = ${jsStr(tiktokPixelId)};
+  // أصل الوكيل الثابت — صفحة الاحتياط تُخدَّم من github.io، فالرابط النسبي
+  // /api/sheet/order يذهب إلى github.io ويرجع 404 ويضيع الطلب صامتاً.
+  // نُرسل دائماً إلى أصل التطبيق الثابت (متغير البيئة أو الافتراضي).
+  var SITE_ORIGIN = ${jsStr(SITE_HOME_URL.replace(/\/?$/, "/"))};
 
   // ── بيانات المتجر (منتجات متعددة) ──
   // ITEMS يحوي لكل منتج: اسمه الحقيقي، سعره، سعره القديم، وصوره (data URL).
@@ -566,6 +599,7 @@ ttq.page();
   var IS_STORE = ${isStore ? "true" : "false"};
   var ITEMS = ${JSON.stringify(
     items.map((it, i) => ({
+      id: it.id,
       name: it.name,
       nameEn: it.nameEn ?? "",
       price: it.price,
@@ -580,7 +614,9 @@ ttq.page();
   var PRICE = ITEMS[activeIndex].price;
   var PRODUCT = ITEMS[activeIndex].name;       // اسم المنتج المختار (يُعرض)
   var PRODUCT_NAME = ITEMS[activeIndex].name;   // اسم المنتج الحقيقي (يُرسل للجدول)
-  var PRODUCT_ID = ITEMS[activeIndex].id;       // معرّف المنتج (يُرسل لـ Meta Pixel)
+  // معرّف المنتج الحالي — يُحدَّث عند التبديل ويُرسل لـ Meta Pixel (content_ids).
+  // كانت القيمة مبنية من ITEMS[0].id مرة واحدة فتبقى ثابتة عند تبديل المنتجات.
+  var PRODUCT_ID = ITEMS[activeIndex].id;
   var MODE = ${jsStr(theme.mode)};
   var PAGE_CREATED_AT = ${jsStr(createdAt ?? "")};
   var PAGE_EXPIRY_DAYS = ${FALLBACK_EXPIRY_DAYS};
@@ -787,6 +823,7 @@ ttq.page();
     PRICE = item.price;
     PRODUCT = item.name;
     PRODUCT_NAME = item.name;
+    PRODUCT_ID = item.id;
 
     // === META PIXEL: ViewContent ===
     // عند تبديل المنتج في وضع المتجر نُسجّل اختيار الزبون (مشاهدة) سعر المنتج.
@@ -982,6 +1019,10 @@ ttq.page();
       totalPrice: PRICE * q + deliveryPrice(),
       product: PRODUCT,
       productName: PRODUCT_NAME,
+      // معرّف المنتج المختار فعلاً (يتغيّر عند التبديل في وضع المتجر) — يُستخدم
+      // في CAPI content_ids. يجب أن يطابق ما يُرسله OrderForm في صفحة React
+      // وإلا وصلت أحداث الـPurchase من html.io بلا content_ids.
+      _productId: PRODUCT_ID,
       utmSource: utm("utm_source"),
       utmMedium: utm("utm_medium"),
       utmCampaign: utm("utm_campaign")
@@ -1009,7 +1050,16 @@ ttq.page();
         var nameParts = (payload.name || "").trim().split(/\s+/);
         var firstName = nameParts[0] || "";
         var lastName = nameParts.slice(1).join(" ");
-        var phoneDigits = (payload.phone || "").replace(/[^0-9]/g, "");
+        var phoneDigits = (function (s) {
+          // ⚠️ E.164 إلزامي لحقل ph في Meta — وإلا فشلت المطابقة. نفس منطق
+          // normalizePhoneE164 في metaHash.ts (يجب أن يتطابقا تماماً).
+          var d = String(s || "").replace(/[^\d]/g, "");
+          if (!d) return "";
+          if (d.indexOf("00") === 0) d = d.slice(2);
+          if (d.indexOf("213") === 0) return d;
+          if (d.indexOf("0") === 0) d = "213" + d.slice(1);
+          return d;
+        })(payload.phone || "");
         // SHA-256 في المتصفح عبر Web Crypto API.
         var hashedPhone = "";
         var hashedFirst = "";
@@ -1029,13 +1079,14 @@ ttq.page();
         fbq("track", "Lead", {
           content_name: PRODUCT,
           content_category: payload.deliveryType,
+          content_type: "product",
+          content_ids: [PRODUCT_ID],
           value: totalUsd,
           currency: "USD",
           wilaya: payload.wilaya,
-          ph: hashedPhone || undefined,
-          fn: hashedFirst || undefined,
-          ln: hashedLast || undefined
-        });
+          // ⚠️ لا تُمرَّر ph/fn/ln هنا: حقول user_data الخاصة بـ CAPI فقط.
+          // تُرسل للخادم عبر window.__lastMetaEvent.userData (السطر التالي).
+        }, { eventID: evtId + ".l" });
         fbq("track", "Purchase", {
           content_name: PRODUCT,
           content_type: "product",
@@ -1043,13 +1094,11 @@ ttq.page();
           num_items: payload.quantity,
           value: totalUsd,
           currency: "USD",
-          event_id: evtId,
-          ph: hashedPhone || undefined,
-          fn: hashedFirst || undefined,
-          ln: hashedLast || undefined
-        });
-        // تخزين eventId والـ Advanced Matching للـ CAPI server-side.
-        window.__lastMetaEvent = { eventId: evtId, userData: { ph: hashedPhone, fn: hashedFirst, ln: hashedLast } };
+          // ⚠️ لا تُمرَّر ph/fn/ln هنا: حقول user_data الخاصة بـ CAPI فقط.
+          // تُرسل للخادم عبر window.__lastMetaEvent.userData (السطر التالي).
+        }, { eventID: evtId });
+        // تخزين eventId + leadEventId والـ Advanced Matching للـ CAPI server-side.
+        window.__lastMetaEvent = { eventId: evtId, leadEventId: evtId + ".l", userData: { ph: hashedPhone, fn: hashedFirst, ln: hashedLast } };
       } catch (e) { /* فشل التتبّع لا يوقف إرسال الطلب */ }
     }
     // === END META PIXEL ===
@@ -1084,10 +1133,24 @@ ttq.page();
       }
       console.info("[order] إرسال الطلب عبر الوكيل");
       try {
-        var metaForCapi = (typeof window !== "undefined" && window.__lastMetaEvent)
-          ? { eventId: window.__lastMetaEvent.eventId, userData: window.__lastMetaEvent.userData }
-          : undefined;
-        var res = await fetch("/api/sheet/order", {
+        // meta للـCAPI server-side: eventId (dedup) + leadEventId (حدث Lead
+        // منفصل) + userData المُجزّأ + _landingUrl (event_source_url مطلوب
+        // من Meta — رابط github.io الحقيقي هنا هو الصحيح للصفحة الاحتياطية).
+        var lastMeta = (typeof window !== "undefined" && window.__lastMetaEvent)
+          ? window.__lastMetaEvent
+          : null;
+        var metaForCapi = lastMeta
+          ? {
+              eventId: lastMeta.eventId,
+              leadEventId: lastMeta.leadEventId,
+              userData: lastMeta.userData,
+              _landingUrl: window.location.href
+            }
+          : { _landingUrl: window.location.href };
+        // رابط مطلق إلى أصل التطبيق: هذه الصفحة قد تُخدَّم من github.io (نسخة
+        // الاحتياط) حيث الرابط النسبي /api/sheet/order يذهب إلى github.io
+        // نفسه → 404 → ضياع الطلب صامتاً. المسار يدعم CORS لهذا الغرض.
+        var res = await fetch(SITE_ORIGIN + "api/sheet/order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheetKey: SHEET_KEY, sheetEmail: SHEET_EMAIL, order: payload, meta: metaForCapi })
@@ -1310,7 +1373,7 @@ input, select, textarea { font-family: inherit; }
 .media-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .badge-chip {
   position: absolute; top: 1rem; inset-inline-end: 1rem; border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(18, 24, 40, 0.97);
   padding: 0.25rem 0.75rem; font-size: 0.625rem; font-weight: 700; color: #fff; backdrop-filter: blur(4px);
 }
 .media-caption { position: absolute; bottom: 1.5rem; inset-inline-start: 1.5rem; inset-inline-end: 1.5rem; color: #fff; }
@@ -1535,11 +1598,11 @@ input, select, textarea { font-family: inherit; }
 <main style="min-height: 100vh; overflow: hidden; background: var(--c-bg); color: var(--c-text);">
   ${topBarHtml}
   ${headerHtml}
+  ${productPickerHtml}
   ${showcaseHtml}
   ${featuresHtml}
   ${extrasHtml}
   ${testimonialsHtml}
-  ${productPickerHtml}
   ${orderSectionHtml}
   ${footerHtml}
 </main>

@@ -1434,6 +1434,7 @@ function StudioInner() {
                 </p>
                 {draft.items[activeItem]?.image && (
                   <div className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-2.5">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */}
                     <img src={draft.items[activeItem].image} alt={t("currentImage")} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
                     <span className="flex-1 truncate text-[11px] text-navy-900/50">{t("currentImage")}</span>
                     <button
@@ -1453,6 +1454,7 @@ function StudioInner() {
                 {draft.items[activeItem]?.image ? (
                   <div className="flex items-center gap-4">
                     <div className="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl bg-ivory-100 ring-1 ring-navy-900/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- صورة معاينة data:URL محلية */}
                       <img src={draft.items[activeItem].image} alt={t("productImage")} className="h-full w-full object-cover" />
                     </div>
                     <div className="grid gap-2">
@@ -1484,6 +1486,7 @@ function StudioInner() {
               </div>
               {draft.items[activeItem]?.images.map((img, i) => (
                 <div key={i} className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */}
                   <img src={img} alt={t("extraImage", { n: i + 1 })} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
                   <span className="flex-1 text-xs text-navy-900/50">{t("extraImage", { n: i + 1 })}</span>
                   <button
@@ -1664,7 +1667,7 @@ function StudioInner() {
               <div key={i} className="grid gap-2 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-3 sm:grid-cols-[0.8fr_1.4fr_auto] sm:items-center">
                 <input className={stInput} value={s.value} placeholder="20W" onChange={(e) => { const stats = [...draft.stats]; stats[i] = { ...s, value: e.target.value }; setDraft({ ...draft, stats }); }} />
                 <input className={stInput} value={s.label} placeholder="قوة الشحن" onChange={(e) => { const stats = [...draft.stats]; stats[i] = { ...s, label: e.target.value }; setDraft({ ...draft, stats }); }} />
-                <button onClick={() => setDraft({ ...draft, stats: draft.stats.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">حذف</button>
+                <button onClick={() => setDraft({ ...draft, stats: draft.stats.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">{t("deleteItem")}</button>
               </div>
             ))}
           </section>
@@ -1785,6 +1788,7 @@ function StudioInner() {
                     className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-navy-900/10 bg-ivory-50 p-2.5 dark:border-white/10 dark:bg-[#161b22]"
                   >
                     {p.image && (
+                      /* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */
                       <img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-navy-900/10" />
                     )}
                     <div className="min-w-0 flex-1 basis-40">

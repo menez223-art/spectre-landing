@@ -198,8 +198,11 @@ export function LandingLangProvider({ children }: { children: ReactNode }) {
     return str;
   };
 
+  // setLang ثابت (لا يعتمد على الحالة)؛ t يُحسب من lang فقط، لكن dict ثابت
+  // خارج الإغلاق فيُدرَج في الاعتماديات كدالة نقيّة بلا تأثير عملي.
   const value = useMemo<LandingLangValue>(
     () => ({ lang, dir: lang === "ar" ? "rtl" : "ltr", setLang, t }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [lang]
   );
 

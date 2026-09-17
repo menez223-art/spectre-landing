@@ -16,6 +16,10 @@ export interface DeviceProfile {
   sheetId: string | null;
   sheetKey?: string | null; // مفتاح الجدول الثابت — يبقى صالحاً عبر إعادة النشر
   adminVerified?: boolean; // هل أُكّد كود المشرف مرة واحدة على هذا الجهاز؟ (يُعفي من إعادة الطلب) — للربط التلقائي واليدوي على حدّ سواء
+  // آخر بريد اجتاز التحقق على هذا الجهاز. يُستعمل مع adminVerified لفرض قاعدة
+  // المالك: **بلا كود فقط إن كان الجهاز والإيميل معروفَين معاً**. إسقاطُه عند
+  // «فك الربط» يجعل إعادة ربط **إيميلك نفسه** بلا كود، بينما ربط إيميل آخر يطلب الكود.
+  verifiedEmail?: string | null;
   // ── حقول تسويقية اختيارية (لا علاقة لهما بالحظر/الربط) ──
   // Meta Pixel: يُحقن تلقائياً في صفحة المتجر المنشورة لقياس إعلانات فيسبوك.
   pixelId?: string | null;
@@ -54,7 +58,7 @@ export async function getProfile(rawFp: string): Promise<DeviceProfile | null> {
 
 export async function saveProfile(
   rawFp: string,
-  patch: Partial<Pick<DeviceProfile, "email" | "sheetUrl" | "sheetId" | "sheetKey" | "adminVerified" | "pixelId" | "tiktokPixelId" | "whatsapp" | "storeName" | "showNamePublicly">>
+  patch: Partial<Pick<DeviceProfile, "email" | "sheetUrl" | "sheetId" | "sheetKey" | "adminVerified" | "verifiedEmail" | "pixelId" | "tiktokPixelId" | "whatsapp" | "storeName" | "showNamePublicly">>
 ): Promise<DeviceProfile> {
   const fp = pepperFingerprint(rawFp);
   const existing = await getProfile(rawFp);
@@ -72,6 +76,7 @@ export async function saveProfile(
     whatsapp: patch.whatsapp !== undefined ? patch.whatsapp : (existing?.whatsapp ?? null),
     storeName: patch.storeName !== undefined ? patch.storeName : (existing?.storeName ?? null),
     showNamePublicly: patch.showNamePublicly !== undefined ? patch.showNamePublicly : (existing?.showNamePublicly ?? null),
+    verifiedEmail: patch.verifiedEmail !== undefined ? patch.verifiedEmail : (existing?.verifiedEmail ?? null),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };

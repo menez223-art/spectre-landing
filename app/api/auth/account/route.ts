@@ -33,7 +33,10 @@ export async function GET(request: Request) {
       const isAdminUser = Boolean(email0) && email0!.toLowerCase() === ADMIN_EMAIL;
       if (!isAdminUser) {
         let deviceBanned = false;
-        try { deviceBanned = await isDeviceBanned(fingerprint); } catch {}
+        try { deviceBanned = await isDeviceBanned(fingerprint); } catch {
+          // fail-closed: لا نستطيع التأكد من الحظر → نُرجع خطأ بدل السماح.
+          return NextResponse.json({ ok: false, error: "storage" }, { status: 502, headers: noStore });
+        }
         if (deviceBanned) {
           return NextResponse.json({
             ok: true,

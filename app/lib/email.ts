@@ -27,7 +27,7 @@ export function hasEmailConfig(): boolean {
 export async function sendVerificationCodeEmail(
   code: string,
   mode: "admin_login" | "link_email" | "set_whatsapp" = "admin_login"
-): Promise<{ ok: boolean; error?: string; deliveredTo?: string }> {
+): Promise<{ ok: boolean; error?: string; detail?: string; deliveredTo?: string }> {
   if (!RESEND_API_KEY) return { ok: false, error: "no_key" };
 
   const { subject, text } = (() => {
@@ -88,8 +88,10 @@ export async function sendVerificationCodeEmail(
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      // إبراز سبب Resend الحقيقي (مثلاً: domain not verified / invalid to address /
+      // API key invalid) بدل رمز حالة مجهول — الفرق بين 403 و422 يحسم التشخيص.
       console.error("[email] فشل الإرسال:", res.status, body);
-      return { ok: false, error: `resend_${res.status}` };
+      return { ok: false, error: `resend_${res.status}`, detail: body.slice(0, 300) };
     }
     return { ok: true, deliveredTo: ADMIN_EMAIL };
   } catch (err) {

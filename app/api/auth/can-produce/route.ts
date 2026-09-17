@@ -31,11 +31,12 @@ export async function GET(request: Request) {
   }
 
   // الجهاز محظور على مستوى صفّه المستقل؟ (يغلق حافة «جهاز يهرب من حظر الإيميل»)
+  // fail-closed: فشل قراءة قائمة الحظر يعني أننا لا نستطيع التأكد ⇒ نمنع الإنتاج.
   let deviceBanned = false;
   try {
     deviceBanned = await isDeviceBanned(fingerprint);
   } catch {
-    // فشل القراءة → نفترض غير محظور (لا نمنع الإنتاج بسبب خطأ تخزين)
+    return NextResponse.json({ allowed: false, reason: "storage" }, { status: 502 });
   }
   if (deviceBanned) {
     return NextResponse.json({ allowed: false, reason: "banned", status: "banned" }, { status: 403 });

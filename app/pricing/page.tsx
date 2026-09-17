@@ -198,12 +198,12 @@ export default function PricingPage() {
           </h2>
           <div className="mt-8 grid gap-6 sm:grid-cols-3">
             {[
-              { icon: "📄", title: t("featureLandingPages"), desc: "أنشئ عدداً غير محدود من صفحات الهبوط" },
-              { icon: "🇩🇿", title: t("featureWilayas"), desc: "توصيل لكل الولايات الجزائرية" },
-              { icon: "💰", title: t("featureCod"), desc: "الدفع عند الاستلام للزبائن" },
-              { icon: "🎨", title: t("featureColors"), desc: "استخراج الألوان من صورة المنتج تلقائياً" },
-              { icon: "📋", title: t("featureOrderForm"), desc: "نموذج طلب ذكي مع اختيار الولاية والبلدية" },
-              { icon: "📊", title: t("featureSheets"), desc: "ربط تلقائي مع Google Sheets للطلبات" },
+              { icon: "📄", title: t("featureLandingPages"), desc: t("featureLandingPagesDesc") },
+              { icon: "🇩🇿", title: t("featureWilayas"), desc: t("featureWilayasDesc") },
+              { icon: "💰", title: t("featureCod"), desc: t("featureCodDesc") },
+              { icon: "🎨", title: t("featureColors"), desc: t("featureColorsDesc") },
+              { icon: "📋", title: t("featureOrderForm"), desc: t("featureOrderFormDesc") },
+              { icon: "📊", title: t("featureSheets"), desc: t("featureSheetsDesc") },
             ].map((item, idx) => (
               <div
                 key={idx}

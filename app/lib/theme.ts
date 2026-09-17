@@ -109,6 +109,37 @@ export function buildCssVars(theme: Theme): Record<string, string> {
   };
 }
 
+// تعقيم ثيم قادم من العميل (نموذج التجربة) — لا نثق به إطلاقاً.
+// تُرفض أي قيمة ليست لوناً صريحاً (hex/rgb/rgba) أو أي مفتاح خارج Theme.
+// لاحقاً تُمرّر النتيجة عبر normalizeTheme فتُكمل الحقول الناقصة من الثيم الافتراضي.
+const COLOR_KEYS = [
+  "primary", "accent", "bg", "surface", "text", "muted",
+  "primaryStrong", "primarySoft", "primaryText", "bgAlt",
+  "bandBg", "bandText", "bandMuted", "promoBg", "promoText",
+  "glow", "inputBg", "inputBorder", "placeholder", "surface2",
+] as const;
+
+const COLOR_RE =
+  /^(#[0-9a-f]{3}|#[0-9a-f]{6}|#[0-9a-f]{8}|rgba?\(\s*\d[^)]*\))$/i;
+
+export function sanitizeTheme(input: unknown): Partial<Theme> {
+  if (!input || typeof input !== "object") return {};
+  const src = input as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+
+  if (src.mode === "light" || src.mode === "dark") out.mode = src.mode;
+
+  for (const key of COLOR_KEYS) {
+    const v = src[key];
+    if (typeof v === "string" && COLOR_RE.test(v.trim())) out[key] = v.trim();
+  }
+
+  if (src.featuresLayout === "grid" || src.featuresLayout === "list") {
+    out.featuresLayout = src.featuresLayout;
+  }
+  return out;
+}
+
 // بناء ثيم من الألوان المستخرجة من صورة المنتج
 export function deriveTheme(
   primary: string,

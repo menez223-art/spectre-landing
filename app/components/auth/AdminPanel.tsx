@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useMemo } from "react";
 import type { Plan, Subscription, SubStatus } from "@/app/lib/subsStore";
+import { GuestTrialsPanel } from "./GuestTrialsPanel";
+import { SiteCopyPanel } from "./SiteCopyPanel";
+import { useAdminLocale } from "@/app/components/auth/AdminLocale";
 
 // ── الأنواع ──
 interface SubRow extends Subscription {
@@ -41,11 +44,29 @@ interface Stats {
 }
 
 // ── الثوابت ──
-const PLAN_LABELS: Record<Plan, string> = {
-  basic: "أساسي",
-  pro: "متقدم",
-  gold: "الذهبية",
+// PLAN_LABELS و STATUS_LABELS تُحسب الآن من t() داخل كل مكون.
+// نوفّر دوال مساعدة:
+function planLabel(t: (k: any) => string, plan: Plan): string {
+  return plan === "basic" ? t("adminPlanBasic") : plan === "pro" ? t("adminPlanPro") : t("adminPlanGold");
+}
+// سبب التوقيف **بيانات مخزَّنة** — تبقى عربية في القاعدة (لأن الفلترة في
+// suspendedAuto تعتمد عليها)، وتُترجَم **للعرض فقط** عبر هذه الخريطة.
+// أي سبب غير معروف يُعرض كما هو بلا تغيير.
+const REASON_KEYS: Record<string, string> = {
+  "إيقاف مؤقت من المشرف.": "adminReasonSuspended",
+  "حظر من المشرف.": "adminReasonBanned",
+  "انتهت صلاحية الاشتراك.": "adminReasonExpired",
+  "إيقاف جماعي من المشرف.": "adminReasonBulkSuspended",
 };
+function reasonLabel(t: (k: any) => string, reason: string | null | undefined): string {
+  if (!reason) return "";
+  const k = REASON_KEYS[reason.trim()];
+  return k ? t(k) : reason;
+}
+
+function statusLabel(t: (k: any) => string, status: SubStatus): string {
+  return status === "active" ? t("adminStatusActive") : status === "suspended" ? t("adminStatusSuspended") : status === "banned" ? t("adminStatusBanned") : t("adminStatusExpired");
+}
 
 const PLAN_PRICES: Record<Plan, number> = {
   basic: 2000,
@@ -53,12 +74,7 @@ const PLAN_PRICES: Record<Plan, number> = {
   gold: 6000,
 };
 
-const STATUS_LABELS: Record<SubStatus, string> = {
-  active: "نشط",
-  suspended: "موقوف",
-  banned: "محظور",
-  expired: "منتهٍ",
-};
+// STATUS_LABELS تُحسب الآن من statusLabel() أعلاه.
 
 // ── نظام الألوان حسب الخطة ──
 const PLAN_COLORS: Record<Plan, { bg: string; border: string; text: string; badge: string }> = {
@@ -181,6 +197,8 @@ function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  // ⚠️ الخطاف **قبل** الإرجاع المبكر — وإلا خالف قواعد الخطافات (rules-of-hooks).
+  const { t } = useAdminLocale();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-navy-950/60 px-4 backdrop-blur-sm" onClick={onCancel}>
@@ -192,7 +210,7 @@ function ConfirmDialog({
         <p className="mt-2 text-[12px] leading-6 text-navy-700/80 dark:text-navy-300/80">{message}</p>
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onCancel} className={stBtnGhost} disabled={loading}>
-            إلغاء
+            {t("adminCancel")}
           </button>
           <button
             onClick={onConfirm}
@@ -226,6 +244,7 @@ function ProductEditModal({
   const [oldPrice, setOldPrice] = useState(product.oldPrice != null ? String(product.oldPrice) : "");
   const [badge, setBadge] = useState(product.badge ?? "");
   const [eyebrow, setEyebrow] = useState(product.eyebrow ?? "");
+  const { t } = useAdminLocale();
 
   function submit() {
     const p = Number(price);
@@ -245,40 +264,40 @@ function ProductEditModal({
         className="liquid-glass liquid-glass--rounded w-full max-w-md overflow-hidden rounded-2xl p-4 shadow-2xl sm:rounded-3xl sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="font-display text-base font-bold text-navy-900 dark:text-white">تعديل المنتج</h3>
+        <h3 className="font-display text-base font-bold text-navy-900 dark:text-white">{t("adminEditProduct")}</h3>
         <p className="mt-1 text-[11px] text-navy-900/45 dark:text-navy-300/45">
-          يُطبَّق التعديل على الصفحة المنشورة فوراً. يبقى الثيم وباقي البيانات كما هي.
+          {t("adminEditProductDesc")}
         </p>
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1">
-            <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">الاسم</span>
+            <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">{t("adminProductName")}</span>
             <input className={stInput} value={name} onChange={(e) => setName(e.target.value)} />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="grid gap-1">
-              <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">السعر (د.ج)</span>
+              <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">{t("adminProductPrice")}</span>
               <input className={stInput} type="number" dir="ltr" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
             </label>
             <label className="grid gap-1">
-              <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">السعر القديم (اختياري)</span>
+              <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">{t("adminProductOldPrice")}</span>
               <input className={stInput} type="number" dir="ltr" value={oldPrice} onChange={(e) => setOldPrice(e.target.value.replace(/\D/g, ""))} />
             </label>
           </div>
           <label className="grid gap-1">
-            <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">الشارة (Badge)</span>
+            <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">{t("adminProductBadge")}</span>
             <input className={stInput} value={badge} onChange={(e) => setBadge(e.target.value)} />
           </label>
           <label className="grid gap-1">
-            <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">العنوان الفرعي (Eyebrow)</span>
+            <span className="text-[11px] font-bold text-navy-700 dark:text-navy-300">{t("adminProductEyebrow")}</span>
             <input className={stInput} value={eyebrow} onChange={(e) => setEyebrow(e.target.value)} />
           </label>
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className={stBtnGhost} disabled={busy}>
-            إلغاء
+            {t("adminCancel")}
           </button>
           <button onClick={submit} className={stBtnPrimary} disabled={busy}>
-            {busy ? "…" : "حفظ"}
+            {busy ? "…" : t("adminSave")}
           </button>
         </div>
       </div>
@@ -290,13 +309,13 @@ function ProductEditModal({
 function StatCard({ icon: Icon, label, value, color, trend }: { icon: React.FC<{ className?: string }>; label: string; value: string | number; color: string; trend?: string }) {
   return (
     <div className={`rounded-2xl border p-4 ${color} dark:border-navy-700`}>
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
           <p className="text-[11px] font-semibold opacity-80">{label}</p>
-          <p className="mt-1 font-display text-2xl font-bold">{value}</p>
+          <p className="mt-1 font-display text-xl font-bold break-words sm:text-2xl">{value}</p>
           {trend && <p className="mt-1 text-[10px] font-semibold opacity-90">{trend}</p>}
         </div>
-        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+        <div className="w-10 h-10 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
           <Icon className="w-5 h-5" />
         </div>
       </div>
@@ -335,6 +354,7 @@ function SubscriptionCard({
   isExpanded,
   isSelected,
   onSelect,
+  adminEmail,
 }: {
   row: SubRow;
   busy: boolean;
@@ -343,11 +363,14 @@ function SubscriptionCard({
   isExpanded: boolean;
   isSelected: boolean;
   onSelect: () => void;
+  adminEmail: string;
 }) {
   const planColors = PLAN_COLORS[row.plan] || PLAN_COLORS.basic;
+  const { t } = useAdminLocale();
   const isActive = row.status === "active";
   const isBanned = row.status === "banned";
-  const isAdminRow = row.userId.toLowerCase().includes("admin");
+  // مطابقة دقيقة لبريد المشرف فقط — لا أي userId يحوي كلمة "admin".
+  const isAdminRow = row.userId.toLowerCase() === (adminEmail || "").toLowerCase();
   const remaining = row.remainingDays;
   const hasQuotaExceeded =
     // فحص عدد الصفحات مقابل maxPages (السقف الأعلى = maxPages للخطة).
@@ -366,14 +389,28 @@ function SubscriptionCard({
     e.stopPropagation();
     if (isAdminRow || saving) return;
 
+    // الحفظ على بطاقة محظورة يُفعّل الحساب (ويعيد روابطه المحروقة) تلقائياً
+    // على الخادم — يجب أن يكون صريحاً، لا ضمنياً مع تعديل الخطة.
+    if (isBanned) {
+      if (!window.confirm(t("adminSaveUnbansConfirm"))) return;
+    }
+
     setSaving(true);
     try {
-      const days = parseInt(editDays) || 0;
+      // حدّ عملي 365 يوم (الخانة لها max لكن القيمة المُدخلة قد تتجاوزه)
+      const days = Math.min(365, parseInt(editDays) || 0);
       await onAction("update_subscription", { plan: editPlan, days });
     } finally {
       setSaving(false);
     }
   };
+
+  // مزامنة الحالة المحلية مع الصف بعد كل تحديث خارجي (save جماعي، load)
+  // — كانت تبقى قيم الخطة/الأيام القديمة بعد تعديلها من مكان آخر.
+  useEffect(() => {
+    setEditPlan(row.plan);
+    setEditDays(row.remainingDays?.toString() || "30");
+  }, [row.plan, row.remainingDays]);
 
   return (
     <div
@@ -402,19 +439,19 @@ function SubscriptionCard({
                   rel="noopener noreferrer"
                   dir="ltr"
                   className="text-[10px] font-bold text-emerald-600 hover:underline dark:text-emerald-400"
-                  title="تواصل سريع عبر واتساب"
+                  title={t("adminWhatsappTip")}
                 >
                   💬 {row.whatsapp}
                 </a>
               ) : null}
               {row.pages !== undefined && (
-                <span className="text-[10px] text-navy-900/45 dark:text-navy-300/45">{row.pages} صفحة منشورة</span>
+                <span className="text-[10px] text-navy-900/45 dark:text-navy-300/45">{row.pages} {t("adminPages")}</span>
               )}
             </div>
           </div>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_COLORS[row.status]}`}>
-          {STATUS_LABELS[row.status]}
+          {statusLabel(t, row.status)}
         </span>
       </div>
 
@@ -422,19 +459,19 @@ function SubscriptionCard({
       {!isAdminRow && (
         <div className="grid gap-2 p-3 rounded-xl bg-navy-50 dark:bg-navy-800/50 border border-navy-900/10 dark:border-navy-700" onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-[10px] font-semibold text-navy-700 dark:text-navy-300">الخطة:</label>
+            <label className="text-[10px] font-semibold text-navy-700 dark:text-navy-300">{t("adminPlanColon")}</label>
             <select
               value={editPlan}
               onChange={(e) => setEditPlan(e.target.value as Plan)}
               disabled={saving || busy}
               className="rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-1.5 text-[16px] font-semibold text-navy-900 dark:text-white disabled:opacity-50 sm:text-[11px]"
             >
-              <option value="basic">أساسي (2000 د.ج)</option>
-              <option value="pro">متقدم (4000 د.ج)</option>
-              <option value="gold">الذهبية (6000 د.ج)</option>
+              <option value="basic">{t("adminPlanBasicPrice")}</option>
+              <option value="pro">{t("adminPlanProPrice")}</option>
+              <option value="gold">{t("adminPlanGoldPrice")}</option>
             </select>
 
-            <label className="text-[10px] font-semibold text-navy-700 dark:text-navy-300 ml-3">الأيام المتبقية:</label>
+            <label className="text-[10px] font-semibold text-navy-700 dark:text-navy-300 ml-3">{t("adminRemainingDays")}</label>
             <input
               type="number"
               min="0"
@@ -445,18 +482,18 @@ function SubscriptionCard({
               className="w-20 rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-1.5 text-[16px] font-semibold text-navy-900 dark:text-white disabled:opacity-50 sm:text-[11px]"
               placeholder="30"
             />
-            <span className="text-[10px] text-navy-700 dark:text-navy-300">يوم</span>
+            <span className="text-[10px] text-navy-700 dark:text-navy-300">{t("adminDay")}</span>
 
             <button
               onClick={handleSaveSubscription}
               disabled={saving || busy}
               className="rounded-lg bg-emerald-500 hover:bg-emerald-600 px-4 py-1.5 text-[11px] font-bold text-white transition disabled:opacity-50"
             >
-              {saving ? "جارٍ الحفظ..." : "حفظ"}
+              {saving ? t("adminSaving") : t("adminSave")}
             </button>
           </div>
           <div className="text-[10px] text-navy-600 dark:text-navy-400">
-            الخطة الحالية: <strong>{PLAN_LABELS[row.plan]}</strong> • متبقٍ: <strong>{remaining ?? 0} يوم</strong>
+            {t("adminCurrentPlan")}: <strong>{planLabel(t, row.plan)}</strong> • {t("adminRemaining")}: <strong>{remaining ?? 0} {t("adminDay")}</strong>
           </div>
         </div>
       )}
@@ -464,21 +501,21 @@ function SubscriptionCard({
       {/* Plan Badge + Validity */}
       <div className="flex flex-wrap items-center gap-2">
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${planColors?.badge || "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"}`}>
-          {PLAN_LABELS[row.plan]} {PLAN_PRICES[row.plan] > 0 ? `(${PLAN_PRICES[row.plan].toLocaleString()} د.ج)` : ""}
+          {planLabel(t, row.plan)} {PLAN_PRICES[row.plan] > 0 ? `(${PLAN_PRICES[row.plan].toLocaleString()} ${t("adminCurrency")})` : ""}
         </span>
         {row.validityUnit && (
           <span className="rounded-full bg-navy-100 px-2 py-0.5 text-[10px] font-bold text-navy-700">
-            {row.validityUnit === "always" ? "دائم" : `متبقٍ ${remaining ?? 0} يوم`}
+            {row.validityUnit === "always" ? t("adminPermanent") : `${t("adminRemaining")} ${remaining ?? 0} ${t("adminDay")}`}
           </span>
         )}
         {!row.validityUnit && (
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-            بلا مدة محددة
+            {t("adminNoValidity")}
           </span>
         )}
         {hasQuotaExceeded && (
           <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 flex items-center gap-1">
-            <Icons.Warning /> تجاوز الحصة
+            <Icons.Warning /> {t("adminQuotaExceeded")}
           </span>
         )}
       </div>
@@ -488,19 +525,19 @@ function SubscriptionCard({
         <PlanProgressBar
           current={row.pages ?? 0}
           max={row.maxPages ?? 1}
-          label="صفحات"
+          label={t("adminPagesLabel")}
           color="bg-blue-500"
         />
         <PlanProgressBar
           current={row.productCount ?? 0}
           max={(row.maxProducts ?? 0) * (row.maxPages ?? 1)}
-          label="منتجات"
+          label={t("adminProductsLabel")}
           color="bg-purple-500"
         />
         <PlanProgressBar
           current={row.imageCount ?? 0}
           max={(row.maxImages ?? 0) * (row.maxPages ?? 1)}
-          label="صور"
+          label={t("adminImagesLabel")}
           color="bg-emerald-500"
         />
       </div>
@@ -509,19 +546,19 @@ function SubscriptionCard({
       {isExpanded && (
         <div className="grid gap-3 pt-2 border-t border-navy-900/10 dark:border-navy-700/50">
           <div className="grid gap-2 text-[11px] text-navy-700 dark:text-navy-300">
-            <div className="flex justify-between"><span>بدء الاشتراك</span><span className="font-semibold text-navy-900 dark:text-white">{new Date(row.startsAt).toLocaleDateString("ar-DZ")}</span></div>
-            <div className="flex justify-between"><span>آخر تحديث</span><span className="font-semibold text-navy-900 dark:text-white">{new Date(row.updatedAt).toLocaleDateString("ar-DZ")}</span></div>
+            <div className="flex justify-between"><span>{t("adminStartSub")}</span><span className="font-semibold text-navy-900 dark:text-white">{new Date(row.startsAt).toLocaleDateString("ar-DZ")}</span></div>
+            <div className="flex justify-between"><span>{t("adminLastUpdate")}</span><span className="font-semibold text-navy-900 dark:text-white">{new Date(row.updatedAt).toLocaleDateString("ar-DZ")}</span></div>
             {row.expiresAt && (
-              <div className="flex justify-between"><span>تاريخ الانتهاء</span><span className="font-semibold text-red-600 dark:text-red-400">{new Date(row.expiresAt).toLocaleDateString("ar-DZ")}</span></div>
+              <div className="flex justify-between"><span>{t("adminExpiryDate")}</span><span className="font-semibold text-red-600 dark:text-red-400">{new Date(row.expiresAt).toLocaleDateString("ar-DZ")}</span></div>
             )}
             {row.validityStartsAt && (
-              <div className="flex justify-between"><span>بداية الصلاحية</span><span className="font-semibold text-navy-900 dark:text-white">{new Date(row.validityStartsAt).toLocaleDateString("ar-DZ")}</span></div>
+              <div className="flex justify-between"><span>{t("adminValidityStart")}</span><span className="font-semibold text-navy-900 dark:text-white">{new Date(row.validityStartsAt).toLocaleDateString("ar-DZ")}</span></div>
             )}
             {row.validityExpiresAt && (
-              <div className="flex justify-between"><span>نهاية الصلاحية</span><span className="font-semibold text-navy-900 dark:text-white">{new Date(row.validityExpiresAt).toLocaleDateString("ar-DZ")}</span></div>
+              <div className="flex justify-between"><span>{t("adminValidityEnd")}</span><span className="font-semibold text-navy-900 dark:text-white">{new Date(row.validityExpiresAt).toLocaleDateString("ar-DZ")}</span></div>
             )}
             {row.reason && (
-              <div className="flex justify-between"><span>السبب</span><span className="font-semibold text-red-600 dark:text-red-400">{row.reason}</span></div>
+              <div className="flex justify-between"><span>{t("adminReason")}</span><span className="font-semibold text-red-600 dark:text-red-400">{reasonLabel(t, row.reason)}</span></div>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -531,7 +568,7 @@ function SubscriptionCard({
                 disabled={busy}
                 className={stBtnWarning}
               >
-                إيقاف
+                {t("adminSuspend")}
               </button>
             )}
             {!isAdminRow && isActive && (
@@ -540,7 +577,7 @@ function SubscriptionCard({
                 disabled={busy}
                 className={stBtnDanger}
               >
-                حظر
+                {t("adminBan")}
               </button>
             )}
             {!isAdminRow && isBanned && (
@@ -549,7 +586,7 @@ function SubscriptionCard({
                 disabled={busy}
                 className={stBtnSuccess}
               >
-                إلغاء الحظر
+                {t("adminUnban")}
               </button>
             )}
             {!isAdminRow && !isBanned && !isActive && (
@@ -558,7 +595,7 @@ function SubscriptionCard({
                 disabled={busy}
                 className={stBtnSuccess}
               >
-                تفعيل
+                {t("adminActivate")}
               </button>
             )}
             {!isAdminRow && (
@@ -567,7 +604,7 @@ function SubscriptionCard({
                 disabled={busy}
                 className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/40"
               >
-                حذف الصفحات
+                {t("adminDeletePages")}
               </button>
             )}
             {!isAdminRow && (
@@ -576,7 +613,7 @@ function SubscriptionCard({
                 disabled={busy}
                 className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-100 disabled:opacity-60 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40"
               >
-                حذف الاشتراك
+                {t("adminDeleteSub")}
               </button>
             )}
           </div>
@@ -598,6 +635,7 @@ function SubscriptionCard({
   );
 }// ── لوحة الإحصائيات المتقدمة ──
 function StatsDashboard({ stats }: { stats: Stats }) {
+  const { t } = useAdminLocale();
   const total = stats.total || 1;
   const basicPct = Math.round((stats.byPlan.basic / total) * 100);
   const proPct = Math.round((stats.byPlan.pro / total) * 100);
@@ -605,31 +643,31 @@ function StatsDashboard({ stats }: { stats: Stats }) {
 
   return (
     <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
-      <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">📊 ملخص الاشتراكات</h2>
+      <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">{t("adminStatsTitle")}</h2>
 
       {/* بطاقات الإحصائيات الرئيسية */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={Icons.Users}
-          label="إجمالي المشتركين"
+          label={t("adminTotalSubs")}
           value={stats.total}
           color="bg-navy-50 border-navy-100 text-navy-900 dark:bg-navy-800 dark:text-white"
         />
         <StatCard
           icon={Icons.Money}
-          label="الإيرادات الشهرية"
-          value={`${stats.revenue.toLocaleString()} د.ج`}
+          label={t("adminMonthlyRevenue")}
+          value={`${stats.revenue.toLocaleString()} ${t("adminCurrency")}`}
           color="bg-emerald-50 border-emerald-100 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-300"
         />
         <StatCard
           icon={Icons.Chart}
-          label="نشط اليوم"
+          label={t("adminActiveToday")}
           value={stats.active}
           color="bg-blue-50 border-blue-100 text-blue-900 dark:bg-blue-900/20 dark:text-blue-300"
         />
         <StatCard
           icon={Icons.Clock}
-          label="تنتهي قريباً (7 أيام)"
+          label={t("adminExpiringSoon")}
           value={stats.expiringSoon}
           color="bg-amber-50 border-amber-100 text-amber-900 dark:bg-amber-900/20 dark:text-amber-300"
         />
@@ -638,21 +676,21 @@ function StatsDashboard({ stats }: { stats: Stats }) {
       {/* توزيع الخطط */}
       <div className="mt-4 grid gap-3">
         <div className="flex items-center gap-3">
-          <span className="w-20 text-[11px] font-semibold text-blue-600 dark:text-blue-400">أساسي</span>
+          <span className="w-20 text-[11px] font-semibold text-blue-600 dark:text-blue-400">{t("adminPlanBasic")}</span>
           <div className="flex-1 h-3 rounded-full bg-blue-100 dark:bg-blue-900/30 overflow-hidden">
             <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${basicPct}%` }} />
           </div>
           <span className="w-14 text-right text-[11px] font-bold text-blue-700 dark:text-blue-300">{stats.byPlan.basic} ({basicPct}%)</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="w-20 text-[11px] font-semibold text-purple-600">متقدم</span>
+          <span className="w-20 text-[11px] font-semibold text-purple-600">{t("adminPlanPro")}</span>
           <div className="flex-1 h-3 rounded-full bg-purple-100 overflow-hidden">
             <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${proPct}%` }} />
           </div>
           <span className="w-14 text-right text-[11px] font-bold text-purple-700">{stats.byPlan.pro} ({proPct}%)</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="w-20 text-[11px] font-semibold text-amber-600">الذهبية</span>
+          <span className="w-20 text-[11px] font-semibold text-amber-600">{t("adminPlanGold")}</span>
           <div className="flex-1 h-3 rounded-full bg-amber-100 overflow-hidden">
             <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${goldPct}%` }} />
           </div>
@@ -665,6 +703,7 @@ function StatsDashboard({ stats }: { stats: Stats }) {
 
 // ── التحذيرات الذكية ──
 function SmartWarnings({ rows }: { rows: SubRow[] }) {
+  const { t } = useAdminLocale();
   const quotaExceeded = rows.filter((r) =>
     (r.maxPages && r.pages && r.pages > r.maxPages) ||
     (r.maxProducts && r.maxPages && r.productCount !== undefined && r.productCount > r.maxProducts * r.maxPages) ||
@@ -686,21 +725,21 @@ function SmartWarnings({ rows }: { rows: SubRow[] }) {
   return (
     <section className="grid gap-3 rounded-3xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-5">
       <h2 className="font-display text-base font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2">
-        <Icons.Warning /> تنبيهات ذكية
+        <Icons.Warning /> {t("adminSmartWarnings")}
       </h2>
 
       {quotaExceeded.length > 0 && (
         <div className="grid gap-2 rounded-xl border border-amber-300/50 dark:border-amber-700/50 bg-white dark:bg-navy-800 p-3">
           <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
-            ⚠️ {quotaExceeded.length} مشترك تجاوز حصته:
+            ⚠️ {t("adminQuotaWarn", { count: quotaExceeded.length })}
           </p>
           <div className="grid gap-1 max-h-32 overflow-auto">
             {quotaExceeded.map((r) => (
-              <div key={r.userId} className="text-[10px] text-amber-800 dark:text-amber-300 flex items-center gap-2">
-                <code className="font-mono text-navy-900 dark:text-white">{r.userId}</code>
-                <span className="text-navy-700 dark:text-navy-300">{r.pages ?? 0}/{r.maxPages ?? 1} صفحة</span>
-                <span className="text-navy-700 dark:text-navy-300">{r.productCount ?? 0}/{(r.maxProducts ?? 0) * (r.maxPages ?? 1)} منتج</span>
-                <span className="text-navy-700 dark:text-navy-300">{r.imageCount ?? 0}/{(r.maxImages ?? 0) * (r.maxPages ?? 1)} صورة</span>
+              <div key={r.userId} className="text-[10px] text-amber-800 dark:text-amber-300 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <code className="font-mono text-navy-900 dark:text-white min-w-0 truncate">{r.userId}</code>
+                <span className="text-navy-700 dark:text-navy-300">{r.pages ?? 0}/{r.maxPages ?? 1} {t("adminPagesLabel")}</span>
+                <span className="text-navy-700 dark:text-navy-300">{r.productCount ?? 0}/{(r.maxProducts ?? 0) * (r.maxPages ?? 1)} {t("adminProductsLabel")}</span>
+                <span className="text-navy-700 dark:text-navy-300">{r.imageCount ?? 0}/{(r.maxImages ?? 0) * (r.maxPages ?? 1)} {t("adminImagesLabel")}</span>
               </div>
             ))}
           </div>
@@ -709,19 +748,14 @@ function SmartWarnings({ rows }: { rows: SubRow[] }) {
 
       {expiringSoon.length > 0 && (
         <div className="grid gap-2 rounded-xl border border-amber-300/50 dark:border-amber-700/50 bg-white dark:bg-navy-800 p-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
-              🔔 {expiringSoon.length} اشتراك ينتهي خلال 7 أيام:
-            </p>
-            <button className={stBtnWarning} disabled>
-              تمديد الكل 30 يوم
-            </button>
-          </div>
+          <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+            🔔 {t("adminExpiringWarn", { count: expiringSoon.length })}
+          </p>
           <div className="grid gap-1 max-h-32 overflow-auto">
             {expiringSoon.map((r) => (
-              <div key={r.userId} className="text-[10px] text-amber-800 dark:text-amber-300 flex items-center justify-between">
-                <code className="font-mono text-navy-900 dark:text-white">{r.userId}</code>
-                <span className="text-navy-700 dark:text-navy-300">متبقٍ {r.remainingDays} يوم</span>
+              <div key={r.userId} className="text-[10px] text-amber-800 dark:text-amber-300 flex flex-wrap items-center justify-between gap-2">
+                <code className="font-mono text-navy-900 dark:text-white min-w-0 truncate">{r.userId}</code>
+                <span className="text-navy-700 dark:text-navy-300">{t("adminRemaining")} {r.remainingDays} {t("adminDay")}</span>
               </div>
             ))}
           </div>
@@ -731,15 +765,13 @@ function SmartWarnings({ rows }: { rows: SubRow[] }) {
       {suspendedAuto.length > 0 && (
         <div className="grid gap-2 rounded-xl border border-red-300/50 dark:border-red-700/50 bg-white dark:bg-navy-800 p-3">
           <p className="text-[11px] font-bold text-red-700 dark:text-red-400">
-            🔴 {suspendedAuto.length} مشترك موقوف تلقائياً لانتهاء الصلاحية:
+            🔴 {t("adminSuspendedAuto", { count: suspendedAuto.length })}
           </p>
           <div className="grid gap-1 max-h-32 overflow-auto">
             {suspendedAuto.map((r) => (
-              <div key={r.userId} className="text-[10px] text-red-800 dark:text-red-300 flex items-center justify-between">
-                <code className="font-mono text-navy-900 dark:text-white">{r.userId}</code>
-                <button className={stBtnSuccess} onClick={() => {}} disabled>
-                  تجديد
-                </button>
+              <div key={r.userId} className="text-[10px] text-red-800 dark:text-red-300 flex flex-wrap items-center justify-between gap-2">
+                <code className="font-mono text-navy-900 dark:text-white min-w-0 truncate">{r.userId}</code>
+                <span>{t("adminRemaining")} {r.remainingDays} {t("adminDay")}</span>
               </div>
             ))}
           </div>
@@ -769,13 +801,14 @@ function SearchFilterBar({
   onRefresh: () => void;
   loading: boolean;
 }) {
+  const { t } = useAdminLocale();
   return (
     <div className="flex flex-col sm:flex-row gap-3">
       <div className="relative flex-1">
         <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-900/40 dark:text-navy-300/40" />
         <input
           type="text"
-          placeholder="بحث بالبريد أو المعرف..."
+          placeholder={t("adminSearchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-10 pr-3 py-2 rounded-lg border border-navy-900/15 bg-white dark:bg-navy-800 text-[16px] text-navy-900 dark:text-white outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm"
@@ -786,30 +819,31 @@ function SearchFilterBar({
         onChange={(e) => setStatusFilter(e.target.value as SubStatus | "all")}
         className={stInput}
       >
-        <option value="all">كل الحالات</option>
-        <option value="active">نشط</option>
-        <option value="suspended">موقوف</option>
-        <option value="banned">محظور</option>
-        <option value="expired">منتهٍ</option>
+        <option value="all">{t("adminAllStatuses")}</option>
+        <option value="active">{t("adminStatusActive")}</option>
+        <option value="suspended">{t("adminStatusSuspended")}</option>
+        <option value="banned">{t("adminStatusBanned")}</option>
+        <option value="expired">{t("adminStatusExpired")}</option>
       </select>
       <select
         value={planFilter}
         onChange={(e) => setPlanFilter(e.target.value as Plan | "all")}
         className={stInput}
       >
-        <option value="all">كل الخطط</option>
-        <option value="basic">أساسي</option>
-        <option value="pro">متقدم</option>
-        <option value="gold">الذهبية</option>
+        <option value="all">{t("adminAllPlans")}</option>
+        <option value="basic">{t("adminPlanBasic")}</option>
+        <option value="pro">{t("adminPlanPro")}</option>
+        <option value="gold">{t("adminPlanGold")}</option>
       </select>
       <button onClick={onRefresh} disabled={loading} className={stBtnGhost}>
-        <Icons.Refresh className="inline mr-1" /> تحديث
+        <Icons.Refresh className="inline mr-1" /> {t("adminRefresh")}
       </button>
     </div>
   );
 }
 
 export function AdminPanel({ email }: { email: string }) {
+  const { t } = useAdminLocale();
   const [rows, setRows] = useState<SubRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -817,6 +851,9 @@ export function AdminPanel({ email }: { email: string }) {
 
   // ── الفلاتر والتبويبات ──
   const [activeTab, setActiveTab] = useState<Plan | "all">("all");
+  // نافذة روابط تجربة الڤيست
+  const [showTrials, setShowTrials] = useState(false);
+  const [showSiteCopy, setShowSiteCopy] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<SubStatus | "all">("all");
   const [planFilter, setPlanFilter] = useState<Plan | "all">("all");
@@ -838,9 +875,6 @@ export function AdminPanel({ email }: { email: string }) {
     kind: "suspend" | "ban" | "delete" | "delete_pages" | "unban" | "unban_purge" | "activate";
   } | null>(null);
 
-  // ── محرّر الصلاحية ──
-  const [validityOpen, setValidityOpen] = useState<string | null>(null);
-
   // ── رصد صحة الروابط ──
   const [health, setHealth] = useState<{
     checkedAt: string | null;
@@ -851,10 +885,6 @@ export function AdminPanel({ email }: { email: string }) {
     entries: { slug: string; status: "ok" | "blocked" | "error"; httpStatus: number; ownerEmail?: string | null }[];
   } | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
-  const [notifySlug, setNotifySlug] = useState<string | null>(null);
-  const [notifyText, setNotifyText] = useState("");
-  const [notifyBusy, setNotifyBusy] = useState(false);
-  const [notifyMsg, setNotifyMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // ── إدارة منتجات المتجر (إشراف) ──
   const [products, setProducts] = useState<ProductRow[]>([]);
@@ -874,7 +904,9 @@ export function AdminPanel({ email }: { email: string }) {
       if (r.status === "suspended") suspended++;
       if (r.status === "banned") banned++;
       if (r.status === "expired") expired++;
-      revenue += PLAN_PRICES[r.plan];
+      // الإيراد يُحتسب فقط للاشتراكات النشطة (المحظور/الموقوف/المنتهي
+      // لا يدفع ولا يجب أن يُظهر رقماً منتفخاً).
+      if (r.status === "active") revenue += PLAN_PRICES[r.plan];
       if (r.validityExpiresAt && r.status === "active") {
         const diff = new Date(r.validityExpiresAt).getTime() - Date.now();
         if (diff > 0 && diff <= 7 * 24 * 60 * 60 * 1000) expiringSoon++;
@@ -902,11 +934,14 @@ export function AdminPanel({ email }: { email: string }) {
       result = result.filter((r) => r.plan === planFilter);
     }
 
-    // البحث النصي
+    // البحث النصي — يشمل البريد/المتجر/الواتساب (لا userId فقط)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter((r) =>
-        r.userId.toLowerCase().includes(q)
+      result = result.filter(
+        (r) =>
+          r.userId.toLowerCase().includes(q) ||
+          (r.storeName ?? "").toLowerCase().includes(q) ||
+          (r.whatsapp ?? "").toLowerCase().includes(q)
       );
     }
 
@@ -988,9 +1023,14 @@ export function AdminPanel({ email }: { email: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(action === "edit" ? { action, slug, product: patch } : { action, slug }),
       });
-      if (res.ok) await loadProducts();
+      if (res.ok) {
+        await loadProducts();
+      } else {
+        // الفشل كان صامتاً تماماً — الأدمن يرى زرّاً لا يفعل شيئاً.
+        setError(res.status === 403 ? t("adminErrUnauthorized") : t("adminErrActionFailed"));
+      }
     } catch {
-      // تجاهل
+      setError(t("adminErrActionError"));
     } finally {
       setProductBusySlug(null);
     }
@@ -1002,14 +1042,14 @@ export function AdminPanel({ email }: { email: string }) {
     try {
       const res = await fetch("/api/admin/subscription", { cache: "no-store" });
       if (res.status === 403) {
-        setError("انتهت الجلسة. سجّل الدخول من جديد.");
+        setError(t("adminErrSession"));
         setRows([]);
         return;
       }
       const data = (await res.json().catch(() => ({}))) as { subscriptions?: SubRow[] };
       setRows(data.subscriptions ?? []);
     } catch {
-      setError("تعذّر تحميل الاشتراكات.");
+      setError(t("adminErrLoadSubs"));
     } finally {
       setLoading(false);
     }
@@ -1054,14 +1094,21 @@ async function loadFallback() {
       if (res.ok) {
         const data = (await res.json().catch(() => ({}))) as {
           fallbackMode?: boolean;
-          warning?: boolean;
+          warning?: boolean | string;
           githubConfigured?: boolean;
         };
+        // قد تكون warning نصاً (github_not_configured) — كان يُتجاهل لأنه ليس boolean،
+        // فلم يعرف الأدمن قط أن تفعيل الاحتياط لا يرفع فعلياً.
+        if (data.warning === "github_not_configured") {
+          setError(t("adminErrGithubNotConfigured"));
+        }
         if (typeof data.fallbackMode === "boolean") setFallbackMode(data.fallbackMode);
         if (typeof data.warning === "boolean") setBwWarning(data.warning);
         if (action === "clear_warning") setBwWarning(false);
         if (typeof data.githubConfigured === "boolean") setGhConfigured(data.githubConfigured);
         if (action === "enable" || action === "disable") await loadFallback();
+      } else {
+        setError(res.status === 403 ? t("adminErrUnauthorized") : t("adminErrActionFailed"));
       }
     } catch {
       // تجاهل
@@ -1070,7 +1117,7 @@ async function loadFallback() {
     }
   }
 
-  async function applyAction(userId: string, action: "set" | "delete" | "delete_pages" | "unban_purge" | "validity", opts?: { plan?: string; status?: string; reason?: string | null; validityUnit?: string | null; validityDays?: number | null }) {
+  async function applyAction(userId: string, action: "set" | "delete" | "delete_pages" | "unban_purge" | "validity", opts?: { plan?: string; status?: string; reason?: string | null; validityUnit?: string | null; validityDays?: number | null }, reload = true) {
     setBusyId(userId);
     setError("");
     try {
@@ -1080,21 +1127,22 @@ async function loadFallback() {
         body: JSON.stringify({ userId, action, ...opts }),
       });
       if (res.status === 403) {
-        setError("انتهت الجلسة أو غير مصرّح لك.");
+        setError(t("adminErrUnauthorized"));
         return;
       }
       if (res.status === 400) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(body.error === "cannot_modify_admin" ? "لا يمكن تعديل حساب المشرف." : "طلب غير صالح.");
+        setError(body.error === "cannot_modify_admin" ? t("adminErrCannotModifyAdmin") : t("adminErrInvalidRequest"));
         return;
       }
       if (!res.ok) {
-        setError("فشل تنفيذ العملية.");
+        setError(t("adminErrActionFailed"));
         return;
       }
-      await load();
+      // في الإجراءات الجماعية نُؤجّل إعادة التحميل لنهاية الدفعة (إلا تحميل واحد).
+      if (reload) await load();
     } catch {
-      setError("تعذّر تنفيذ العملية.");
+      setError(t("adminErrActionError"));
     } finally {
       setBusyId(null);
     }
@@ -1149,22 +1197,26 @@ async function loadFallback() {
       });
       if (planRes.status === 400) {
         const b = (await planRes.json().catch(() => ({}))) as { error?: string };
-        setError(b.error === "cannot_modify_admin" ? "لا يمكن تعديل حساب المشرف." : "طلب غير صالح.");
+        setError(b.error === "cannot_modify_admin" ? t("adminErrCannotModifyAdmin") : t("adminErrInvalidRequest"));
         return;
       }
       if (!planRes.ok) {
-        setError("فشل تحديث الخطة.");
+        setError(t("adminErrPlanUpdate"));
         return;
       }
 
       const d = Math.max(0, Math.floor(days ?? 0));
       if (d > 0) {
         // 2) ضبط الأيام → الخادم يحسب تاريخ الانتهاء تلقائياً (ويعيد التفعيل إن كان منتهياً)
-        await fetch("/api/admin/subscription", {
+        const vr = await fetch("/api/admin/subscription", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId, action: "validity", validityUnit: "day", validityDays: d }),
         });
+        if (!vr.ok) {
+          // الخطة ضُبطت لكن الصلاحية فشلت — نُخبر الأدمن حتى لا يظن أنه اكتمل.
+          setError(t("adminErrValidityFailed"));
+        }
       } else {
         // 0 يوم = إنهاء فوري: توقيف مع سبب انتهاء الصلاحية (يحبس الروابط ويمنع الدخول)
         await fetch("/api/admin/subscription", {
@@ -1175,7 +1227,7 @@ async function loadFallback() {
       }
       await load();
     } catch {
-      setError("تعذّر تحديث الاشتراك.");
+      setError(t("adminErrSubUpdate"));
     } finally {
       setBusyId(null);
     }
@@ -1194,99 +1246,44 @@ async function loadFallback() {
     });
   }
 
-  function handleSelectAll() {
-    if (selectedIds.size === filteredRows.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredRows.map((r) => r.userId)));
-    }
-  }
-
   // إجراءات جماعية
   async function handleBulkAction(action: string) {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
 
-    if (action === "extend_7") {
+    // تأكيد قبل أي تعديل جماعي (سبق أن نُفّذت تغييرات بلا عودة).
+    const addDays = action === "extend_7" ? 7 : action === "extend_30" ? 30 : 0;
+    const verb =
+      action === "extend_7" || action === "extend_30"
+        ? t("adminBulkExtendConfirm").replace("{n}", String(addDays))
+        : action === "activate"
+        ? t("adminBulkActivateConfirm")
+        : t("adminBulkSuspendConfirm");
+    if (!window.confirm(`${verb} (${ids.length} ${t("adminSelected")})`)) return;
+
+    if (addDays > 0) {
       for (const id of ids) {
         const row = rows.find((r) => r.userId === id);
-        if (row) {
-          const days = (row.validityDays ?? 0) + 7;
-          await applyAction(id, "validity", { validityUnit: "day", validityDays: days });
-        }
-      }
-    } else if (action === "extend_30") {
-      for (const id of ids) {
-        const row = rows.find((r) => r.userId === id);
-        if (row) {
-          const days = (row.validityDays ?? 0) + 30;
-          await applyAction(id, "validity", { validityUnit: "day", validityDays: days });
-        }
+        if (!row) continue;
+        // الاشتراك الدائم (always) لا يُمَدَّد: تحويله لأيام كان يدمّر الدوام.
+        if (row.validityUnit === "always") continue;
+        // ننطلق من الأيام المتبقية فعلاً (remainingDays)، لا من validityDays
+        // الذي قد يكون قديماً بعد انتهاء الصلاحية.
+        const days = Math.max(0, row.remainingDays ?? 0) + addDays;
+        await applyAction(id, "validity", { validityUnit: "day", validityDays: days }, false);
       }
     } else if (action === "activate") {
       for (const id of ids) {
-        await applyAction(id, "set", { status: "active", reason: null });
+        await applyAction(id, "set", { status: "active", reason: null }, false);
       }
     } else if (action === "suspend") {
       for (const id of ids) {
-        await applyAction(id, "set", { status: "suspended", reason: "إيقاف جماعي من المشرف." });
+        await applyAction(id, "set", { status: "suspended", reason: "إيقاف جماعي من المشرف." }, false);
       }
     }
     setSelectedIds(new Set());
     setExpandedId(null);
     await load();
-  }
-
-  // ── ValidityEditor داخل البطاقة الموسعة ──
-  function ValidityEditor({
-    row,
-    busy,
-    onSave,
-  }: {
-    row: SubRow;
-    busy: boolean;
-    onSave: (unit: "day" | "always" | null, days: number | null) => void;
-  }) {
-    const [mode, setMode] = useState<string>(row.validityUnit === "always" ? "always" : row.validityUnit === "day" ? "day" : "none");
-    const [days, setDays] = useState<string>(row.validityDays ? String(row.validityDays) : "30");
-
-    return (
-      <div className="grid gap-2 rounded-xl border border-navy-900/10 dark:border-navy-700/50 bg-white dark:bg-navy-800 p-3">
-        <div className="flex flex-wrap gap-2 text-[11px]">
-          {[
-            { v: "none", l: "بلا مدة" },
-            { v: "day", l: "بالأيام" },
-            { v: "always", l: "دائم" },
-          ].map((o) => (
-            <button
-              key={o.v}
-              onClick={() => setMode(o.v)}
-              className={`rounded-full px-3 py-1 font-bold transition ${mode === o.v ? "bg-navy-900 text-white" : "bg-navy-100 text-navy-700 hover:bg-navy-200 dark:bg-navy-700 dark:text-navy-300 dark:hover:bg-navy-600"}`}
-            >
-              {o.l}
-            </button>
-          ))}
-        </div>
-        {mode === "day" && (
-          <input
-            className={stInput}
-            type="number"
-            min={1}
-            value={days}
-            onChange={(e) => setDays(e.target.value.replace(/\D/g, ""))}
-            placeholder="عدد الأيام"
-            dir="ltr"
-          />
-        )}
-        <button
-          onClick={() => onSave(mode === "none" ? null : (mode as "day" | "always"), mode === "day" ? Math.max(1, Number(days) || 1) : null)}
-          disabled={busy}
-          className="justify-self-start rounded-full bg-rose-700 px-4 py-2 text-xs font-bold text-white transition hover:bg-rose-600 disabled:opacity-60 dark:bg-rose-600 dark:hover:bg-rose-500"
-        >
-          حفظ الصلاحية
-        </button>
-      </div>
-    );
   }
 
   // ── عرض القسم ──
@@ -1296,7 +1293,7 @@ async function loadFallback() {
         <span className="rounded-full bg-rose-100 px-3 py-1 text-[11px] font-bold text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
           {email}
         </span>
-        <span className="text-navy-900/50 dark:text-navy-300/50">صلاحية المشرف</span>
+        <span className="text-navy-900/50 dark:text-navy-300/50">{t("adminAdminAuth")}</span>
       </div>
 
       {error && (
@@ -1336,7 +1333,7 @@ async function loadFallback() {
                   : "bg-navy-50 text-navy-700 hover:bg-navy-100 dark:bg-navy-800 dark:text-navy-300 dark:hover:bg-navy-700"
               }`}
             >
-              {tab === "all" ? "الكل" : PLAN_LABELS[tab]} ({tabCounts[tab]})
+              {tab === "all" ? t("adminAll") : planLabel(t, tab)} ({tabCounts[tab]})
             </button>
           ))}
         </div>
@@ -1344,20 +1341,34 @@ async function loadFallback() {
 
       {/* ── قائمة المستخدمين (Cards) ── */}
       <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">المستخدمون ({filteredRows.length} / {rows.length})</h2>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">{t("adminUsersHeading", { count: filteredRows.length, total: rows.length })}</h2>
+          <div className="flex flex-wrap items-center gap-2">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as "updated" | "created" | "plan")}
-              className={stInput}
+              // not stInput: w-full تختنق داخل صف افقي على الموبايل → عرض ذاتي
+              className="w-auto rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-[16px] font-semibold text-navy-900 outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-navy-800 dark:text-ivory-50"
             >
-              <option value="updated">ترتيب: آخر تحديث</option>
-              <option value="created">ترتيب: الأقدم</option>
-              <option value="plan">ترتيب: حسب الخطة</option>
+              <option value="updated">{t("adminSortUpdated")}</option>
+              <option value="created">{t("adminSortCreated")}</option>
+              <option value="plan">{t("adminSortPlan")}</option>
             </select>
+            <button
+              onClick={() => setShowTrials(true)}
+              className="rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-600"
+            >
+              {t("adminTrialLinks")}
+            </button>
+            <button
+              onClick={() => setShowSiteCopy(true)}
+              title={t("siteCopyTitle")}
+              className="rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 dark:border-white/15 dark:text-ivory-50"
+            >
+              ⚙ {t("siteCopyShort")}
+            </button>
             <button onClick={load} disabled={loading} className={stBtnGhost}>
-              {loading ? <Icons.Refresh className="animate-spin w-4 h-4" /> : "تحديث"}
+              {loading ? <Icons.Refresh className="animate-spin w-4 h-4" /> : t("adminRefresh")}
             </button>
           </div>
         </div>
@@ -1365,18 +1376,18 @@ async function loadFallback() {
         {/* إجراءات جماعية عند التحديد */}
         {selectedIds.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
-            <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">{selectedIds.size} محدد</span>
-            <button onClick={() => handleBulkAction("extend_7")} className={stBtnPrimary} disabled={busyId != null}>تمديد 7 أيام</button>
-            <button onClick={() => handleBulkAction("extend_30")} className={stBtnPrimary} disabled={busyId != null}>تمديد 30 يوم</button>
-            <button onClick={() => handleBulkAction("activate")} className={stBtnSuccess} disabled={busyId != null}>تفعيل</button>
-            <button onClick={() => handleBulkAction("suspend")} className={stBtnWarning} disabled={busyId != null}>إيقاف</button>
-            <button onClick={() => setSelectedIds(new Set())} className={stBtnGhost}>إلغاء التحديد</button>
+            <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">{selectedIds.size} {t("adminSelected")}</span>
+            <button onClick={() => handleBulkAction("extend_7")} className={stBtnPrimary} disabled={busyId != null}>{t("adminExtend7")}</button>
+            <button onClick={() => handleBulkAction("extend_30")} className={stBtnPrimary} disabled={busyId != null}>{t("adminExtend30")}</button>
+            <button onClick={() => handleBulkAction("activate")} className={stBtnSuccess} disabled={busyId != null}>{t("adminActivate")}</button>
+            <button onClick={() => handleBulkAction("suspend")} className={stBtnWarning} disabled={busyId != null}>{t("adminSuspend")}</button>
+            <button onClick={() => setSelectedIds(new Set())} className={stBtnGhost}>{t("adminClearSelection")}</button>
           </div>
         )}
 
         {filteredRows.length === 0 && !loading ? (
           <p className="text-[11px] text-navy-900/45 dark:text-navy-300/45 text-center py-8">
-            لا توجد اشتراكات مطابقة للفلاتر المختارة.
+            {t("adminNoMatches")}
           </p>
         ) : (
           <div className="grid gap-3">
@@ -1390,21 +1401,22 @@ async function loadFallback() {
                 isExpanded={expandedId === r.userId}
                 isSelected={selectedIds.has(r.userId)}
                 onSelect={() => handleSelect(r.userId)}
+                adminEmail={email}
               />
             ))}
           </div>
         )}
       </section>{/* ── قائمة المحظورين ── */}
       <section className="grid gap-3 rounded-3xl border border-red-300/40 dark:border-red-800/40 bg-red-50/40 dark:bg-red-900/10 p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-red-800 dark:text-red-300">قائمة المحظورين</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-base font-bold text-red-800 dark:text-red-300">{t("adminBannedList")}</h2>
           <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-300">
-            {rows.filter((r) => r.status === "banned").length} محظور
+            {rows.filter((r) => r.status === "banned").length} {t("adminBannedCount")}
           </span>
         </div>
 
         {rows.filter((r) => r.status === "banned").length === 0 ? (
-          <p className="text-[11px] text-navy-900/45 dark:text-navy-300/45">لا يوجد أي حساب محظور حالياً.</p>
+          <p className="text-[11px] text-navy-900/45 dark:text-navy-300/45">{t("adminNoBanned")}</p>
         ) : (
           <div className="grid gap-2">
             {rows
@@ -1417,12 +1429,12 @@ async function loadFallback() {
                       <code dir="ltr" className="min-w-0 flex-1 truncate text-[11px] font-semibold text-navy-900 dark:text-white">{r.userId}</code>
                       {typeof r.pages === "number" && r.pages > 0 && (
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                          {r.pages} صفحة
+                          {r.pages} {t("adminPageUnit")}
                         </span>
                       )}
                     </div>
                     {r.reason && (
-                      <p className="text-[10px] leading-5 text-red-600/80 dark:text-red-400/80">{r.reason}</p>
+                      <p className="text-[10px] leading-5 text-red-600/80 dark:text-red-400/80">{reasonLabel(t, r.reason)}</p>
                     )}
                     {!isAdminRow && (
                       <div className="flex flex-wrap gap-1.5">
@@ -1431,14 +1443,14 @@ async function loadFallback() {
                           disabled={busyId === r.userId}
                           className={stBtnSuccess}
                         >
-                          إزالة من القائمة
+                          {t("adminRemoveFromList")}
                         </button>
                         <button
                           onClick={() => setConfirm({ userId: r.userId, kind: "unban_purge" })}
                           disabled={busyId === r.userId}
                           className="rounded-lg border border-red-300 dark:border-red-700 px-3 py-1.5 text-[11px] font-bold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-60"
                         >
-                          حذف المخزون نهائياً
+                          {t("adminDeleteInventory")}
                         </button>
                       </div>
                     )}
@@ -1451,31 +1463,31 @@ async function loadFallback() {
 
       {/* ── رصد صحة الروابط ── */}
       <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">رصد صحة الروابط</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">{t("adminLinkHealth")}</h2>
           <button onClick={runHealth} disabled={healthBusy} className={stBtnGhost}>
-            {healthBusy ? "جارٍ الفحص…" : "فحص الآن"}
+            {healthBusy ? t("adminChecking") : t("adminCheckNow")}
           </button>
         </div>
 
         {!health ? (
           <p className="text-[11px] text-navy-900/45 dark:text-navy-300/45">
-            لم يُجرَ فحص بعد. اضغط «فحص الآن» لاختبار كل روابط المستخدمين والتأكد من أنها تعمل دون مشاكل.
+            {t("adminNoHealthCheck")}
           </p>
         ) : (
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-2 text-[11px]">
-              <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 font-bold text-emerald-700 dark:text-emerald-300">سليمة: {health.ok}</span>
-              <span className="rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 font-bold text-red-700 dark:text-red-300">محجوبة: {health.blocked}</span>
-              <span className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 font-bold text-amber-700 dark:text-amber-300">خطأ: {health.error}</span>
+              <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 font-bold text-emerald-700 dark:text-emerald-300">{t("adminHealthy")}: {health.ok}</span>
+              <span className="rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 font-bold text-red-700 dark:text-red-300">{t("adminBlocked")}: {health.blocked}</span>
+              <span className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 font-bold text-amber-700 dark:text-amber-300">{t("adminError")}: {health.error}</span>
               <span className="text-navy-900/45 dark:text-navy-300/45">
-                {health.checkedAt ? `آخر فحص: ${new Date(health.checkedAt).toLocaleString("ar-DZ")}` : ""}
+                {health.checkedAt ? `${t("adminLastError")}: ${new Date(health.checkedAt).toLocaleString("ar-DZ")}` : ""}
               </span>
             </div>
 
             {health.error > 0 && (
               <p className="rounded-xl border border-amber-300/50 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-[11px] font-bold text-amber-700 dark:text-amber-400">
-                ⚠ يوجد {health.error} رابط بها مشكل — راجع القائمة أدناه.
+                {t("adminHealthErrorCount", { count: health.error })}
               </p>
             )}
 
@@ -1505,7 +1517,7 @@ async function loadFallback() {
                           : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                       }`}
                     >
-                      {e.status === "ok" ? "سليمة" : e.status === "blocked" ? "محجوبة" : `خطأ ${e.httpStatus}`}
+                      {e.status === "ok" ? t("adminHealthy") : e.status === "blocked" ? t("adminBlocked") : `${t("adminError")} ${e.httpStatus}`}
                     </span>
                   </div>
                 ))}
@@ -1517,19 +1529,18 @@ async function loadFallback() {
 
       {/* ── إدارة منتجات المتجر ── */}
       <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">إدارة منتجات المتجر</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">{t("adminStoreManage")}</h2>
           <button onClick={loadProducts} disabled={productsBusy} className={stBtnGhost}>
-            {productsBusy ? "جارٍ التحميل…" : "تحديث"}
+            {productsBusy ? t("adminLoading") : t("adminRefresh")}
           </button>
         </div>
         <p className="text-[11px] leading-5 text-navy-900/45 dark:text-navy-300/45">
-          تعديل بيانات أي منتج منشور، أو إخفاؤه من المتجر العام. الإخفاء يزيله من المتجر فقط — تبقى صفحته{" "}
-          <code dir="ltr">/p/&lt;slug&gt;</code> تعمل بشكل طبيعي.
+          {t("adminProductDesc")}
         </p>
 
         {products.length === 0 && !productsBusy ? (
-          <p className="py-6 text-center text-[11px] text-navy-900/45 dark:text-navy-300/45">لا توجد منتجات منشورة بعد.</p>
+          <p className="py-6 text-center text-[11px] text-navy-900/45 dark:text-navy-300/45">{t("adminNoProducts")}</p>
         ) : (
           <div className="grid max-h-[32rem] gap-2 overflow-auto">
             {products.map((p) => (
@@ -1548,38 +1559,38 @@ async function loadFallback() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[12px] font-bold text-navy-900 dark:text-white">{p.name}</p>
                   <div className="flex flex-wrap items-center gap-2 text-[10px] text-navy-900/50 dark:text-navy-300/50">
-                    <span dir="ltr" className="font-semibold">{p.price.toLocaleString()} د.ج</span>
+                    <span dir="ltr" className="font-semibold">{p.price.toLocaleString()} {t("adminCurrency")}</span>
                     {p.owner && <span className="truncate font-mono">{p.owner}</span>}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {p.listed ? (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">مُدرَج</span>
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{t("adminListed")}</span>
                   ) : (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-navy-700 dark:text-navy-300">خاص</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-navy-700 dark:text-navy-300">{t("adminPrivate")}</span>
                   )}
                   {p.hidden && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">مخفي</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">{t("adminHidden")}</span>
                   )}
                   {p.banned && (
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-300">محظور</span>
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/30 dark:text-red-300">{t("adminStatusBanned")}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <a href={`/p/${p.slug}`} target="_blank" rel="noopener" className={stBtnGhost}>فتح</a>
-                  <button onClick={() => setEditProduct(p)} disabled={productBusySlug === p.slug} className={stBtnPrimary}>تعديل</button>
+                  <a href={`/p/${p.slug}`} target="_blank" rel="noopener" className={stBtnGhost}>{t("adminOpen")}</a>
+                  <button onClick={() => setEditProduct(p)} disabled={productBusySlug === p.slug} className={stBtnPrimary}>{t("adminEdit")}</button>
                   {p.hidden ? (
-                    <button onClick={() => applyProductAction(p.slug, "unhide")} disabled={productBusySlug === p.slug} className={stBtnSuccess}>إظهار</button>
+                    <button onClick={() => applyProductAction(p.slug, "unhide")} disabled={productBusySlug === p.slug} className={stBtnSuccess}>{t("adminShow")}</button>
                   ) : (
-                    <button onClick={() => applyProductAction(p.slug, "hide")} disabled={productBusySlug === p.slug} className={stBtnWarning}>إخفاء</button>
+                    <button onClick={() => applyProductAction(p.slug, "hide")} disabled={productBusySlug === p.slug} className={stBtnWarning}>{t("adminHide")}</button>
                   )}
                   {/* حذف المنتج نهائياً — لا يمكن التراجع. يظهر بجانب رابط «فتح» مباشرة. */}
                   <button
                     onClick={() => setProductDeleteTarget(p)}
                     disabled={productBusySlug === p.slug}
                     className="rounded-full border border-red-500/40 px-2.5 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 sm:px-4 sm:py-2 sm:text-xs dark:hover:bg-red-500/10"
-                    title="حذف المنتج نهائياً"
-                    aria-label="حذف المنتج نهائياً"
+                    title={t("adminDeleteProductTitle")}
+                    aria-label={t("adminDeleteProductTitle")}
                   >
                     🗑
                   </button>
@@ -1593,18 +1604,18 @@ async function loadFallback() {
       {/* ── نافذة التأكيد ── */}
       <ConfirmDialog
         open={confirm?.kind === "suspend"}
-        title="تأكيد التوقيف"
-        message="سيتم إيقاف صفحات هذا المستخدم مؤقتاً عن العمل دون حذف حسابه. يمكنك إعادتها لاحقاً عبر «تفعيل»."
-        confirmLabel="توقيف"
+        title={t("adminConfirmSuspendTitle")}
+        message={t("adminConfirmSuspendMsg")}
+        confirmLabel={t("adminConfirmSuspendBtn")}
         loading={busyId != null}
         onConfirm={runConfirmed}
         onCancel={() => setConfirm(null)}
       />
       <ConfirmDialog
         open={confirm?.kind === "ban"}
-        title="تأكيد الحظر"
-        message="سيتم تجميد حساب المستخدم وتعطيله بالكامل: تتوقف جميع صفحاته وروابطه فوراً، ويُمنع أي زبون من الشراء عبر روابطه مع ظهور رسالة حظر واضحة. بياناته تبقى محفوظة ويمكن استرجاعها لاحقاً عبر «إلغاء الحظر». هل أنت متأكد؟"
-        confirmLabel="حظر"
+        title={t("adminConfirmBanTitle")}
+        message={t("adminConfirmBanMsg")}
+        confirmLabel={t("adminConfirmBanBtn")}
         danger
         loading={busyId != null}
         onConfirm={runConfirmed}
@@ -1612,18 +1623,18 @@ async function loadFallback() {
       />
       <ConfirmDialog
         open={confirm?.kind === "unban"}
-        title="إزالة من قائمة المحظورين"
-        message="سيتم إلغاء حظر هذا الحساب وإعادته للعمل بشكل طبيعي (روابطه وصفحاته تعود متاحة). يبقى مخزونه كما هو. هل تريد المتابعة؟"
-        confirmLabel="إزالة من القائمة"
+        title={t("adminConfirmUnbanTitle")}
+        message={t("adminConfirmUnbanMsg")}
+        confirmLabel={t("adminConfirmUnbanBtn")}
         loading={busyId != null}
         onConfirm={runConfirmed}
         onCancel={() => setConfirm(null)}
       />
       <ConfirmDialog
         open={confirm?.kind === "unban_purge"}
-        title="إزالة نهائية + حذف المخزون"
-        message="سيتم إزالة هذا الإيميل من قائمة المحظورين وحذف كامل مخزونه من التخزين وكل صفحاته وروابطه نهائياً — تتوقف عن العمل غير قابلة للوصول. لا يمكن التراجع عن حذف المخزون."
-        confirmLabel="حذف المخزون نهائياً"
+        title={t("adminConfirmPurgeTitle")}
+        message={t("adminConfirmPurgeMsg")}
+        confirmLabel={t("adminConfirmPurgeBtn")}
         danger
         loading={busyId != null}
         onConfirm={runConfirmed}
@@ -1631,9 +1642,9 @@ async function loadFallback() {
       />
       <ConfirmDialog
         open={confirm?.kind === "delete_pages"}
-        title="تأكيد حذف الصفحات"
-        message="سيتم حذف جميع صفحات وروابط هذا المستخدم من قاعدة البيانات نهائياً وتتوقف عن العمل فوراً. يبقى حسابه واشتراكه كما هما. لا يمكن التراجع عن هذه العملية."
-        confirmLabel="حذف الصفحات"
+        title={t("adminConfirmDeletePagesTitle")}
+        message={t("adminConfirmDeletePagesMsg")}
+        confirmLabel={t("adminConfirmDeletePagesBtn")}
         danger
         loading={busyId != null}
         onConfirm={runConfirmed}
@@ -1641,9 +1652,9 @@ async function loadFallback() {
       />
       <ConfirmDialog
         open={confirm?.kind === "delete"}
-        title="تأكيد الحذف"
-        message="سيتم حذف حساب هذا المستخدم من النظام بشكل كامل. لا يمكن التراجع عن هذه العملية."
-        confirmLabel="حذف نهائي"
+        title={t("adminConfirmDeleteTitle")}
+        message={t("adminConfirmDeleteMsg")}
+        confirmLabel={t("adminConfirmDeleteBtn")}
         danger
         loading={busyId != null}
         onConfirm={runConfirmed}
@@ -1652,17 +1663,17 @@ async function loadFallback() {
 
       {/* ── لوحة الاحتياط وإنذار السعة ── */}
       <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold">الاحتياط وإنذار السعة</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-base font-bold">{t("adminFallbackTitle")}</h2>
           <button onClick={loadFallback} disabled={fallbackBusy} className={stBtnGhost}>
-            تحديث
+            {t("adminRefresh")}
           </button>
         </div>
 
         {/* شريط السعة */}
         <div className="grid gap-1.5">
           <div className="flex items-center justify-between text-[11px]">
-            <span className="font-semibold text-navy-700">السعة المستهلكة (Vercel)</span>
+            <span className="font-semibold text-navy-700">{t("adminBandwidthUsed")}</span>
             <span className={bwWarning ? "font-bold text-red-600" : "font-semibold text-navy-900/70"}>
               {bwBytes != null && bwWarnBytes != null
                 ? `${(bwBytes / 1024 ** 3).toFixed(2)} / ${(bwWarnBytes / 1024 ** 3).toFixed(0)} GB`
@@ -1682,20 +1693,20 @@ async function loadFallback() {
             />
           </div>
           <p className="text-[10px] leading-5 text-navy-900/45">
-            يُحسب عند كل زيارة لرابط منشور. عند تجاوز 90GB يُفعَّل الإنذار تلقائياً.
+            {t("adminBandwidthNote")}
           </p>
         </div>
 
         {/* شارة الإنذار */}
         {bwWarning && (
           <div className="flex items-center justify-between gap-2 rounded-xl border border-red-400/40 bg-red-50 dark:bg-red-900/20 px-3 py-2">
-            <span className="text-[11px] font-bold text-red-700">⚠ اقتربت السعة من الحد (90GB)!</span>
+            <span className="text-[11px] font-bold text-red-700">{t("adminBandwidthWarning")}</span>
             <button
               onClick={() => setFallback("clear_warning")}
               disabled={fallbackBusy}
               className="rounded-lg bg-red-600 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-red-500 disabled:opacity-60"
             >
-              مسح الإنذار
+              {t("adminClearWarning")}
             </button>
           </div>
         )}
@@ -1703,11 +1714,11 @@ async function loadFallback() {
         {/* تبديل وضع الاحتياط */}
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-navy-900/10 bg-ivory-50 dark:bg-navy-800 p-3">
           <div>
-            <p className="text-[11px] font-bold text-navy-900">وضع الاحتياط (GitHub Pages)</p>
+            <p className="text-[11px] font-bold text-navy-900">{t("adminFallbackMode")}</p>
             <p className="text-[10px] leading-5 text-navy-900/45">
               {fallbackMode
-                ? "مُفعّل: المنتجات الجديدة تُنشر كصفحات HTML مستقلة على GitHub Pages مع صلاحية أسبوع."
-                : "معطّل: كل المنتجات تُنشر على Vercel كالمعتاد."}
+                ? t("adminFallbackEnabled")
+                : t("adminFallbackDisabled")}
             </p>
           </div>
           {fallbackMode ? (
@@ -1716,7 +1727,7 @@ async function loadFallback() {
               disabled={fallbackBusy}
               className="rounded-lg bg-navy-900 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-navy-700 disabled:opacity-60"
             >
-              إيقاف الاحتياط
+              {t("adminDisableFallback")}
             </button>
           ) : (
             <button
@@ -1724,7 +1735,7 @@ async function loadFallback() {
               disabled={fallbackBusy}
               className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60"
             >
-              تفعيل الاحتياط
+              {t("adminEnableFallback")}
             </button>
           )}
         </div>
@@ -1733,19 +1744,16 @@ async function loadFallback() {
         {fallbackMode && (
           <>
             <div className="flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
-              <span className="mt-0.5 text-[11px] font-bold text-amber-700">⚠ مؤقت</span>
+              <span className="mt-0.5 text-[11px] font-bold text-amber-700">{t("adminFallbackTemp")}</span>
               <p className="text-[10px] leading-5 text-amber-800">
-                الروابط الجديدة تُنشر على GitHub Pages احتياطياً فقط — تنتهي صلاحيتها بعد أسبوع
-                ثم تُحرق تلقائياً وتطلب التجديد من الاستوديو. استخدم هذا الوضع عند الاقتراب من حد
-                سعة Vercel (90GB) ولا تبقِه مفعّلاً إلا عند الحاجة.
+                {t("adminFallbackTempDesc")}
               </p>
             </div>
             {ghConfigured === false && (
               <div className="flex items-start gap-2 rounded-xl border border-red-400/40 bg-red-50 dark:bg-red-900/20 px-3 py-2">
-                <span className="mt-0.5 text-[11px] font-bold text-red-700">⚠ إعداد ناقص</span>
+                <span className="mt-0.5 text-[11px] font-bold text-red-700">{t("adminFallbackMisconfigured")}</span>
                 <p className="text-[10px] leading-5 text-red-800">
-                  الوضع مفعّل لكن GITHUB_TOKEN / GITHUB_REPO غير مضبوطين في .env.local — لن يُرفع
-                  أي رابط فعلياً حتى تضيفهما. عد إلى Vercel فوراً أو أضف المتغيرين.
+                  {t("adminFallbackMisconfiguredDesc")}
                 </p>
               </div>
             )}
@@ -1770,13 +1778,13 @@ async function loadFallback() {
       {/* ── تأكيد حذف المنتج نهائياً — يطلب موافقة صريحة لأن الفعل لا يمكن التراجع عنه. ── */}
       <ConfirmDialog
         open={productDeleteTarget !== null}
-        title="حذف المنتج نهائياً"
+        title={t("adminDeleteProductTitle")}
         message={
           productDeleteTarget
-            ? `سيتم حذف «${productDeleteTarget.name}» (/${productDeleteTarget.slug}) من المتجر وصفحته العامة نهائياً. لا يمكن التراجع عن هذه العملية.`
+            ? t("adminConfirmDeleteProductMsg", { name: productDeleteTarget.name, slug: productDeleteTarget.slug })
             : ""
         }
-        confirmLabel="حذف نهائي"
+        confirmLabel={t("adminConfirmDeleteBtn")}
         danger
         loading={productBusySlug === productDeleteTarget?.slug}
         onConfirm={async () => {
@@ -1787,6 +1795,10 @@ async function loadFallback() {
         }}
         onCancel={() => setProductDeleteTarget(null)}
       />
+
+      {/* نافذة روابط تجربة الڤيست */}
+      {showTrials && <GuestTrialsPanel onClose={() => setShowTrials(false)} />}
+      {showSiteCopy && <SiteCopyPanel onClose={() => setShowSiteCopy(false)} />}
     </div>
   );
 }

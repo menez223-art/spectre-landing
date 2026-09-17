@@ -18,13 +18,19 @@ export function ProductImage({
 }) {
   // بلا صورة بعد — لا شيء يُعرض (يمنع الانهيار أثناء المعاينة الفارغة)
   if (!src) return null;
+  // صور data:URL (المنتجات المولّدة) — <img> عادي لأنها محلية غير قابلة للتحسين
   if (src.startsWith("data:")) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={alt}
         className={`absolute inset-0 h-full w-full object-cover ${className}`}
         style={objectPosition ? { objectPosition } : undefined}
+        // priority تُترجَم إلى fetchpriority عالي (الصورة الرئيسية فوق الطيّة)،
+        // وبقية الصور تُحمَّل كسولةً (lazy) — تتطابق مع نظيرتها في generateHtml.ts.
+        {...(priority ? { fetchPriority: "high" as const } : { loading: "lazy" as const })}
+        decoding="async"
       />
     );
   }

@@ -45,6 +45,12 @@ export const KV_PREFIXES = {
   LINK_PENDING: "studio-auth/link-pending/",
   MANUAL_PENDING: "studio-auth/manual-pending/",
   STATS: "stats/",
+  // تجربة الڤيست: سجل «مرة واحدة للأبد» (إيميل) + فهرس الجهاز.
+  // يُحذف **بيانات المنتج** عند الحرق، ويبقى هذا السجل الأدنى لفرض القاعدة.
+  TRIALS: "trials/",
+  TRIAL_DEVICES: "trials-device/",
+  // فهرس الواتساب: الرقم يُستخدم **مرة واحدة** أيضاً (منع التلاعب).
+  TRIAL_WHATSAPP: "trials-whatsapp/",
 } as const;
 
 // ── مفاتيح تخزين محددة ──
@@ -53,6 +59,9 @@ export const KV_KEYS = {
   BANDWIDTH: "stats/bandwidth",
   FALLBACK_WARNING: "fallback_warning",
   FALLBACK_MODE: "fallback_mode",
+  // تجاوزات نصوص الواجهة التي يعدّلها المالك من «الإعدادات المتقدمة».
+  // مفتاح واحد يحوي اللغتين: { ar: {key: text}, en: {key: text} }.
+  SITE_COPY: "site-copy",
 } as const;
 
 // ── مفاتيح التخزين المحلي ──

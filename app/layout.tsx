@@ -21,12 +21,18 @@ const tajawal = Tajawal({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://spectre-dz.vercel.app"),
   title: {
     default: "استوديو صفحات الهبوط — أنشئ صفحة هبوط احترافية",
     template: "%s | استوديو صفحات الهبوط",
   },
   description:
     "استوديو صفحات الهبوط: أدخل اسم المنتج والصورة والسعر، والاستوديو يولّد لك صفحة هبوط كاملة احترافية مع نظام الطلب والتوصيل لـ 58 ولاية والدفع عند الاستلام.",
+  openGraph: {
+    type: "website",
+    locale: "ar_DZ",
+    siteName: "استوديو صفحات الهبوط",
+  },
 };
 
 export default function RootLayout({
@@ -35,7 +41,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" dir="ltr">
+    // الموقع عربي بالكامل (RTL) — lang/dir الثابتان يمنحان محركات البحث
+    // الاتجاه الصحيح، وصفحات /p/[slug] المولَّدة تتولى html/lang خاصتها.
+    <html lang="ar" dir="rtl">
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
       </head>

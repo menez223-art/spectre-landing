@@ -11,9 +11,12 @@ import { ProductLanding } from "./ProductLanding";
 export function ProductPage({
   slug,
   staticProduct,
+  trialUntil = null,
 }: {
   slug: string;
   staticProduct: Product | null;
+  /** تاريخ انتهاء تجربة الڤيست — إن وُجد تُعرض اللافتة والعدّاد. */
+  trialUntil?: string | null;
 }) {
   const { t } = useLocale();
   const [product, setProduct] = useState<Product | null>(staticProduct);
@@ -42,7 +45,7 @@ export function ProductPage({
   if (product) {
     return (
       <>
-        <ProductLanding product={product} />
+        <ProductLanding product={product} trialUntil={trialUntil} />
 
         {/* زر المعاينة العائم — يظهر فقط على الجوال */}
         {isMobile && !previewOpen && (
@@ -76,7 +79,7 @@ export function ProductPage({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <ProductLanding product={product} preview />
+              <ProductLanding product={product} preview trialUntil={trialUntil} />
             </div>
           </div>
         )}

@@ -10,6 +10,7 @@ import {
   type PublishMeta,
 } from "@/app/lib/publishStore";
 import { getKv, setKv, deleteKv } from "@/app/lib/kvStore";
+import { safeSecretEqual } from "@/app/lib/utils/security";
 import { PLAN_QUOTAS, setSubscription } from "@/app/lib/subsStore";
 import type { Product, Theme } from "@/app/lib/types";
 import { categoryLabel } from "@/app/lib/categoryLabels";
@@ -124,7 +125,10 @@ export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action") ?? "";
   const key = searchParams.get("key") ?? "";
-  if (key !== AGENT_KEY) return unauthorized();
+  // مقارنة ثابتة زمنياً (تمنع تسريب البادئات) + قبول ترويسة Authorization
+  // كبديل آمن عن query string (لا نسجّل الترويسة في سجلات الوصول).
+  const headerKey = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (!safeSecretEqual(key || headerKey, AGENT_KEY)) return unauthorized();
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return bad("invalid_json");

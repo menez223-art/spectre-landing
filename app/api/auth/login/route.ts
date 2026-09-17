@@ -107,16 +107,17 @@ export async function POST(request: Request) {
   if (!isAdminUser) {
     // حظر صفّ الجهاز المستقل — يشمل الأجهزة التي ليس لها إيميل مربوط
     // (هوية device:<hash> فقط) فيُمنع من الدخول فوراً رغم غياب البريد.
+    // fail-closed: عجزنا عن قراءة قائمة الحظر ⇒ لا نسمح بالدخول.
     let deviceBanned = false;
     try {
       deviceBanned = await isDeviceBanned(fingerprint);
     } catch {
-      // فشل القراءة → نفترض غير محظور (لا نمنع الدخول بسبب خطأ تخزين)
+      return forbiddenResponse("storage");
     }
     if (deviceBanned) {
       return forbiddenResponse("banned");
     }
-    // حظر الاشتراك (إيميل محظور أو هوية الجهاز محظورة) عبر مفتاح الكنسي.
+    // حظر الاشتراك (إيميل محظور أو هوية الجهاز محظورة) عبر مفتاح الكنوني.
     const subUserId = email ?? getDeviceOwner(fingerprint);
     try {
       const sub = await recomputeStatus(subUserId);
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
         return forbiddenResponse("banned");
       }
     } catch {
-      // فشل القراءة → نفترض غير محظور (لا نمنع الدخول بسبب خطأ تخزين)
+      return forbiddenResponse("storage");
     }
   }
 
@@ -164,6 +165,8 @@ export async function POST(request: Request) {
     }
     const sent = await sendVerificationCodeEmail(code);
     if (!sent.ok) {
+      // نفس منطق profile: السبب الحقيقي في اللوج، والعميل يتلقى رسالة عامة.
+      console.error("[login] تعذّر إرسال رمز الدخول:", sent.error, sent.detail ?? "");
       return errorResponse("email_failed", 502);
     }
 

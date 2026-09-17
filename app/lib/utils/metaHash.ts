@@ -2,7 +2,9 @@
 // النتيجة: lowercase hex، 64 حرفاً، بلا 0x أو padding.
 // يجب أن يطابق الإخراج في كل من العميل والخادم كي يُلصَق Meta الحدث نفسه.
 
-import { sha256Hex } from "./security";
+// security.client.ts بالتحديد (لا security.ts) كي لا يُجَرّ polyfill لـ node:crypto
+// إلى حزمة العميل (325KB) — see security.ts header note.
+import { sha256Hex } from "./security.client";
 
 /** تجزئة بريد وفق Meta: trim + lowercase + SHA-256. ترجع سلسلة فارغة لو فارغ. */
 export async function hashEmail(raw: string): Promise<string> {
@@ -11,9 +13,27 @@ export async function hashEmail(raw: string): Promise<string> {
   return sha256Hex(v);
 }
 
-/** تجزئة هاتف وفق Meta: إزالة كل ما عدا الأرقام + SHA-256. */
+/**
+ * تطبيع هاتف جزائري إلى صيغة E.164 (أرقام فقط، برمز الدولة، بلا «+»).
+ * مطلوب من Meta لحقل ph في Advanced Matching/CAPI — وإلا انخفضت جودة
+ * المطابقة إلى الصفر لأن Meta يقارن بالصيغة الدولية المخزّنة عنده.
+ *   "0551234567"      → "213551234567"  (صيغة وطنية: استبدال الصفر)
+ *   "+213 551 23 45"  → "2135512345"
+ *   "00213555111111"  → "213555111111"  (بادئة دولية مزدوجة)
+ *   "213555111111"    → "213555111111"  (سليم لا يُلامَس)
+ */
+export function normalizePhoneE164(raw: string): string {
+  let d = String(raw ?? "").replace(/[^\d]/g, "");
+  if (!d) return "";
+  if (d.startsWith("00")) d = d.slice(2); // بادئة دولية صريحة
+  if (d.startsWith("213")) return d; // رمز الجزائر موجوداً
+  if (d.startsWith("0")) d = "213" + d.slice(1); // صيغة وطنية 0XXXXXXXXX
+  return d;
+}
+
+/** تجزئة هاتف وفق Meta: تطبيع E.164 + SHA-256. ترجع سلسلة فارغة لو فارغ. */
 export async function hashPhone(raw: string): Promise<string> {
-  const digits = (raw ?? "").replace(/[^0-9]/g, "");
+  const digits = normalizePhoneE164(raw);
   if (!digits) return "";
   return sha256Hex(digits);
 }

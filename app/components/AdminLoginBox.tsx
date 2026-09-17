@@ -44,7 +44,7 @@ export function AdminLoginBox() {
     <div className="grid w-full max-w-sm gap-4 rounded-3xl border border-rose-300/40 bg-white p-6 shadow-xl shadow-navy-950/20">
       <div className="text-center">
         <p className="font-display text-lg font-extrabold text-navy-900 dark:text-ivory-50">{t("adminLoginTitle")}</p>
-        <p className="mt-1 text-[11px] text-navy-900/50 dark:text-ivory-50/50">للمشرف فقط</p>
+        <p className="mt-1 text-[11px] text-navy-900/50 dark:text-ivory-50/50">{t("adminOnly")}</p>
       </div>
       <form onSubmit={handleLogin} className="grid gap-3">
         <input

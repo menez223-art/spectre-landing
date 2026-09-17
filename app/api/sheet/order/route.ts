@@ -5,15 +5,56 @@
 import { NextResponse } from "next/server";
 import { resolveOrderTarget } from "@/app/lib/sheetResolver";
 import { buildMetaUserData, splitFullName } from "@/app/lib/utils/metaHash";
+import { dzdToUsd } from "@/app/lib/utils/constants";
 
 export const dynamic = "force-dynamic";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// أصل الاستضافة المسموح له بمناداة الوكيل عبر CORS: صفحات الاحتياط على
+// github.io ترسل الطلبات إلى هذا المسار (الرابط النسبي هناك يذهب إلى
+// github.io نفسه ويرجع 404). نسمح فقط لأصل التطبيق + أصل GitHub Pages
+// (يُشتق من GITHUB_REPO، أو صراحةً عبر FALLBACK CORS_ORIGIN env).
+function allowedCorsOrigin(request: Request): string | null {
+  const origin = request.headers.get("origin") || "";
+  if (!origin) return null;
+  const normalized = origin.replace(/\/+$/, "");
+  const siteOrigin = (process.env.NEXT_PUBLIC_SITE_URL || "https://spectre-dz.vercel.app").replace(/\/?$/, "");
+  const allowed = new Set<string>([siteOrigin]);
+  const ghRepo = (process.env.GITHUB_REPO || "").trim(); // "owner/repo"
+  if (ghRepo.includes("/")) {
+    const [owner] = ghRepo.split("/");
+    allowed.add(`https://${owner}.github.io`);
+  }
+  const explicit = (process.env.FALLBACKCorsOriginApi || process.env.FALLBACK_CORS_ORIGIN || "").trim();
+  if (explicit.startsWith("https://")) allowed.add(explicit.replace(/\/+$/, ""));
+  return allowed.has(normalized) ? origin : null;
+}
+
+function corsHeaders(origin: string | null): Record<string, string> {
+  if (!origin) return {};
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
+export async function OPTIONS(request: Request) {
+  const origin = allowedCorsOrigin(request);
+  return new NextResponse(null, {
+    status: origin ? 204 : 403,
+    headers: corsHeaders(origin),
+  });
+}
+
 export async function POST(request: Request) {
+  const corsOrigin = allowedCorsOrigin(request);
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== "object") {
-    return NextResponse.json({ error: "bad_request" }, { status: 400 });
+    return NextResponse.json({ error: "bad_request" }, { status: 400, headers: corsHeaders(corsOrigin) });
   }
 
   const sheetKey = typeof body.sheetKey === "string" ? body.sheetKey.trim() : "";
@@ -49,10 +90,10 @@ export async function POST(request: Request) {
     typeof meta._landingUrl === "string" && meta._landingUrl ? meta._landingUrl : "";
 
   if (!sheetKey && !(sheetEmail && EMAIL_RE.test(sheetEmail))) {
-    return NextResponse.json({ error: "missing_identity" }, { status: 400 });
+    return NextResponse.json({ error: "missing_identity" }, { status: 400, headers: corsHeaders(corsOrigin) });
   }
   if (!order || typeof order !== "object") {
-    return NextResponse.json({ error: "missing_order" }, { status: 400 });
+    return NextResponse.json({ error: "missing_order" }, { status: 400, headers: corsHeaders(corsOrigin) });
   }
 
   const target = await resolveOrderTarget({
@@ -60,7 +101,7 @@ export async function POST(request: Request) {
     sheetEmail: sheetEmail || null,
   });
   if (!target) {
-    return NextResponse.json({ error: "no_webhook" }, { status: 502 });
+    return NextResponse.json({ error: "no_webhook" }, { status: 502, headers: corsHeaders(corsOrigin) });
   }
 
   try {
@@ -71,8 +112,9 @@ export async function POST(request: Request) {
       signal: AbortSignal.timeout(15000),
     });
     const text = await upstream.text();
-    if (text.trim().startsWith("ERR")) {
-      return NextResponse.json({ error: "upstream_error", detail: text.trim() }, { status: 502 });
+    // التحقق من نجاح الطلب نفسه؛ Apps Script قد يردّ 500 بصيغة HTML عند السقوط.
+    if (!upstream.ok || text.trim().startsWith("ERR")) {
+      return NextResponse.json({ error: "upstream_error", detail: text.trim() }, { status: 502, headers: corsHeaders(corsOrigin) });
     }
 
     // === Meta Conversions API (CAPI) — تكامل حصري لمالك AMINE فقط، يفشل بصمت ===
@@ -135,6 +177,13 @@ export async function POST(request: Request) {
         "";
       const clientUa = request.headers.get("user-agent") || "";
 
+      // توحيد العملة مع المتصفح: fbq() يرسل USD (DZD غير مدعوم في Meta Pixel)
+      // فلو أرسل CAPI نفس الحدث بـ DZD لرأى Meta حدثين dedup'd بعملتين
+      // وقيمتين مختلفتين — ما يفسد تحسين الحملات. نفس التحويل + نفس الأرضية.
+      const valueUsd = Math.max(0.01, dzdToUsd(typeof o.totalPrice === "number" ? o.totalPrice : 0));
+      const contentIds =
+        typeof o._productId === "string" && o._productId ? [o._productId] : undefined;
+
       const capiPayload = {
         data: [
           {
@@ -147,16 +196,15 @@ export async function POST(request: Request) {
             ...(clientIp ? { client_ip_address: clientIp } : {}),
             ...(clientUa ? { client_user_agent: clientUa } : {}),
             custom_data: {
-              currency: "DZD",
-              value: typeof o.totalPrice === "number" ? o.totalPrice : Number(o.totalPrice) || 0,
+              currency: "USD",
+              value: valueUsd,
               content_name: typeof o.product === "string" ? o.product : "",
               content_type: "product",
-              content_ids: typeof o._productId === "string" ? [o._productId] : undefined,
+              ...(contentIds ? { content_ids: contentIds } : {}),
             },
           },
-          // Lead event يُرسل كحدث ثانٍ بنفس dedup id — Meta يربط Lead بـPurchase
-          // في سلسلة العميل ويحسّن التحويل عند ضمّ الاثنين. event_id مختلف حتى لا
-          // يحسب Meta نفس العميل مرتين كـ Lead (واحد فقط لكل رحلة شراء).
+          // Lead event يُرسل كحدث ثانٍ بـ event_id منفصل — Meta يربط Lead بـPurchase
+          // في سلسلة العميل ويحسّن التحويل عند ضمّ الاثنين.
           ...(leadEventId
             ? [
                 {
@@ -169,11 +217,11 @@ export async function POST(request: Request) {
                   ...(clientIp ? { client_ip_address: clientIp } : {}),
                   ...(clientUa ? { client_user_agent: clientUa } : {}),
                   custom_data: {
-                    currency: "DZD",
-                    value: typeof o.totalPrice === "number" ? o.totalPrice : Number(o.totalPrice) || 0,
+                    currency: "USD",
+                    value: valueUsd,
                     content_name: typeof o.product === "string" ? o.product : "",
                     content_type: "product",
-                    content_ids: typeof o._productId === "string" ? [o._productId] : undefined,
+                    ...(contentIds ? { content_ids: contentIds } : {}),
                   },
                 },
               ]
@@ -181,41 +229,48 @@ export async function POST(request: Request) {
         ],
       };
 
-      // CAPI: نطلقه متزامناً مع حد أقصى 10 ثوانٍ. Apps Script يأخذ 5-15s
-      // فالـ 10s إضافية لا تأثير يُذكر على UX. مهلة أقصر تُسقط أحداثاً تحت ضغط.
-      const capiCtrl = new AbortController();
-      const capiTimeout = setTimeout(() => capiCtrl.abort(), 10000);
-    try {
-      // أمان: الـ access_token في Authorization header وليس في URL (لا يظهر في logs/proxies)
-      const capiRes = await fetch(
-        `https://graph.facebook.com/v18.0/${encodeURIComponent(pixelId)}/events`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(capiPayload),
-          signal: capiCtrl.signal,
+      // CAPI fire-and-forget: لا ننتظر ردّ Meta قبل الردّ على الزبون. الانتظار
+      // المتزامن كان يقفل الاستجابة حتى 10s إضافية فوق انتظار Apps Script
+      // (5-15s) — حتى 25s للطلب الواحد. نشحن الطلب فوراً بلا انتظار.
+      // ملاحظة: على Hobby قد تُقطع العملية بعد إرجاع الرد؛ هذا مقبول لأن
+      // الأحداث إحصائية (تحسينات §ل7 زادت المهلة لاستيعاب البطء، وهنا
+      // نضمن ألا تكون قطعة الانتظار على حساب تجربة الزبون).
+      const pixelIdSafe = pixelId;
+      const tokenSafe = accessToken;
+      void (async () => {
+        const capiCtrl = new AbortController();
+        const capiTimeout = setTimeout(() => capiCtrl.abort(), 10000);
+        try {
+          const capiRes = await fetch(
+            `https://graph.facebook.com/v18.0/${encodeURIComponent(pixelIdSafe)}/events`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${tokenSafe}`,
+              },
+              body: JSON.stringify(capiPayload),
+              signal: capiCtrl.signal,
+            }
+          );
+          const capiBody = await capiRes.text().catch(() => "");
+          if (!capiRes.ok) {
+            console.error("[capi] Meta رفض الطلب:", capiRes.status, capiBody.slice(0, 200));
+          } else {
+            console.info("[capi] Meta ok:", capiBody.slice(0, 200));
+          }
+        } catch (err) {
+          console.warn("[capi] فشل/انتهت المهلة:", err instanceof Error ? err.message : String(err));
+        } finally {
+          clearTimeout(capiTimeout);
         }
-      );
-      const capiBody = await capiRes.text().catch(() => "");
-      if (!capiRes.ok) {
-        console.error("[capi] Meta رفض الطلب:", capiRes.status, capiBody.slice(0, 200));
-      } else {
-        console.info("[capi] Meta ok:", capiBody.slice(0, 200));
-      }
-    } catch (err) {
-      console.warn("[capi] فشل/انتهت المهلة:", err instanceof Error ? err.message : String(err));
-    } finally {
-      clearTimeout(capiTimeout);
-    }
+      })();
     }
     // === END CAPI ===
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { headers: corsHeaders(corsOrigin) });
   } catch (err) {
     console.error("[sheet/order] فشل إعادة التوجيه:", err);
-    return NextResponse.json({ error: "upstream_unreachable" }, { status: 502 });
+    return NextResponse.json({ error: "upstream_unreachable" }, { status: 502, headers: corsHeaders(corsOrigin) });
   }
 }

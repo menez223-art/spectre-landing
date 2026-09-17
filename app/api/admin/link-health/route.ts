@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/app/lib/adminAuth";
+import { safeSecretEqual } from "@/app/lib/utils/security";
 import { isDeviceApproved } from "@/app/lib/authStore";
 import { getProfileEmail, resolveOwnerEmail } from "@/app/lib/profileStore";
 import { getKv, setKv, listKv } from "@/app/lib/kvStore";
@@ -21,6 +22,7 @@ import { setSubscription, getSubscription } from "@/app/lib/subsStore";
 import { buildWebhook } from "@/app/lib/sheetResolver";
 import { generateLandingHtml } from "@/app/lib/generateHtml";
 import { deployHtmlToGithubPages, hasGithubPages } from "@/app/lib/githubPages";
+import { sweepExpiredTrials } from "@/app/lib/trialStore";
 
 export const dynamic = "force-dynamic";
 // الفحص الأوتوماتيكي (auto) قد يمرّ على عدة روابط ويعيد النشر على GitHub Pages
@@ -37,7 +39,7 @@ const CRON_SECRET = process.env.CRON_SECRET || "";
 
 async function assertAdmin(request: Request, fingerprint?: string): Promise<boolean> {
   // استدعاء cron مصرّح به عبر السرّ المخصّص (بلا كوكي جلسة).
-  if (CRON_SECRET && request.headers.get("authorization") === `Bearer ${CRON_SECRET}`) return true;
+  if (CRON_SECRET && safeSecretEqual(request.headers.get("authorization") ?? "", `Bearer ${CRON_SECRET}`)) return true;
   if (!ADMIN_EMAIL) return false;
   if (getAdminSession() === ADMIN_EMAIL) return true;
   if (!fingerprint) return false;
@@ -233,7 +235,16 @@ async function runAutoAction(request: Request): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ ok: true, fresh: true, report, recovered });
+  // 🔥 توسعة المهمة القائمة: كنس تجارب الڤيست المنتهية (روابط مهجورة لم يزرها أحد).
+  // الحرق الكسول في /p/<slug> يتولّى الزيارات الفعلية؛ هذه للمهجورة.
+  let trialsBurned: string[] = [];
+  try {
+    trialsBurned = await sweepExpiredTrials();
+  } catch {
+    // فشل الكنس لا يُفشل فحص الروابط
+  }
+
+  return NextResponse.json({ ok: true, fresh: true, report, recovered, trialsBurned });
 }
 
 // GET: بلا action يعيد آخر تقرير محفوظ (عرض سريع في اللوحة). لكن Vercel Cron

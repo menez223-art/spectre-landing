@@ -17,6 +17,7 @@ import { ProductLanding } from "@/app/components/landing/ProductLanding";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import { LangToggle } from "@/app/components/LangToggle";
 import { useLocale } from "@/app/components/LocaleProvider";
+import { TrialPanel } from "./TrialPanel";
 
 // مسودة المنتج في "وضع الكيست" — مطابقة 100% لمسودة الستوديو.
 // لا حفظ ولا ربط: كل العمليات (تحميل/نشر/حفظ) معطّلة وتُعرض رسالة توجيهية فقط.
@@ -33,7 +34,7 @@ interface DemoDraft {
   wilayaPrices: Record<number, { home: number; office: number }>;
   colors: { name: string; hex: string }[];
   image: string;
-  images: string[];
+  // لا حقل images في وضع الكيست — المواصفة تلزم بصورة واحدة فقط.
   eyebrow: string;
   badge: string;
   description: string;
@@ -61,7 +62,6 @@ function emptyDemo(): DemoDraft {
     wilayaPrices: {},
     colors: [],
     image: "",
-    images: [],
     eyebrow: "",
     badge: "",
     description: "",
@@ -113,8 +113,6 @@ function demoToProduct(d: DemoDraft): Product {
     .split(/[,،\n]/)
     .map((t) => t.trim())
     .filter(Boolean);
-  const images = d.images.map((s) => s.trim()).filter(Boolean);
-
   const product: Product = {
     id: "guest-preview",
     name,
@@ -122,7 +120,7 @@ function demoToProduct(d: DemoDraft): Product {
     image: d.image,
     ...(brand ? { brand } : {}),
     ...(d.nameEn.trim() ? { nameEn: d.nameEn.trim() } : {}),
-    ...(images.length ? { images } : {}),
+    // images: [] عمداً — وضع الكيست يدعم صورة واحدة فقط (docs/SPEC-guest-trial.md)
     ...(d.eyebrow.trim() ? { eyebrow: d.eyebrow.trim() } : {}),
     ...(d.badge.trim() ? { badge: d.badge.trim() } : {}),
     ...(d.description.trim() ? { description: d.description.trim() } : {}),
@@ -195,7 +193,7 @@ function ColorField({
 // نافذة "وضع الكيست" — نموذج منتج مطابق 100% للستوديو، معاينة حيّة حقيقية،
 // وأزرار التحميل/الحفظ/النشر معطّلة (تفتح رسالة توجيهية لفتح الستوديو).
 export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { t } = useLocale();
+  const { t, lang } = useLocale();
   const [draft, setDraft] = useState<DemoDraft>(emptyDemo);
   const [imageTab, setImageTab] = useState<"upload" | "url">("upload");
   const [imageUrlInput, setImageUrlInput] = useState("");
@@ -203,6 +201,13 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
   const [error, setError] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [showNotice, setShowNotice] = useState(false);
+  // لوحة إنشاء رابط التجربة (بديل زر النشر المباشر في وضع الكيست)
+  const [showTrial, setShowTrial] = useState(false);
+  // تبويبا الجوال: النموذج | المعاينة (تبديل في نفس المساحة — لا طبقة فوقها).
+  // على الحاسوب يبقى العرض جنباً إلى جنب ولا يُستعمل هذا إطلاقاً.
+  const [mobileTab, setMobileTab] = useState<"form" | "preview">("form");
+  const [isMobile, setIsMobile] = useState(false);
+  const previewScrollRef = useRef<HTMLDivElement>(null);
   const urlRef = useRef<HTMLInputElement | null>(null);
 
   // إعادة الضبط عند كل فتح
@@ -237,6 +242,25 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
     };
   }, [open]);
 
+  // كشف مقاس الجوال — يبدأ false على الخادم والعميل معاً فلا يقع خطأ ترطيب.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  // التبديل للتبويب: عند اختيار «المعاينة» يعود تمريرها لأعلى (قرار المالك).
+  function switchMobileTab(tab: "form" | "preview") {
+    setMobileTab(tab);
+    if (tab === "preview") {
+      requestAnimationFrame(() => {
+        if (previewScrollRef.current) previewScrollRef.current.scrollTop = 0;
+      });
+    }
+  }
+
   const previewProduct = useMemo(() => demoToProduct(draft), [draft]);
 
   function setThemeField(key: keyof Theme, value: string) {
@@ -267,12 +291,6 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
     } catch (error) {
       console.error("تعذر استخراج الألوان:", error);
     }
-  }
-
-  async function handleAddImage(file: File) {
-    if (!file) return;
-    const dataUrl = await compressImage(file, 800);
-    setDraft((d) => ({ ...d, images: [...d.images, dataUrl] }));
   }
 
   async function handleExtract() {
@@ -361,6 +379,17 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   // العمليات المحظورة في "وضع الكيست" — تُعرض الرسالة التوجيهية فقط (بدون حفظ/نشر/تحميل).
+  // شروط إلزامية قبل السماح بإنشاء رابط التجربة:
+  // خانات المنتج الأساسية + (الإيميل والواتساب داخل اللوحة).
+  const missingFields: string[] = [];
+  if (!draft.name.trim()) missingFields.push(t("productName"));
+  if (!(Number(draft.price) > 0)) missingFields.push(t("price"));
+  if (!draft.image) missingFields.push(t("productImage"));
+  if (!draft.tagline.trim()) missingFields.push(t("tagline"));
+  if (!draft.description.trim()) missingFields.push(t("description"));
+  if (!draft.features.some((f) => f.title.trim() && f.copy.trim())) missingFields.push(t("features"));
+
+  // لوحة التجربة: تُفتح بدل الرسالة التوجيهية عند زر النشر المباشر.
   function blockedAction() {
     setShowNotice(true);
   }
@@ -405,14 +434,63 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
           </div>
         </div>
 
+        {/* تبويبا الجوال: النموذج | المعاينة — يظهران على الجوال فقط.
+            على الحاسوب يُخفى الشريط ويبقى العرض جنباً إلى جنب. */}
+        {isMobile && (
+          <div className="flex shrink-0 gap-1 border-b border-navy-900/10 bg-navy-900/5 p-2 dark:border-white/10 dark:bg-white/5">
+            {(["form", "preview"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => switchMobileTab(tab)}
+                aria-pressed={mobileTab === tab}
+                className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
+                  mobileTab === tab
+                    ? "bg-navy-900 text-ivory-50 dark:bg-white dark:text-navy-900"
+                    : "text-navy-700 hover:bg-navy-900/5 dark:text-ivory-50/70 dark:hover:bg-white/10"
+                }`}
+              >
+                {tab === "form" ? t("tabForm") : t("tabPreview")}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* المحتوى: نموذج + معاينة */}
         <div className="grid flex-1 gap-0 overflow-hidden lg:grid-cols-2">
           {/* النموذج */}
-          <div className="space-y-6 overflow-y-auto p-4 sm:p-6">
+          <div className={`space-y-6 overflow-y-auto p-4 sm:p-6 ${isMobile && mobileTab !== "form" ? "hidden" : ""}`}>
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-300/40 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-400/30 dark:bg-sky-900/30 dark:text-sky-100">
               <p className="text-[11px] font-medium leading-5">
                 {t("demoNoticeBody")}
               </p>
+            </div>
+
+            {/* 🎁 رابط التجربة — أول عنصر في اللوحة، بارز.
+                مُعطَّل حتى تكتمل خانات المنتج (شرط المالك). */}
+            <div className="grid gap-2">
+              <button
+                onClick={() => setShowTrial(true)}
+                disabled={missingFields.length > 0}
+                title={missingFields.length > 0 ? t("trialNeedsTitle") : ""}
+                className="w-full rounded-2xl bg-amber-500 px-5 py-4 text-sm font-bold text-white shadow-sm transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-navy-900/15 disabled:text-navy-900/40 disabled:shadow-none dark:disabled:bg-white/10 dark:disabled:text-ivory-50/35"
+              >
+                {t("publishDirect")}
+              </button>
+              <button type="button" className={ghostBtn} onClick={() => setShowTrial(true)}>
+                {lang === "ar" ? "إدارة رابط تجربة سابق" : "Manage an existing trial"}
+              </button>
+              {missingFields.length > 0 && (
+                <div className="rounded-xl border border-amber-400/40 bg-amber-50 px-3 py-2 text-[11px] leading-6 text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
+                  <p className="font-bold">{t("trialNeedsTitle")}</p>
+                  <ul className="mt-0.5 list-inside list-disc opacity-90">
+                    {missingFields.map((f) => (
+                      <li key={f}>{f}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 opacity-75">{t("trialNeedsEmail")}</p>
+                </div>
+              )}
             </div>
 
             {error && (
@@ -694,6 +772,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                   <p className="text-[11px] leading-5 text-navy-900/45 dark:text-ivory-50/45">{t("demoImageHint")}</p>
                   {draft.image && (
                     <div className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 p-2.5 dark:border-white/10 dark:bg-[#161b22]">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */}
                       <img src={draft.image} alt={t("currentImage")} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
                       <span className="flex-1 truncate text-[11px] text-navy-900/50 dark:text-ivory-50/50">{t("currentImage")}</span>
                       <button
@@ -713,6 +792,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                   {draft.image ? (
                     <div className="flex items-center gap-4">
                       <div className="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl bg-ivory-100 ring-1 ring-navy-900/10">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- صورة معاينة data:URL محلية */}
                         <img src={draft.image} alt={t("productImage")} className="h-full w-full object-cover" />
                       </div>
                       <div className="grid gap-2">
@@ -736,24 +816,12 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                 </>
               )}
 
-              {/* صور إضافية */}
-              <div className="grid gap-3">
-                {draft.images.map((img, i) => (
-                  <div key={i} className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 p-2 dark:border-white/10 dark:bg-[#161b22]">
-                    <img src={img} alt={t("extraImage", { n: i + 1 })} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
-                    <span className="flex-1 text-xs text-navy-900/50 dark:text-ivory-50/50">{t("extraImage", { n: i + 1 })}</span>
-                    <button onClick={() => setDraft({ ...draft, images: draft.images.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">
-                      {t("deleteItem")}
-                    </button>
-                  </div>
-                ))}
-                {draft.images.length < 4 && (
-                  <label className={`${ghostBtn} cursor-pointer text-center`}>
-                    {t("addImage")}
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleAddImage(e.target.files[0])} />
-                  </label>
-                )}
-              </div>
+              {/* صور إضافية — مُعطَّلة في وضع الكيست: المواصفة docs/SPEC-guest-trial.md
+                  (بند ٣ و١٩٨) تلزم بصورة واحدة فقط، و /api/trial/create يفرض
+                  images: [] على أي حال. إبقاء الزر كان يُظهر معاينة لا تطابق
+                  ما سيُنشر فعلاً. استوديو المشتركين (app/studio/page.tsx) يحتفظ
+                  بالصور المتعددة. */}
+
             </section>
 
             {/* خيارات متقدمة */}
@@ -881,9 +949,6 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                 <button onClick={blockedAction} className={ghostBtn} title={t("generatePage")}>
                   {t("generatePage")}
                 </button>
-                <button onClick={blockedAction} className={ghostBtn}>
-                  {t("publishDirect")}
-                </button>
               </div>
               <Link
                 href="/studio"
@@ -896,18 +961,27 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
           </div>
 
           {/* المعاينة المباشرة */}
-          <div className="flex min-h-0 flex-col border-t border-navy-900/10 dark:border-white/10 lg:border-s-t-0 lg:border-s lg:border-navy-900/10">
+          <div className={`flex min-h-0 flex-col border-t border-navy-900/10 dark:border-white/10 lg:border-s-t-0 lg:border-s lg:border-navy-900/10 ${isMobile && mobileTab !== "preview" ? "hidden" : ""}`}>
             <div className="flex items-center justify-between border-b border-navy-900/10 px-5 py-2.5 text-xs font-bold text-navy-700 dark:border-white/10 dark:text-ivory-50">
               <span>{t("demoLivePreview")}</span>
               <span className="text-navy-900/45 dark:text-ivory-50/45">{previewProduct.name || "—"}</span>
             </div>
-            <div className="max-h-[60vh] flex-1 overflow-y-auto bg-slate-100 lg:max-h-none dark:bg-[#0a0d12]">
+            {/* على الجوال (وضع التبويب) تأخذ المعاينة الارتفاع كاملاً بلا سقف 60vh */}
+            <div
+              ref={previewScrollRef}
+              className={`flex-1 overflow-y-auto bg-slate-100 dark:bg-[#0a0d12] ${isMobile ? "" : "max-h-[60vh] lg:max-h-none"}`}
+            >
               <div className="mx-auto max-w-3xl">
                 <ProductLanding product={previewProduct} preview />
               </div>
             </div>
           </div>
         </div>
+
+        {/* لوحة رابط التجربة — نموذج الإيميل والواتساب */}
+        {showTrial && (
+          <TrialPanel product={previewProduct} onClose={() => setShowTrial(false)} />
+        )}
 
         {/* الرسالة التوجيهية عند محاولة التحميل/الحفظ/النشر */}
         {showNotice && (

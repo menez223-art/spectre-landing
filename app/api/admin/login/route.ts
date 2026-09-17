@@ -5,8 +5,41 @@ import {
   signAdminSession,
   verifyAdminCredentials,
 } from "@/app/lib/adminAuth";
+import { getKv, setKv } from "@/app/lib/kvStore";
 
 export const dynamic = "force-dynamic";
+
+// ── حدّ إيقاع لمحاولات دخول الأدمن (5 محاولات / 15 دقيقة لكل IP) ──
+// لوحة الأدمن كانت سطح قصف غير محدود (brute-force). العدّاد في KV
+// «أفضل جهد»: عطل التخزين لا يحجب المشرف الشرعي.
+const RL_ADMIN_PREFIX = "ratelimit/admin-login/";
+const RL_ADMIN_MAX = 5;
+const RL_ADMIN_WINDOW = 15 * 60_000;
+
+function clientIp(request: Request): string {
+  const fwd = request.headers.get("x-forwarded-for") ?? "";
+  const first = fwd.split(",")[0]?.trim();
+  if (first) return first;
+  return (request.headers.get("x-real-ip") ?? "unknown").trim();
+}
+
+async function hitAdminLimit(ip: string): Promise<boolean> {
+  try {
+    const key = `${RL_ADMIN_PREFIX}${ip}.json`;
+    const now = Date.now();
+    const cur = await getKv<{ c?: number; t?: number }>(key);
+    if (!cur || typeof cur.t !== "number" || now - cur.t > RL_ADMIN_WINDOW) {
+      await setKv(key, { c: 1, t: now });
+      return false;
+    }
+    const next = (typeof cur.c === "number" ? cur.c : 0) + 1;
+    await setKv(key, { c: next, t: cur.t });
+    return next > RL_ADMIN_MAX;
+  } catch {
+    // فشل العدّاد لا يعاقب المشرف الشرعي
+    return false;
+  }
+}
 
 // دخول الأدمن عبر البريد + كلمة المرور. يضع جلسة موقّعة httpOnly cookie.
 // البريد والكلمة يُتحقَّق منهما خادمياً فقط — لا تُصدَّق أي بيانات من العميل.
@@ -20,6 +53,10 @@ export async function POST(request: Request) {
   }
   const email = String(body.email ?? "").trim();
   const password = String(body.password ?? "");
+
+  if (await hitAdminLimit(clientIp(request))) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
 
   if (!verifyAdminCredentials(email, password)) {
     return NextResponse.json({ error: "invalid" }, { status: 401 });

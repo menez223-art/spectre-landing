@@ -9,6 +9,8 @@ import { resolveOwnerEmail } from "@/app/lib/profileStore";
 import { withResolvedWebhook } from "@/app/lib/sheetResolver";
 import { bumpBandwidth, bumpPageVisit } from "@/app/lib/statsStore";
 import { githubPagesUrl } from "@/app/lib/githubPages";
+import { burnTrial } from "@/app/lib/trialStore";
+import { escapeJsString } from "@/app/lib/utils/security.client";
 import { ProductPage } from "@/app/components/landing/ProductPage";
 
 // السلاگز غير المدرجة في generateStaticParams (مثل المنتجات المنشورة) تُعرض عند الطلب
@@ -32,25 +34,34 @@ export async function generateMetadata({
 }: {
   params: { slug: string };
 }): Promise<Metadata> {
+  const canonical = `https://spectre-dz.vercel.app/p/${params.slug}`;
   const staticProduct = PRODUCTS.find((p) => p.id === params.slug);
   if (staticProduct) {
     return {
       title: `${staticProduct.name} | ${formatDZD(staticProduct.price)} — التوصيل لـ 58 ولاية`,
       description: staticProduct.description,
+      alternates: { canonical },
+      openGraph: {
+        type: "website",
+        url: canonical,
+        locale: "ar_DZ",
+        ...( /^https?:\/\//.test(staticProduct.image) ? { images: [staticProduct.image] } : {}),
+      },
     };
   }
 
   // منتج منشور — نقرأه خادمياً حتى يقرأ زاحف فيسبوك العنوان والوصف من HTML
   const published = await getPublishedCached(params.slug);
   if (!published) {
-    return { title: "منتج | استوديو صفحات الهبوط" };
+    return { title: "منتج | استوديو صفحات الهبوط", alternates: { canonical } };
   }
 
   const ogImage = /^https?:\/\//.test(published.image) ? [published.image] : [];
   return {
     title: `${published.name} | ${formatDZD(published.price)} — التوصيل لـ 58 ولاية`,
     description: published.description,
-    ...(ogImage.length ? { openGraph: { images: ogImage } } : {}),
+    alternates: { canonical },
+    ...(ogImage.length ? { openGraph: { images: ogImage, url: canonical } } : {}),
   };
 }
 
@@ -110,10 +121,54 @@ function renderExpiredTrial() {
   );
 }
 
+// بيانات منظَّمة Product/Offer — تُحسِّن ظهور المنتج في نتائج البحث
+// (السعر، التوفر، صورة المنتج). تُحقَن كـ JSON صالح مُهرَّب.
+function ProductJsonLd({ slug, name, description, price, image }: {
+  slug: string;
+  name: string;
+  description?: string;
+  price: number;
+  image?: string | null;
+}) {
+  const url = `https://spectre-dz.vercel.app/p/${slug}`;
+  const json = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name,
+    description: description ?? undefined,
+    image: image && /^https?:\/\//.test(image) ? image : undefined,
+    offers: {
+      "@type": "Offer",
+      price: String(price),
+      priceCurrency: "DZD",
+      availability: "https://schema.org/InStock",
+      url,
+    },
+  };
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: escapeJsString(JSON.stringify(json)) }}
+    />
+  );
+}
+
 export default async function ProductSlugPage({ params }: { params: { slug: string } }) {
   const staticProduct = PRODUCTS.find((p) => p.id === params.slug) ?? null;
   // فرع مبكر للمنتجات الثابتة — لا اتصال بالتخزين أثناء بنائها (تبقى SSG)
-  if (staticProduct) return <ProductPage slug={params.slug} staticProduct={staticProduct} />;
+  if (staticProduct)
+    return (
+      <>
+        <ProductJsonLd
+          slug={params.slug}
+          name={staticProduct.name}
+          description={staticProduct.description}
+          price={staticProduct.price}
+          image={staticProduct.image}
+        />
+        <ProductPage slug={params.slug} staticProduct={staticProduct} />
+      </>
+    );
 
   // حماية قطعية أولاً: علامة «banned» المكتوبة مباشرة على ملف المنشور
   // (عند حظر الأدمن) — يجب أن تُعالَج قبل أي توجيه/عرض، بغض النظر عن مكان الاستضافة.
@@ -137,7 +192,17 @@ export default async function ProductSlugPage({ params }: { params: { slug: stri
     } catch {
       expiredTrial = true;
     }
-    if (expiredTrial) return renderExpiredTrial();
+    if (expiredTrial) {
+      // 🔥 حرق كسول: أول زيارة بعد انتهاء المدة ⇒ حذف نهائي لبيانات المنتج.
+      // يخصّ روابط الڤيست فقط (الشرط أعلاه: وجود trialUntil).
+      // لا نُفشل الصفحة إن تعذّر الحرق — تبقى صفحة «انتهت التجربة».
+      try {
+        if (meta?.owner) await burnTrial(meta.owner);
+      } catch {
+        // تجاهل — الحرق المجدول سيتولّاه لاحقاً
+      }
+      return renderExpiredTrial();
+    }
   }
 
   // توجيه الاحتياط: إن كان المنشور مُستضافاً على GitHub Pages (وضع الاحتياط
@@ -231,11 +296,25 @@ export default async function ProductSlugPage({ params }: { params: { slug: stri
             __html: `!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=i;ttq._t=ttq._t||{};ttq._t[e]=+new Date;ttq._o=ttq._o||{};ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript";o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
 ttq.load('${tiktokPixelId}');
 ttq.page();
+}(window,document,'ttq');
 `,
           }}
         />
       ) : null}
-      <ProductPage slug={params.slug} staticProduct={resolved} />
+      {published ? (
+        <ProductJsonLd
+          slug={params.slug}
+          name={published.name}
+          description={published.description}
+          price={published.price}
+          image={published.image}
+        />
+      ) : null}
+      <ProductPage
+        slug={params.slug}
+        staticProduct={resolved}
+        trialUntil={meta?.trialUntil ?? null}
+      />
     </>
   );
 }

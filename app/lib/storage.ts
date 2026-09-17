@@ -20,7 +20,15 @@ function readRaw(): unknown[] {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    // سجل تالف ([null] مثلاً) كان يُسقط كل وظائف الملف بـTypeError عند أول وصول.
+    // نُبقي فقط الكائنات المنتجية ذات معرّف صالح — كل ما عداه يُسقط بهدوء.
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (p): p is Product =>
+            !!p && typeof p === "object" && !Array.isArray(p) &&
+            typeof p.id === "string" && p.id.length > 0
+        )
+      : [];
   } catch {
     return [];
   }

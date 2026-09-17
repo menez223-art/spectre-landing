@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { listKvKeys } from "@/app/lib/kvStore";
-import { getPublishedProduct, getPublishedMeta } from "@/app/lib/publishStore";
+import { listKv } from "@/app/lib/kvStore";
+import { getPublishedProduct, type PublishMeta } from "@/app/lib/publishStore";
 import { recomputeStatus } from "@/app/lib/subsStore";
 import { KV_PREFIXES } from "@/app/lib/utils/constants";
 
@@ -24,34 +24,52 @@ import { KV_PREFIXES } from "@/app/lib/utils/constants";
 // تقريباً إلى الصفر مهما بلغ ضغط الزيارات. حداثة 60 ثانية مقبولة لواجهة عرض.
 export const dynamic = "force-dynamic";
 
+// ⚡ تخزين ذاكرة قصير (60 ثانية — نفس عقد حداثة الإنتاج s-maxage=60 حرفياً):
+// محلياً لا توجد حافة Vercel تمتص الثقل، فكان كل تنقل للرئيسية يدفع 8 ثوانٍ
+// كاملة (نقل ~400KB صور base64 عبر رابط بطيء). أول زيارة تبني البطاقات،
+// وتنقلات الدقيقة التالية تُخدَم فورياً من الذاكرة. البيانات والفلاتر نفسها
+// تماماً، والحداثة القصوى 60 ثانية مطابقة للإنتاج. فحص الحظر في /p/[slug]
+// منفصل وفوري ولا يمر من هنا إطلاقاً.
+const CACHE_TTL_MS = 60_000;
+let cacheAt = 0;
+let cacheData: Array<Record<string, unknown>> | null = null;
+
 async function buildCards(): Promise<Array<Record<string, unknown>>> {
-  const keys = await listKvKeys(KV_PREFIXES.PUBLISHED);
-  const slugs = keys
-    .map((k) => k.slice(KV_PREFIXES.PUBLISHED.length).replace(/\.json$/, ""))
-    .filter(Boolean);
+  // ⚡ تحسين الأداء (بلا أي تغيير في السلوك/الفلاتر): كان البناء يجري
+  // استعلاماً منفصلاً لكل منتج (N رحلة شبكة لجلب الميتا) ثم يفحص اشتراك
+  // كل مالك **بالتسلسل** (انتظار كامل قبل التالي) — وهذا ما جعل الرئيسية
+  // ثقيلة (ثوانٍ في كل زيارة بلا تخزين حدّي محلياً). الآن:
+  //  1. استعلام واحد يجلب كل ملفات الميتا الخفيفة (< 0.2KB لكل متجر).
+  //  2. فحص أهلية الملاك المميزين بشكل متوازٍ (نفس الدالة والنتائج تماماً).
+  // مجموعة البطاقات الناتجة وترتيبها وقواعد الإدراج مطابقة للسابق حرفياً.
+  const metaRows = await listKv(KV_PREFIXES.PUBLISHED_META);
 
   // المرحلة 1: تصفية بالميتا الخفيفة فقط (بلا تحميل أي منتج ثقيل)
-  const metas = await Promise.all(slugs.map((s) => getPublishedMeta(s)));
-  const ownerEligible = new Map<string, boolean>();
-  const eligible: string[] = [];
-  for (let i = 0; i < slugs.length; i++) {
-    const meta = metas[i];
-    if (!meta) continue;
+  const candidates: Array<{ slug: string; owner: string }> = [];
+  for (const row of metaRows) {
+    const meta = row.value as PublishMeta | null;
+    if (!meta || typeof meta.owner !== "string") continue; // بلا مالك صالح
     if (meta.listed !== true) continue; // غير مُدرَج (خاص)
     if (meta.banned) continue; // محروق بالحظر
     if (meta.hidden) continue; // مخفي إشرافياً من المتجر
-
-    const owner = meta.owner;
-    let isEligible = ownerEligible.get(owner);
-    if (isEligible === undefined) {
-      const sub = await recomputeStatus(owner);
-      isEligible = Boolean(
-        sub && sub.status === "active" && (sub.plan === "pro" || sub.plan === "gold")
-      );
-      ownerEligible.set(owner, isEligible);
-    }
-    if (isEligible) eligible.push(slugs[i]);
+    const slug = row.key.slice(KV_PREFIXES.PUBLISHED_META.length).replace(/\.json$/, "");
+    if (!slug) continue;
+    candidates.push({ slug, owner: meta.owner });
   }
+
+  const ownerEligible = new Map<string, boolean>();
+  const owners = Array.from(new Set(candidates.map((c) => c.owner)));
+  const subs = await Promise.all(owners.map((o) => recomputeStatus(o)));
+  for (let i = 0; i < owners.length; i++) {
+    const sub = subs[i];
+    ownerEligible.set(
+      owners[i],
+      Boolean(sub && sub.status === "active" && (sub.plan === "pro" || sub.plan === "gold"))
+    );
+  }
+  const eligible = candidates
+    .filter((c) => ownerEligible.get(c.owner))
+    .map((c) => c.slug);
 
   // المرحلة 2: جلب المنتجات المُدرَجة المؤهلة حصراً
   const products = await Promise.all(eligible.map((s) => getPublishedProduct(s)));
@@ -77,7 +95,13 @@ async function buildCards(): Promise<Array<Record<string, unknown>>> {
 
 export async function GET() {
   try {
-    const res = NextResponse.json({ products: await buildCards() });
+    let products = cacheData;
+    if (!products || Date.now() - cacheAt > CACHE_TTL_MS) {
+      products = await buildCards();
+      cacheData = products;
+      cacheAt = Date.now();
+    }
+    const res = NextResponse.json({ products });
     res.headers.set(
       "Cache-Control",
       "public, s-maxage=60, stale-while-revalidate=300"

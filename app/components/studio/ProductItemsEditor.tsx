@@ -99,6 +99,7 @@ export function ProductItemsEditor({
               >
                 <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-ivory-100 ring-1 ring-navy-900/10">
                   {it.image ? (
+                    /* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */
                     <img src={it.image} alt={it.name} className="h-full w-full object-cover" />
                   ) : (
                     <span className="grid h-full w-full place-items-center text-base">📦</span>

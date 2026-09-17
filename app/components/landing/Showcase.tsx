@@ -110,7 +110,9 @@ export function Showcase({ product }: { product: Product }) {
           )}
           <div className="img-overlay" />
           {product.badge && (
-            <span className="absolute end-4 top-4 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[10px] font-bold text-white backdrop-blur">
+            // خلفية داكنة معتمة: النص الأبيض فوق صورة فاتحة كان تباينه 1.16:1
+            // (أقل من ثلث الحد الأدنى 4.5:1) → الشارة «مكتوبة لكن مختفية».
+            <span className="absolute end-4 top-4 rounded-full border border-white/20 bg-navy-900 px-3 py-1 text-[10px] font-bold text-white shadow-sm backdrop-blur">
               {product.badge}
             </span>
           )}
