@@ -4944,4 +4944,16 @@ node scripts/sitecopy-sync-audit.mjs   # يجب أن ينتهي بـ«0 مفقو
 **الإصلاح:** `getSupabaseCached()` (عميل بلا `no-store` — داخل `unstable_cache` حصراً) + `getKvCached()` + `getSiteCopy` تستعمله. مسارات الحظر/الاشتراك بقيت على `no-store` (لا تجميد أمني).
 **التحقق:** خادم محلي أعاد التجاوزات العشرة كلها في RSC والـHTML (`Studio Store Gen` · `VIP` · `69`) · `tsc` صفر · `lint` صفر · `build` ناجح · انحدار معزول **48/48** + احتياط **14/14** · `.dev-kv` سليم (نفس البصمة).
 
-### ج) النشر الثاني (الإصلاح الجذري — يُملأ بعد التنفيذ)
+### ج) النشر الثاني (الإصلاح الجذري)
+
+**GitHub:** `49f3502` مدفوع (`11f6b18..49f3502`) — 4 ملفات (`supabase.ts` · `kvStore.ts` · `siteCopy.ts` · هذا التوثيق)، فحص أسرار نظيف.
+**Vercel:** `dpl_6vuf7wraJiHmcrEZjsKPi9agGQ1L` → `https://spectre-jzsfq8nm9-menez223-7187s-projects.vercel.app` → **`https://spectre-dz.vercel.app`** (READY).
+
+**التحقق بعده — كله أخضر:**
+| الفحص | النتيجة |
+|---|---|
+| بوابة `sitecopy-sync-audit.mjs` (إلزامية) | **6 موجود · 0 مفقود** ✅ |
+| `/pricing` · `/store` · `/studio` · `/api/catalog` | 200 |
+| `/api/admin/subscription` · `/api/admin/link-health` بلا جلسة | 403 (محميان) |
+
+**انتهى النشر بلا أخطاء.** ✓
