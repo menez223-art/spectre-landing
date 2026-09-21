@@ -1,7 +1,7 @@
 // قراءة/كتابة تجاوزات النصوص — **خادم فقط** (يستورد KV و`fs` عبره).
 // الأنواع وقائمة المفاتيح في `siteCopyShared.ts` كي يستطيع العميل استيرادها.
 
-import { getKv, setKv, deleteKv } from "./kvStore";
+import { getKvCached, setKv, deleteKv } from "./kvStore";
 import { KV_KEYS } from "./utils/constants";
 import {
   EDITABLE_KEYS,
@@ -32,7 +32,9 @@ function sanitize(raw: unknown): SiteCopy {
 
 export async function getSiteCopy(): Promise<SiteCopy> {
   try {
-    return sanitize(await getKv(KV_KEYS.SITE_COPY));
+    // تُستدعى حصراً داخل `unstable_cache` (غلاف الرئيسية) ⇒ قراءة مخزَّنة،
+    // لأن `getKv` العادية (`no-store`) ترمي داخل ذلك النطاق دائماً.
+    return sanitize(await getKvCached(KV_KEYS.SITE_COPY));
   } catch {
     // فشل القراءة لا يجوز أن يُسقط الصفحة — نرجع للقاموس المدمج.
     return EMPTY_SITE_COPY;

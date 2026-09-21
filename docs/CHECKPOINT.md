@@ -4929,4 +4929,19 @@ node scripts/sitecopy-sync-audit.mjs   # يجب أن ينتهي بـ«0 مفقو
 | `CODEBUDDY_SAFE_DELETE_ENABLED=0 next build` | **EXIT=0** — 10 صفحات ثابتة، كل المسارات الجديدة ظاهرة (`/api/admin/storage` · `/api/admin/credentials` · `/api/trial/send-code`) |
 | `.dev-kv/kv.json` | سليم — 7 مفاتيح، البصمة مطابقة قبل/بعد الاختبارات |
 
-### ب) النشر (يُملأ بعد التنفيذ)
+### ب) النشر الأول + كشف السبب الجذري الحقيقي (يُملأ بعد التنفيذ)
+
+**النشر الأول:** `vercel --prod --yes` ⇒ `dpl_DfUZSwJDLEc4XnHEEYhCaR9zgrWR` → `https://spectre-ps6e4ivj7-menez223-7187s-projects.vercel.app` → `https://spectre-dz.vercel.app` (READY).
+**GitHub:** `11f6b18` مدفوع (`494746f..11f6b18`).
+
+**التحقق بعده:** `/` · `/pricing` · `/store` · `/studio` = 200 · `trial/availability` = 200 (`disabled:false`) · `catalog` = 200 · `admin/storage` و`admin/credentials` = 403 (محميان).
+
+**🔴 بوابة `sitecopy-sync-audit` فشلت: 0 موجود · 6 مفقود** — الإنتاج يخدم `overrides` فارغة رغم وجود 5+5 في القاعدة.
+
+**السبب الجذري الحقيقي (مُثبَت محلياً بإعادة الإنتاج — نظرية «القفل التبادلي» في §(٣) كانت خاطئة):**
+كل قراءة Supabase تمر عبر `fetch` بـ`cache: "no-store"` (`supabase.ts:30-31`)، وهو **محظور داخل نطاق `unstable_cache`** في Next.js 14: يرمي في كل استدعاء، فيُبتلع في `try/catch` بـ`getSiteCopy` ويُرجَع `{ar:{},en:{}}` دائماً — في البناء وعند التشغيل، محلياً وعلى الإنتاج. الدليل: خادم `next start` محلي متصل بالإنتاج أعاد نفس الفراغ، بينما الرمل (`.dev-kv` بلا `fetch`) يعمل.
+
+**الإصلاح:** `getSupabaseCached()` (عميل بلا `no-store` — داخل `unstable_cache` حصراً) + `getKvCached()` + `getSiteCopy` تستعمله. مسارات الحظر/الاشتراك بقيت على `no-store` (لا تجميد أمني).
+**التحقق:** خادم محلي أعاد التجاوزات العشرة كلها في RSC والـHTML (`Studio Store Gen` · `VIP` · `69`) · `tsc` صفر · `lint` صفر · `build` ناجح · انحدار معزول **48/48** + احتياط **14/14** · `.dev-kv` سليم (نفس البصمة).
+
+### ج) النشر الثاني (الإصلاح الجذري — يُملأ بعد التنفيذ)

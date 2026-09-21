@@ -8,7 +8,7 @@
 //      الإنتاج الحقيقي حين تُفقد متغيرات Supabase — السلوك: رمي خطأ واضح
 //      بدل الكتابة على ملف JSON محلي يختفي مع كل نشر.
 
-import { getSupabase, hasSupabase } from "./supabase";
+import { getSupabase, getSupabaseCached, hasSupabase } from "./supabase";
 import {
   getDevKv,
   setDevKv,
@@ -103,6 +103,20 @@ export async function getKv<T = unknown>(key: string): Promise<T | null> {
     return getDevKv<T>(key);
   }
   const supabase = getSupabase();
+  const { data, error } = await supabase.from(TABLE).select("value").eq("key", key).maybeSingle();
+  if (error) throw error;
+  return (data?.value as T) ?? null;
+}
+
+// قراءة مخزَّنة — للاستعمال **داخل `unstable_cache` حصراً** (انظر
+// `getSupabaseCached`): نفس `getKv` لكن عبر عميل بلا `no-store`، لأن
+// `no-store` داخل `unstable_cache` يرمي دائماً. مخصصة لقراءات العرض
+// غير الحساسة (نصوص الواجهة) — لا تُستعمل لمسارات الحظر/الاشتراك أبداً.
+export async function getKvCached<T = unknown>(key: string): Promise<T | null> {
+  if (useDevStore) {
+    return getDevKv<T>(key);
+  }
+  const supabase = getSupabaseCached();
   const { data, error } = await supabase.from(TABLE).select("value").eq("key", key).maybeSingle();
   if (error) throw error;
   return (data?.value as T) ?? null;
