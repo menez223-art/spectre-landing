@@ -28,7 +28,11 @@ const COPY = {
     codeSent: "✓ فُتح واتساب — انسخ الرمز والصقه أدناه.",
     codeLabel: "رمز التفعيل (6 أرقام)",
     codePh: "••••••",
-    codeHint: "افتح واتساب، انسخ الرمز الذي وصلك، والصقه هنا.",
+    codeHint: "افتح واتساب، انسخ الرمز الذي وصلك، والصقه هنا — ثم اضغط «تأكيد الرمز».",
+    verifyCode: "تأكيد الرمز",
+    verifying: "جارٍ التأكيد…",
+    codeOk: "✓ الرمز صحيح — اضغط «أنشئ الرابط التجريبي».",
+    errVerifyFirst: "أكّد الرمز أولاً بالزر أعلاه — ثم أنشئ الرابط.",
     errCodeRequired: "أرسل رمز التفعيل عبر واتساب أولاً — الزر الأخضر فوق خانة الرمز.",
     errCode: "أدخل رمز التفعيل المكوّن من 6 أرقام.",
     errCodeBad: "الرمز غير صحيح — تأكد من آخر رسالة وصلتك على واتساب.",
@@ -43,7 +47,7 @@ const COPY = {
     submit: "أنشئ الرابط التجريبي",
     busy: "جارٍ الإنشاء…",
     cancel: "إلغاء",
-    terms: "بالمتابعة تقبل: رابط واحد فقط لكل بريد وجهاز ورقم · يختفي نهائياً بعد 24 ساعة · لا يمكن استرجاعه أو إنشاء رابط آخر.",
+    terms: "بالمتابعة تقبل: رابط واحد فقط لكل بريد وجهاز ورقم · يُرفض الرابط إن كان البريد أو الجهاز أو الرقم مسجلاً لدى مشترك · يختفي نهائياً بعد 24 ساعة · لا يمكن استرجاعه أو إنشاء رابط آخر.",
     okTitle: "رابطك جاهز",
     copy: "انسخ الرابط",
     copied: "تم النسخ ✓",
@@ -84,7 +88,11 @@ const COPY = {
     codeSent: "✓ WhatsApp opened — copy the code and paste it below.",
     codeLabel: "Activation code (6 digits)",
     codePh: "••••••",
-    codeHint: "Open WhatsApp, copy the code you received, and paste it here.",
+    codeHint: "Open WhatsApp, copy the code you received, paste it here — then press “Verify code”.",
+    verifyCode: "Verify code",
+    verifying: "Verifying…",
+    codeOk: "✓ Code accepted — press “Create my trial link”.",
+    errVerifyFirst: "Verify the code first with the button above — then create the link.",
     errCodeRequired: "Send the activation code via WhatsApp first — the green button above the code field.",
     errCode: "Enter the 6-digit activation code.",
     errCodeBad: "Wrong code — check the last message you received on WhatsApp.",
@@ -152,6 +160,8 @@ export function TrialPanel({
   const [whatsapp, setWhatsapp] = useState("");
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
+  const [codeOk, setCodeOk] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -259,18 +269,67 @@ export function TrialPanel({
       if (res.ok && data.waUrl) {
         setCodeSent(true);
         setCode("");
+        setCodeOk(false);
         if (win) win.location.href = data.waUrl;
         else window.location.href = data.waUrl; // سقوط: المانع حجب — ننقل الصفحة
       } else {
         if (win) win.close();
-        if (data.error === "rate_limited") setError(c.errRate);
-        else setError(c.errGeneric);
+        // الرفض المباشر قبل توليد الرمز — كل سبب برسالة صريحة (لا تعميم).
+        const map: Record<string, string> = {
+          rate_limited: c.errRate,
+          already_subscribed: c.errSubscribed,
+          whatsapp_subscribed: c.errWhatsappSubscribed,
+          device_subscribed: c.errDeviceSubscribed,
+          trial_used: c.errEmailUsed,
+          device_used: c.errDeviceUsed,
+          whatsapp_used: c.errWhatsappUsed,
+          trials_disabled: c.errTrialsDisabled,
+          bad_email: c.errEmail,
+          bad_whatsapp: c.errWhatsapp,
+        };
+        setError(map[String(data.error ?? "")] ?? c.errGeneric);
       }
     } catch {
       if (win) win.close();
       setError(c.errGeneric);
     } finally {
       setSending(false);
+    }
+  }
+
+  // تأكيد الرمز مسبقاً — يجيب «صحيح أم خاطئ» قبل ضغطة الإنشاء، بنفس حكم
+  // الخادم (`checkTrialCodeRecord`) دون استهلاك الرمز أو زيادة العدّاد.
+  async function verifyCode() {
+    if (verifying || busy || closed || !fp || !codeSent) return;
+    setError("");
+    if (!/^\d{6}$/.test(code)) return setError(c.errCode);
+    setVerifying(true);
+    try {
+      const res = await fetch("/api/trial/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), whatsapp: whatsapp.trim(), deviceFp: fp, code: code.trim() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (res.ok && data.ok) {
+        setCodeOk(true);
+        return;
+      }
+      setCodeOk(false);
+      const map: Record<string, string> = {
+        bad_code: c.errCodeBad,
+        code_expired: c.errCodeExpired,
+        code_locked: c.errCodeLocked,
+        code_mismatch: c.errCodeMismatch,
+        code_required: c.errCodeRequired,
+        rate_limited: c.errRate,
+      };
+      setError(map[String(data.error ?? "")] ?? c.errGeneric);
+    } catch {
+      setCodeOk(false);
+      setError(c.errGeneric);
+    } finally {
+      setVerifying(false);
     }
   }
 
@@ -288,9 +347,10 @@ export function TrialPanel({
     if (incomplete) return setError(c.errProduct);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError(c.errEmail);
     if (!/^\d{8,15}$/.test(whatsapp.replace(/[^\d]/g, "").replace(/^00/, ""))) return setError(c.errWhatsapp);
-    // رمز التفعيل — شرط أساسي: 6 أرقام بعد الإرسال
+    // رمز التفعيل — شرط أساسي: 6 أرقام بعد الإرسال **وتأكيد مسبق بالزر**
     if (!codeSent) return setError(c.errCodeRequired);
     if (!/^\d{6}$/.test(code)) return setError(c.errCode);
+    if (!codeOk) return setError(c.errVerifyFirst);
     if (!fp) return setError(c.errGeneric);
 
     inFlight.current = true;
@@ -468,7 +528,7 @@ export function TrialPanel({
                   className={inputCls}
                   type="email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); if (codeSent) { setCodeSent(false); setCode(""); } }}
+                  onChange={(e) => { setEmail(e.target.value); if (codeSent) { setCodeSent(false); setCode(""); setCodeOk(false); } }}
                   placeholder={c.emailPh}
                   dir="ltr"
                   disabled={closed}
@@ -482,7 +542,7 @@ export function TrialPanel({
                   className={inputCls}
                   type="tel"
                   value={whatsapp}
-                  onChange={(e) => { setWhatsapp(e.target.value); if (codeSent) { setCodeSent(false); setCode(""); } }}
+                  onChange={(e) => { setWhatsapp(e.target.value); if (codeSent) { setCodeSent(false); setCode(""); setCodeOk(false); } }}
                   placeholder={c.whatsappPh}
                   dir="ltr"
                   disabled={closed}
@@ -515,13 +575,25 @@ export function TrialPanel({
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     value={code}
-                    onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }}
+                    onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setCodeOk(false); setError(""); }}
                     placeholder={c.codePh}
                     dir="ltr"
                     maxLength={6}
                     disabled={closed}
                   />
                   <span className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">{c.codeHint}</span>
+                  {/* زر تأكيد الرمز — يتحقق مسبقاً دون استهلاكه */}
+                  <button
+                    type="button"
+                    onClick={() => void verifyCode()}
+                    disabled={verifying || busy || closed || !fp || !/^\d{6}$/.test(code)}
+                    className="self-start rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-50 dark:bg-white/10 dark:hover:bg-white/20 min-h-[44px] touch-manipulation sm:min-h-0"
+                  >
+                    {verifying ? c.verifying : c.verifyCode}
+                  </button>
+                  {codeOk && (
+                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">{c.codeOk}</span>
+                  )}
                 </label>
               )}
 

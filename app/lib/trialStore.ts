@@ -242,3 +242,47 @@ export async function releaseTrial(email: string): Promise<boolean> {
   await deleteKvMany([keyFor(email), devKeyFor(cur.deviceFp), waKeyFor(cur.whatsapp)]);
   return true;
 }
+
+// ── فحص رمز التفعيل (مشترك بين مساري الإنشاء والتحقق المسبق) ──
+// دالة صرفة (لا قراءة ولا كتابة): تستقبل سجل الرمز المخزّن والمدخل الحالي
+// وتعيد الحكم نفسه الذي يطبّقه مسار الإنشاء — مصدر حقيقة واحد.
+// ⚠️ لا تستهلك الرمز ولا تزيد العدّاد هنا؛ الاستهلاك في مسار الإنشاء فقط.
+// حدّ القفل: 5 محاولات خاطئة (مطابق لمنطق الإنشاء).
+
+export interface TrialCodeRecord {
+  code?: string;
+  whatsapp?: string;
+  deviceFp?: string;
+  tries?: number;
+  expiresAt?: string;
+}
+
+export type TrialCodeError =
+  | "code_required"
+  | "code_mismatch"
+  | "code_expired"
+  | "code_locked"
+  | "bad_code";
+
+export interface TrialCodeInput {
+  code: string;
+  deviceFp: string;
+  /** الرقم مطبّع كنسياً (`normalizeWhatsapp`) قبل المقارنة. */
+  whatsapp: string;
+}
+
+export function checkTrialCodeRecord(
+  rec: TrialCodeRecord | null,
+  input: TrialCodeInput,
+): { ok: true } | { ok: false; error: TrialCodeError } {
+  if (!rec || typeof rec.code !== "string") return { ok: false, error: "code_required" };
+  if (rec.deviceFp !== input.deviceFp || rec.whatsapp !== input.whatsapp) {
+    return { ok: false, error: "code_mismatch" };
+  }
+  const exp = Date.parse(String(rec.expiresAt ?? ""));
+  if (!Number.isFinite(exp) || exp <= Date.now()) return { ok: false, error: "code_expired" };
+  const tries = typeof rec.tries === "number" ? rec.tries : 0;
+  if (tries >= 5) return { ok: false, error: "code_locked" };
+  if (rec.code !== input.code) return { ok: false, error: "bad_code" };
+  return { ok: true };
+}

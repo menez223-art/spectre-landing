@@ -6,7 +6,8 @@
 //   7) رمز تفعيل عبر واتساب — إلزامي
 //   8) **الإيميل والجهاز والرقم لا تنتمي إلى مشترك حقيقي** (شرط المالك الصريح
 //      2026-09-21: غياب أي طرف من الأطراف الثلاثة ⇒ لا رابط) — trialGuard.ts.
-//      استثناء وحيد: جلسة أدمن موقّعة (لاختبار المالك)، ولا يتجاوز قواعد «مرة واحدة».
+//      القاعدة مطلقة بلا استثناء (بما فيه جلسة الأدمن) — الاختبار من متصفح
+//      جديد بهويات جديدة كأي زائر.
 //
 // الناتج: منتج منشور بلا sheet وبلا GitHub + trialUntil بعد 24 ساعة + سجل تجربة.
 
@@ -20,11 +21,11 @@ import {
   getTrialByWhatsapp,
   isTrialsDisabled,
   normalizeWhatsapp,
+  checkTrialCodeRecord,
   TRIAL_HOURS,
 } from "@/app/lib/trialStore";
 import { paletteForCategory } from "@/app/lib/trialPalette";
 import { findSubscriberConflict } from "@/app/lib/trialGuard";
-import { assertAdminSession } from "@/app/lib/adminAuth";
 import { normalizeTheme, sanitizeTheme } from "@/app/lib/theme";
 import type { Product } from "@/app/lib/types";
 import type { PublishMeta } from "@/app/lib/publishStore";
@@ -43,15 +44,6 @@ function newSlug(): string {
 
 const bad = (error: string, status = 400) =>
   NextResponse.json({ error }, { status });
-
-/** هل الطلب صادر بجلسة أدمن موقّعة؟ (تُستخدم لاستثناء اختبار المالك فقط) */
-async function isAdminRequest(): Promise<boolean> {
-  try {
-    return await assertAdminSession();
-  } catch {
-    return false; // أي تعثّر في قراءة الجلسة = ليس أدمن (الأصل: الفحص يُطبَّق)
-  }
-}
 
 export async function POST(request: Request) {
   if (!hasPublishStore()) return bad("storage", 503);
@@ -118,21 +110,15 @@ export async function POST(request: Request) {
     const byWa = await getTrialByWhatsapp(wa);
     if (byWa) return NextResponse.json({ error: "whatsapp_used" }, { status: 409 });
 
-    // ٤ج) شروط المالك الثلاثة: الإيميل والجهاز والرقم يجب أن تكون **جديدة**،
-    //     أي لا تنتمي إلى مشترك حقيقي. كان الفحص يقتصر على `subs/` للإيميل،
-    //     فيمرّ زائر برقم مشترك (بإيميل وجهاز جديدين) ويأخذ رابطاً تجريبياً.
-    //
-    //     استثناء واحد: **جلسة أدمن موقّعة**. المالك جهازه ورقمه مسجّلان
-    //     بطبيعة الحال، فبدون هذا الاستثناء يفقد قدرته على اختبار مسار
-    //     التجربة من متصفحه. الجلسة موقّعة بـ ADMIN_SESSION_SECRET فلا
-    //     يُنال الاستثناء من الخارج. الاستثناء **لا** يشمل قواعد
-    //     «مرة واحدة» أعلاه (لا تجربتان لنفس الإيميل/الجهاز/الرقم أبداً).
-    if (!(await isAdminRequest())) {
-      const conflict = await findSubscriberConflict({ email, whatsapp: wa, deviceFp });
-      if (conflict === "email") return NextResponse.json({ error: "already_subscribed" }, { status: 409 });
-      if (conflict === "whatsapp") return NextResponse.json({ error: "whatsapp_subscribed" }, { status: 409 });
-      if (conflict === "device") return NextResponse.json({ error: "device_subscribed" }, { status: 409 });
-    }
+    // ٤ج) شروط المالك الثلاثة — مطلقة بلا أي استثناء: الإيميل والجهاز
+    //     والرقم يجب أن تكون **جديدة**، أي لا تنتمي إلى مشترك حقيقي.
+    //     ⚠️ أُزيل استثناء جلسة الأدمن نهائياً (2026-09-21): كان يتيح إصدار
+    //     رابط تجريبي بهوية مشترك من متصفح المالك نفسه — وهو عين ما تمنعه
+    //     القاعدة. اختبار المسار يكون من متصفح جديد بهويات جديدة كأي زائر.
+    const conflict = await findSubscriberConflict({ email, whatsapp: wa, deviceFp });
+    if (conflict === "email") return NextResponse.json({ error: "already_subscribed" }, { status: 409 });
+    if (conflict === "whatsapp") return NextResponse.json({ error: "whatsapp_subscribed" }, { status: 409 });
+    if (conflict === "device") return NextResponse.json({ error: "device_subscribed" }, { status: 409 });
 
     // ٧) رمز التفعيل عبر واتساب — **شرط أساسي** لإنشاء رابط التجربة.
     //    يُطلب بالرمز، ويُربط بالإيميل + الجهاز + الواتساب معاً (لا يكفي الرمز وحده).
@@ -147,24 +133,22 @@ export async function POST(request: Request) {
     } catch {
       return bad("storage", 502);
     }
-    if (!codeRec || typeof codeRec.code !== "string") {
-      return NextResponse.json({ error: "code_required" }, { status: 403 });
-    }
-    if (codeRec.deviceFp !== deviceFp || codeRec.whatsapp !== wa) {
-      return NextResponse.json({ error: "code_mismatch" }, { status: 403 });
-    }
-    const codeExp = Date.parse(String(codeRec.expiresAt ?? ""));
-    if (!Number.isFinite(codeExp) || codeExp <= Date.now()) {
-      try { await deleteKv(codeKey); } catch { /* تنظيف اختياري */ }
-      return NextResponse.json({ error: "code_expired" }, { status: 403 });
-    }
-    const tries = typeof codeRec.tries === "number" ? codeRec.tries : 0;
-    if (tries >= 5) {
-      try { await deleteKv(codeKey); } catch { /* تنظيف اختياري */ }
-      return NextResponse.json({ error: "code_locked" }, { status: 429 });
-    }
-    if (codeRec.code !== code) {
-      try { await setKv(codeKey, { ...codeRec, tries: tries + 1 }); } catch { /* عدّ اختياري */ }
+    // الفحص المشترك مع مسار التحقق المسبق (`verify-code`) — مصدر حقيقة واحد.
+    const verdict = checkTrialCodeRecord(codeRec, { code, deviceFp, whatsapp: wa });
+    if (!verdict.ok) {
+      if (verdict.error === "code_mismatch" || verdict.error === "code_required") {
+        // `code_mismatch`/`code_required` قبل أي عدّ أو حذف — لا شيء يُستهلك.
+        return NextResponse.json({ error: verdict.error }, { status: 403 });
+      }
+      if (verdict.error === "code_expired" || verdict.error === "code_locked") {
+        try { await deleteKv(codeKey); } catch { /* تنظيف اختياري */ }
+        return NextResponse.json(
+          { error: verdict.error },
+          { status: verdict.error === "code_locked" ? 429 : 403 },
+        );
+      }
+      // `bad_code`: زيادة العدّاد ثم الرفض (حدّ 5 محاولات).
+      try { await setKv(codeKey, { ...codeRec, tries: (typeof codeRec?.tries === "number" ? codeRec.tries : 0) + 1 }); } catch { /* عدّ اختياري */ }
       return NextResponse.json({ error: "bad_code" }, { status: 403 });
     }
 

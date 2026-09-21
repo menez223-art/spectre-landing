@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   apiCheckDevice,
   apiGetProfile,
@@ -26,7 +27,16 @@ import {
 const MASTER_USERNAME = "project";
 import { purgeLegacySamples } from "@/app/lib/storage";
 import { useLocale } from "../LocaleProvider";
-import { SettingsPanel } from "./SettingsPanel";
+// لوحة الإعدادات (56KB مصدراً) لا تُفتح إلا بضغطة ⚙ — تُحمَّل ديناميكياً كي
+// لا تثقل حزمة فتح الاستوديو الأولية. `ssr:false` لأنها نافذة تفاعلية فقط،
+// والتحميل الديناميكي يفكّ أيضاً الاستيراد الدائري AuthGate↔SettingsPanel.
+// تُركَّب عند الفتح فقط (`settingsOpen`) فتُعاد تهيئة حقولها من الحساب الحي
+// في كل مرة (أنظف من بقايا حالة سابقة) — و`refreshSubscription` عند الفتح
+// (أدناه) يضمن حداثة الأرقام المعروضة.
+const SettingsPanel = dynamic(
+  () => import("./SettingsPanel").then((m) => m.SettingsPanel),
+  { ssr: false }
+);
 import { ThemeToggle } from "../ThemeToggle";
 import { useSubscriptionSync } from "@/app/hooks/useSubscriptionSync";
 
@@ -322,9 +332,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           setIsAdmin(res?.isAdmin ?? false);
           if (ok && res?.profile) setAccount(res.profile);
           if (ok && res?.subscription) setSubscription(res.subscription);
-          // هجرة الرابط القديم من localStorage إن وُجد ثم تحديث الملف الشخصي
-          migrateLegacySheetUrl(fp).then(() => {
-            if (cancelled) return;
+          // هجرة الرابط القديم (مرة واحدة للمستخدمين القدامى فقط) ثم تحديث
+          // الملف — نُعيد الجلب حصراً عند هجرة فعلية، لا في كل فتح.
+          migrateLegacySheetUrl(fp).then((migrated) => {
+            if (cancelled || !migrated) return;
             apiGetProfile(fp).then(setAccount);
           });
           setLoaded(true);
@@ -388,7 +399,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     } catch {
       // فشل الشبكة — لا نمسح الجلسة المحلية
     }
-    migrateLegacySheetUrl(fp).then(() => refreshAccount(fp));
+    migrateLegacySheetUrl(fp).then((migrated) => {
+      // لا جلب مكرر: الملف محمَّل سلفاً من `res.profile` أعلاه — نُعيد الجلب
+      // حصراً عند هجرة فعلية غيّرت البيانات خادمياً.
+      if (migrated) refreshAccount(fp);
+    });
   }
 
   // يجلب اشتراك المستخدم الحقيقي من الخادم (مرتبط بقاعدة الأدمن) فوراً.
@@ -534,7 +549,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
       {children}
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {settingsOpen ? (
+        <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      ) : null}
     </AuthContext.Provider>
   );
 }

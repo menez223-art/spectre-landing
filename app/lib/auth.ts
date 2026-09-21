@@ -341,16 +341,18 @@ export async function apiClearLink(fingerprint: string): Promise<boolean> {
   }
 }
 
-// هجرة الرابط القديم من localStorage إلى ملف الجهاز (مرة واحدة)
-export async function migrateLegacySheetUrl(fingerprint: string): Promise<void> {
-  if (typeof window === "undefined") return;
+// هجرة الرابط القديم من localStorage إلى ملف الجهاز (مرة واحدة).
+// تُرجع `true` فقط عند تنفيذ هجرة فعلية — كي يُعاد جلب الملف حصراً عندها،
+// بدل جلب مكرر في كل فتح للاستوديو (كان يضيف round-trip كاملاً بلا داعٍ).
+export async function migrateLegacySheetUrl(fingerprint: string): Promise<boolean> {
+  if (typeof window === "undefined") return false;
   let legacy: string | null = null;
   try {
     legacy = window.localStorage.getItem(LEGACY_SHEET_URL_KEY);
   } catch {
-    return;
+    return false;
   }
-  if (!legacy || !legacy.trim()) return;
+  if (!legacy || !legacy.trim()) return false;
   const profile = await apiGetProfile(fingerprint);
   if (!profile || !profile.sheetUrl) {
     // مسار الهجرة (مرة واحدة) يُعفي من باب كود المشرف — نمرّره عبر العلم
@@ -371,6 +373,7 @@ export async function migrateLegacySheetUrl(fingerprint: string): Promise<void> 
   } catch {
     // تجاهل
   }
+  return true;
 }
 
 // ── استدعاءات الخادم ──────────────────────────────────

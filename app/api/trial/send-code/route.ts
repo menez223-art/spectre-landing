@@ -8,9 +8,14 @@
 
 import { NextResponse } from "next/server";
 import { getKv, setKv } from "@/app/lib/kvStore";
-import { normalizeWhatsapp } from "@/app/lib/trialStore";
+import {
+  normalizeWhatsapp,
+  isTrialsDisabled,
+  getTrial,
+  getTrialByDevice,
+  getTrialByWhatsapp,
+} from "@/app/lib/trialStore";
 import { findSubscriberConflict } from "@/app/lib/trialGuard";
-import { assertAdminSession } from "@/app/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -24,15 +29,6 @@ function generateCode(): string {
   crypto.getRandomValues(bytes);
   const n = (bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24)) >>> 0;
   return String(100000 + (n % 900000)); // 100000-999999
-}
-
-/** هل الطلب صادر بجلسة أدمن موقّعة؟ (استثناء اختبار المالك — مطابق لمسار الإنشاء) */
-async function isAdminRequest(): Promise<boolean> {
-  try {
-    return await assertAdminSession();
-  } catch {
-    return false;
-  }
 }
 
 async function hitLimit(key: string): Promise<boolean> {
@@ -74,17 +70,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
+  // أمر المالك الصريح: أي شرط غير محقق ⇒ رفض مباشر **بلا توليد رمز أصلاً**.
+  // الشروط الأربعة (جهاز جديد · إيميل جديد · رقم جديد · لا انتماء لمشترك)
+  // تُفحص كلها هنا قبل `generateCode` — لا رمز لطلب ساقط.
+  // ١) التعطيل العام من لوحة الأدمن.
+  if (await isTrialsDisabled()) {
+    return NextResponse.json({ error: "trials_disabled" }, { status: 403 });
+  }
+  // ٢) قاعدة «مرة واحدة»: إيميل/جهاز/رقم استُعمل في تجربة سابقة.
+  // القراءة الصارمة: خطأ التخزين ⇒ 502 (fail-closed) لا رمز.
+  try {
+    if (await getTrial(email)) {
+      return NextResponse.json({ error: "trial_used" }, { status: 409 });
+    }
+    if (await getTrialByDevice(deviceFp)) {
+      return NextResponse.json({ error: "device_used" }, { status: 409 });
+    }
+    if (await getTrialByWhatsapp(whatsapp)) {
+      return NextResponse.json({ error: "whatsapp_used" }, { status: 409 });
+    }
+  } catch {
+    return NextResponse.json({ error: "storage" }, { status: 502 });
+  }
+
   // شروط المالك الثلاثة تُفحص **قبل** توليد الرمز: لا معنى لفتح واتساب
   // وإرسال رمز لطلب ساقط أصلاً (رقم/جهاز/إيميل يخصّ مشتركاً حقيقياً).
   // فشل التخزين ⇒ 502 صريح لا رمز (fail-closed) بدل تمرير الطلب بصمت.
-  // استثناء جلسة الأدمن الموقّعة مطابق لمسار الإنشاء (لاختبار المالك فقط).
+  // القاعدة مطلقة بلا استثناء (أُزيل استثناء جلسة الأدمن — كان يتيح إصدار
+  // رمز بهوية مشترك من متصفح المالك نفسه).
   let conflict: string | null = null;
-  if (!(await isAdminRequest())) {
-    try {
-      conflict = await findSubscriberConflict({ email, whatsapp, deviceFp });
-    } catch {
-      return NextResponse.json({ error: "storage" }, { status: 502 });
-    }
+  try {
+    conflict = await findSubscriberConflict({ email, whatsapp, deviceFp });
+  } catch {
+    return NextResponse.json({ error: "storage" }, { status: 502 });
   }
   if (conflict === "email") {
     return NextResponse.json({ error: "already_subscribed" }, { status: 409 });
