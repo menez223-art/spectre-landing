@@ -9,7 +9,7 @@ import { deleteKv, getKv, listKv, setKv } from "@/app/lib/kvStore";
 import { isDeviceApproved, setDeviceBannedByPepper, removeApprovedDeviceByPepper } from "@/app/lib/authStore";
 import { getProfileEmail, deviceOwnersForEmail, deviceFingerprintsForEmail, getProfileByEmail } from "@/app/lib/profileStore";
 import { getMarketingForEmailWithMigration } from "@/app/lib/marketingStore";
-import { getAdminSession } from "@/app/lib/adminAuth";
+import { getAdminEmail, assertAdminSession } from "@/app/lib/adminAuth";
 import {
   deleteSubscription,
   getSubscription,
@@ -28,22 +28,21 @@ import { deleteAllPublishedOwned, reassignOwner, burnPublishedOwned, unburnPubli
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").toLowerCase();
-
 // بوابة الخادم: هل هذا الطالب هو المشرف؟
 // مساران مصرّحان:
 //  1) جلسة الأدمن الموقّعة (كوكي) — من صفحة دخول الأدمن المخصّصة.
-//  2) جهاز الاستوديو المعتمد والمربوط ببريد ADMIN_EMAIL.
+//  2) جهاز الاستوديو المعتمد والمربوط ببريد الأدمن الفعلي (تجاوز أو ADMIN_EMAIL).
 // أي طلب آخر (بما فيه تجاوز مباشر للواجهة) يُرفض بـ 403.
 async function assertAdmin(fingerprint?: string): Promise<boolean> {
-  if (!ADMIN_EMAIL) return false;
   // مسار الكوكي — الأسرع والأكثر أماناً لدخول الأدمن المباشر (صفحة /admin).
-  if (getAdminSession() === ADMIN_EMAIL) return true;
-  // مسار جهاز الاستوديو المعتمد والمربوط ببريد ADMIN_EMAIL.
+  if (await assertAdminSession()) return true;
+  // مسار جهاز الاستوديو المعتمد والمربوط ببريد الأدمن الفعلي.
+  const adminEmail = await getAdminEmail();
+  if (!adminEmail) return false;
   if (!fingerprint) return false;
   if (!(await isDeviceApproved(fingerprint))) return false;
   const email = await getProfileEmail(fingerprint);
-  return email?.toLowerCase() === ADMIN_EMAIL;
+  return email?.toLowerCase() === adminEmail;
 }
 
 function forbidden(): NextResponse {
@@ -108,6 +107,7 @@ export async function GET(request: Request) {
     } catch {
       // استمرار بصف صفر إن تعذّر الجلب.
     }
+    const adminEmail = await getAdminEmail();
     const subscriptions = await Promise.all(
       all.map(async (s) => {
         const live = await recomputeStatus(s.userId);
@@ -137,7 +137,7 @@ export async function GET(request: Request) {
         }
         return {
           ...(live ?? s),
-          pages: s.userId.toLowerCase() === ADMIN_EMAIL ? 0 : usage.pages,
+          pages: s.userId.toLowerCase() === adminEmail ? 0 : usage.pages,
           productCount: usage.products,
           imageCount: usage.images,
           remainingDays: remainingDays(live ?? s),
@@ -178,8 +178,8 @@ export async function POST(request: Request) {
   if (!(await assertAdmin(fingerprint || undefined))) return forbidden();
   if (!userId) return NextResponse.json({ error: "missing_user" }, { status: 400 });
 
-  // حماية حرجة: لا يحظر المشرف نفسه (بريده = ADMIN_EMAIL) فيمنع موقعَه عن نفسه.
-  if (userId.toLowerCase() === ADMIN_EMAIL) {
+  // حماية حرجة: لا يحظر المشرف نفسه (بريده = بريد الأدمن الفعلي) فيمنع موقعَه عن نفسه.
+  if (userId.toLowerCase() === (await getAdminEmail())) {
     return NextResponse.json({ error: "cannot_modify_admin" }, { status: 400 });
   }
 

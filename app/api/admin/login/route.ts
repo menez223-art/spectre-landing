@@ -58,7 +58,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  if (!verifyAdminCredentials(email, password)) {
+  // التحقق من البيانات (تجاوز KV أولاً، ثم env)
+  const isValid = await verifyAdminCredentials(email, password);
+  if (!isValid) {
     return NextResponse.json({ error: "invalid" }, { status: 401 });
   }
 

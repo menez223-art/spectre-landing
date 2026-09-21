@@ -7,7 +7,8 @@
 //    خارجها يُتجاهَل في طبقة التخزين نفسها، فلا يمكن تخريب بقية الواجهة.
 
 import { NextResponse } from "next/server";
-import { ADMIN_EMAIL, getAdminSession } from "@/app/lib/adminAuth";
+import { revalidatePath } from "next/cache";
+import { getAdminEmail, assertAdminSession } from "@/app/lib/adminAuth";
 import { isDeviceApproved } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
 import { getSiteCopy, saveSiteCopy } from "@/app/lib/siteCopy";
@@ -21,14 +22,15 @@ function forbidden() {
 }
 
 // بوابة الأدمن — نفس منطق مسارات الأدمن الأخرى:
-//   1) جلسة موقّعة (كوكي)، أو 2) جهاز استوديو معتمد مربوط ببريد ADMIN_EMAIL.
+//   1) جلسة موقّعة (كوكي)، أو 2) جهاز استوديو معتمد مربوط ببريد الأدمن الفعلي.
 async function assertAdmin(fingerprint?: string): Promise<boolean> {
-  if (!ADMIN_EMAIL) return false;
-  if (getAdminSession() === ADMIN_EMAIL) return true;
+  if (await assertAdminSession()) return true;
+  const adminEmail = await getAdminEmail();
+  if (!adminEmail) return false;
   if (!fingerprint) return false;
   if (!(await isDeviceApproved(fingerprint))) return false;
   const email = await getProfileEmail(fingerprint);
-  return email?.toLowerCase() === ADMIN_EMAIL;
+  return email?.toLowerCase() === adminEmail;
 }
 
 // القيم الافتراضية لكل مفتاح قابل للتعديل، باللغتين — تُعرض في اللوحة كمرجع
@@ -73,6 +75,9 @@ export async function POST(request: Request) {
   try {
     // طبقة التخزين تُنقّي المفاتيح والقيم بنفسها (sanitize) — لا نثق بالمدخل.
     const saved = await saveSiteCopy(incoming as SiteCopy);
+    // إبطال كاش unstable_cache فوراً حتى تظهر التعديلات في الرئيسية دون انتظار
+    // مدة revalidate (60 ثانية). هذا هو إصلاح «غيّرت الكلمات ولم تتغير».
+    revalidatePath("/");
     return NextResponse.json({ ok: true, copy: saved });
   } catch (err) {
     console.error("[admin/site-copy] خطأ حفظ:", err);

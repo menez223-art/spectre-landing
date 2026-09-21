@@ -49,7 +49,7 @@ function AdminHeader({ email }: { email: string }) {
               href="/studio"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100 sm:inline-flex sm:text-xs dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+              className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 sm:inline-flex sm:text-[11px] dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 min-h-[44px] touch-manipulation sm:min-h-0"
               title={t("adminOpenStudioTip")}
             >
               <span>🛒</span>
@@ -73,7 +73,7 @@ function AdminHeader({ email }: { email: string }) {
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-full border border-navy-900/15 px-3 py-1.5 text-[11px] font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 sm:px-4 sm:py-2 sm:text-xs dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400"
+              className="rounded-full border border-navy-900/15 px-3 py-1.5 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 sm:px-4 sm:py-2 sm:text-[11px] dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400 min-h-[44px] touch-manipulation sm:min-h-0"
             >
               {t("adminExit")}
             </button>

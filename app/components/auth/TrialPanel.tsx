@@ -21,8 +21,21 @@ const COPY = {
     email: "البريد الإلكتروني",
     emailPh: "you@example.com",
     whatsapp: "رقم الواتساب (إجباري)",
-    whatsappPh: "0555 12 34 56",
-    waHint: "يجب أن يفتح الزبون واتساب ويرسل الطلب بنفسه؛ رقم الوجهة يظهر له في واتساب.",
+    whatsappPh: "213555123456",
+    waHint: "يبدأ الرقم بـ 213 (رمز الجزائر) — مثال: 213555123456. لا تكتب 0 في البداية.",
+    waSendCode: "أرسل رمز التفعيل عبر واتساب",
+    waResend: "أعد إرسال الرمز",
+    codeSent: "✓ فُتح واتساب — انسخ الرمز والصقه أدناه.",
+    codeLabel: "رمز التفعيل (6 أرقام)",
+    codePh: "••••••",
+    codeHint: "افتح واتساب، انسخ الرمز الذي وصلك، والصقه هنا.",
+    errCodeRequired: "أرسل رمز التفعيل عبر واتساب أولاً — الزر الأخضر فوق خانة الرمز.",
+    errCode: "أدخل رمز التفعيل المكوّن من 6 أرقام.",
+    errCodeBad: "الرمز غير صحيح — تأكد من آخر رسالة وصلتك على واتساب.",
+    errCodeExpired: "انتهت صلاحية الرمز — أرسل رمزاً جديداً.",
+    errCodeLocked: "محاولات خاطئة كثيرة — أرسل رمزاً جديداً عبر واتساب.",
+    errCodeMismatch: "الرمز مرتبط ببريد/جهاز آخر — أرسل رمزاً جديداً بنفس البيانات.",
+    errRate: "طلبات كثيرة — انتظر قليلاً قبل إرسال رمز جديد.",
     restore: "استعادة حالة رابط سابق",
     checking: "جارٍ التحقق من الرابط…",
     ended: "انتهت التجربة أو حُذف الرابط. لا يمكن إنشاء تجربة أخرى.",
@@ -62,8 +75,21 @@ const COPY = {
     email: "Email address",
     emailPh: "you@example.com",
     whatsapp: "WhatsApp number (required)",
-    whatsappPh: "0555 12 34 56",
-    waHint: "The customer must open WhatsApp and send the order; the destination number is visible there.",
+    whatsappPh: "213555123456",
+    waHint: "Starts with 213 (Algeria code) — e.g. 213555123456. Do not write 0 at the start.",
+    waSendCode: "Send activation code via WhatsApp",
+    waResend: "Resend code",
+    codeSent: "✓ WhatsApp opened — copy the code and paste it below.",
+    codeLabel: "Activation code (6 digits)",
+    codePh: "••••••",
+    codeHint: "Open WhatsApp, copy the code you received, and paste it here.",
+    errCodeRequired: "Send the activation code via WhatsApp first — the green button above the code field.",
+    errCode: "Enter the 6-digit activation code.",
+    errCodeBad: "Wrong code — check the last message you received on WhatsApp.",
+    errCodeExpired: "Code expired — request a new one.",
+    errCodeLocked: "Too many wrong attempts — request a new code via WhatsApp.",
+    errCodeMismatch: "Code is linked to another email/device — request a new code with the same details.",
+    errRate: "Too many requests — wait a moment before requesting a new code.",
     restore: "Restore an existing trial",
     checking: "Checking your link…",
     ended: "The trial has expired or been deleted. Another trial cannot be created.",
@@ -120,6 +146,9 @@ export function TrialPanel({
 
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -202,6 +231,45 @@ export function TrialPanel({
     return () => window.clearInterval(id);
   }, [made]);
 
+  // إرسال رمز التفعيل عبر واتساب — يفتح wa.me برسالة جاهزة تحوي الرمز
+  async function sendCode() {
+    if (sending || busy || closed || !fp) return;
+    setError("");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError(c.errEmail);
+    if (!/^\d{8,15}$/.test(whatsapp.replace(/[^\d]/g, "").replace(/^00/, ""))) return setError(c.errWhatsapp);
+
+    // ⚠️ حاسم: window.open يجب أن يحدث **متزامناً** داخل ضغطة المستخدم — أي await
+    // قبله يفقد «سياق الإيماءة» فتحجبه المتصفحات (مانع النوافذ المنبثقة). لذلك
+    // نفتح صفحة فارغة فوراً ثم نوجّهها إلى wa.me بعد وصول ردّ الخادم.
+    // هذا كان سبب «الرمز لا يصل / واتساب لا يفتح».
+    const win = window.open("", "_blank");
+
+    setSending(true);
+    try {
+      const res = await fetch("/api/trial/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), whatsapp: whatsapp.trim(), deviceFp: fp }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; waUrl?: string; error?: string };
+      if (res.ok && data.waUrl) {
+        setCodeSent(true);
+        setCode("");
+        if (win) win.location.href = data.waUrl;
+        else window.location.href = data.waUrl; // سقوط: المانع حجب — ننقل الصفحة
+      } else {
+        if (win) win.close();
+        if (data.error === "rate_limited") setError(c.errRate);
+        else setError(c.errGeneric);
+      }
+    } catch {
+      if (win) win.close();
+      setError(c.errGeneric);
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function submit() {
     if (inFlight.current || restoring || restoreFailed || made || deleted || closed) return;
     setError("");
@@ -216,6 +284,9 @@ export function TrialPanel({
     if (incomplete) return setError(c.errProduct);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError(c.errEmail);
     if (!/^\d{8,15}$/.test(whatsapp.replace(/[^\d]/g, "").replace(/^00/, ""))) return setError(c.errWhatsapp);
+    // رمز التفعيل — شرط أساسي: 6 أرقام بعد الإرسال
+    if (!codeSent) return setError(c.errCodeRequired);
+    if (!/^\d{6}$/.test(code)) return setError(c.errCode);
     if (!fp) return setError(c.errGeneric);
 
     inFlight.current = true;
@@ -228,6 +299,7 @@ export function TrialPanel({
           email: email.trim(),
           whatsapp: whatsapp.trim(),
           deviceFp: fp,
+          code: code.trim(),
           name: product.name,
           price: product.price,
           category: product.category ?? "",
@@ -250,6 +322,11 @@ export function TrialPanel({
           device_used: c.errDeviceUsed,
           whatsapp_used: c.errWhatsappUsed,
           trials_disabled: c.errTrialsDisabled,
+          code_required: c.errCodeRequired,
+          bad_code: c.errCodeBad,
+          code_expired: c.errCodeExpired,
+          code_locked: c.errCodeLocked,
+          code_mismatch: c.errCodeMismatch,
         };
         setError(map[String(j.error ?? "")] ?? c.errGeneric);
         return;
@@ -385,7 +462,7 @@ export function TrialPanel({
                   className={inputCls}
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); if (codeSent) { setCodeSent(false); setCode(""); } }}
                   placeholder={c.emailPh}
                   dir="ltr"
                   disabled={closed}
@@ -399,14 +476,48 @@ export function TrialPanel({
                   className={inputCls}
                   type="tel"
                   value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
+                  onChange={(e) => { setWhatsapp(e.target.value); if (codeSent) { setCodeSent(false); setCode(""); } }}
                   placeholder={c.whatsappPh}
                   dir="ltr"
                   disabled={closed}
                   readOnly={closed}
                 />
                 <span className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">{c.waHint}</span>
+                {/* زر إرسال رمز التفعيل عبر واتساب — يفتح wa.me برسالة جاهزة */}
+                {whatsapp.trim() && email.trim() && !closed && (
+                  <button
+                    type="button"
+                    onClick={() => void sendCode()}
+                    disabled={sending || busy || !fp || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())}
+                    className="self-start rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 min-h-[44px] touch-manipulation sm:min-h-0"
+                  >
+                    {sending ? "…" : codeSent ? c.waResend : c.waSendCode}
+                  </button>
+                )}
+                {codeSent && (
+                  <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">{c.codeSent}</span>
+                )}
               </label>
+
+              {/* خانة إدخال رمز التفعيل — تظهر بعد الإرسال (شرط أساسي لإنشاء الرابط) */}
+              {codeSent && !closed && (
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-bold text-navy-700 dark:text-ivory-50/70">{c.codeLabel}</span>
+                  <input
+                    className={`${inputCls} text-center font-mono text-lg tracking-[0.4em]`}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={code}
+                    onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }}
+                    placeholder={c.codePh}
+                    dir="ltr"
+                    maxLength={6}
+                    disabled={closed}
+                  />
+                  <span className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">{c.codeHint}</span>
+                </label>
+              )}
 
               {error && (
                 <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 dark:bg-red-500/10 dark:text-red-300">

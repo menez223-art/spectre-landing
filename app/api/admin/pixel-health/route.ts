@@ -5,7 +5,7 @@
 // بوابة أمان: جلسة كوكي الأدمن + CRON_SECRET (مثل بقية مسارات الأدمن).
 
 import { NextResponse } from "next/server";
-import { getAdminSession } from "@/app/lib/adminAuth";
+import { getAdminEmail, assertAdminSession } from "@/app/lib/adminAuth";
 import { safeSecretEqual } from "@/app/lib/utils/security";
 import { isDeviceApproved } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
@@ -14,7 +14,6 @@ export const dynamic = "force-dynamic";
 // فحص سريع (CAPI ping + env check) — أقل من 10 ثوانٍ.
 export const maxDuration = 30;
 
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").toLowerCase();
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
 interface HealthCheck {
@@ -26,12 +25,13 @@ async function assertAdmin(request: Request, fingerprint?: string): Promise<bool
   if (CRON_SECRET && safeSecretEqual(request.headers.get("authorization") ?? "", `Bearer ${CRON_SECRET}`)) {
     return true;
   }
-  if (!ADMIN_EMAIL) return false;
-  if (getAdminSession() === ADMIN_EMAIL) return true;
+  if (await assertAdminSession()) return true;
+  const adminEmail = await getAdminEmail();
+  if (!adminEmail) return false;
   if (!fingerprint) return false;
   if (!(await isDeviceApproved(fingerprint))) return false;
   const email = await getProfileEmail(fingerprint);
-  return email?.toLowerCase() === ADMIN_EMAIL;
+  return email?.toLowerCase() === adminEmail;
 }
 
 function forbidden(): NextResponse {

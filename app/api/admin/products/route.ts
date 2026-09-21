@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminSession } from "@/app/lib/adminAuth";
+import { assertAdminSession } from "@/app/lib/adminAuth";
 import {
   listPublishedProducts,
   getPublishedProduct,
@@ -12,15 +12,16 @@ import type { Product } from "@/app/lib/types";
 
 export const dynamic = "force-dynamic";
 
-// مصادقة المشرف عبر جلسة الكوكي فقط (getAdminSession) — بلا أي فرع بصمة جهاز،
+// مصادقة المشرف عبر جلسة الكوكي فقط — بلا أي فرع بصمة جهاز،
 // كي يبقى هذا المسار بعيداً كلياً عن نظام حظر/سماح الأجهزة.
-function isAdmin(): boolean {
-  return getAdminSession() !== null;
+// assertAdminSession يتحقق من التوقيع + مطابقة البريد الفعلي (تجاوز أو env).
+async function isAdmin(): Promise<boolean> {
+  return assertAdminSession();
 }
 
 // GET: قائمة كل منتجات المتجر للإشراف (منتج + مالك + أعلام الإدراج/الإخفاء/الحرق).
 export async function GET() {
-  if (!isAdmin()) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   try {
     const entries = await listPublishedProducts();
     const items = await Promise.all(
@@ -54,7 +55,7 @@ export async function GET() {
 // - hide/unhide: يضبط علَم الإخفاء من المتجر فقط (لا يمسّ صفحة /p/<slug> ولا الحظر).
 // - delete: يحذف المنتج وصفحته /p/<slug> نهائياً (لا يمكن التراجع).
 export async function POST(request: Request) {
-  if (!isAdmin()) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   let body: Record<string, unknown>;
   try {

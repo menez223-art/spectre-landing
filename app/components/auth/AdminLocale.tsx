@@ -76,7 +76,7 @@ export function AdminLangToggle() {
       type="button"
       onClick={() => setLang(next)}
       title={lang === "ar" ? "Switch to English" : "التبديل للعربية"}
-      className="rounded-full border border-navy-900/15 px-3 py-1.5 text-[11px] font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 sm:px-4 sm:py-2 sm:text-xs dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400"
+      className="rounded-full border border-navy-900/15 px-3 py-1.5 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 sm:px-4 sm:py-2 sm:text-[11px] dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400 min-h-[44px] touch-manipulation sm:min-h-0"
     >
       {lang === "ar" ? "EN" : "ع"}
     </button>

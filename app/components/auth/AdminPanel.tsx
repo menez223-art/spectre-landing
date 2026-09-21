@@ -2,8 +2,11 @@
 
 import { useEffect, useState, useMemo } from "react";
 import type { Plan, Subscription, SubStatus } from "@/app/lib/subsStore";
+import type { I18nKey } from "@/app/lib/i18n";
 import { GuestTrialsPanel } from "./GuestTrialsPanel";
 import { SiteCopyPanel } from "./SiteCopyPanel";
+import { CredentialsPanel } from "./CredentialsPanel";
+import { StoragePanel } from "./StoragePanel";
 import { useAdminLocale } from "@/app/components/auth/AdminLocale";
 
 // ── الأنواع ──
@@ -46,25 +49,27 @@ interface Stats {
 // ── الثوابت ──
 // PLAN_LABELS و STATUS_LABELS تُحسب الآن من t() داخل كل مكون.
 // نوفّر دوال مساعدة:
-function planLabel(t: (k: any) => string, plan: Plan): string {
+type TranslateFn = (key: I18nKey, vars?: Record<string, string | number>) => string;
+
+function planLabel(t: TranslateFn, plan: Plan): string {
   return plan === "basic" ? t("adminPlanBasic") : plan === "pro" ? t("adminPlanPro") : t("adminPlanGold");
 }
 // سبب التوقيف **بيانات مخزَّنة** — تبقى عربية في القاعدة (لأن الفلترة في
 // suspendedAuto تعتمد عليها)، وتُترجَم **للعرض فقط** عبر هذه الخريطة.
 // أي سبب غير معروف يُعرض كما هو بلا تغيير.
-const REASON_KEYS: Record<string, string> = {
+const REASON_KEYS: Record<string, I18nKey> = {
   "إيقاف مؤقت من المشرف.": "adminReasonSuspended",
   "حظر من المشرف.": "adminReasonBanned",
   "انتهت صلاحية الاشتراك.": "adminReasonExpired",
   "إيقاف جماعي من المشرف.": "adminReasonBulkSuspended",
 };
-function reasonLabel(t: (k: any) => string, reason: string | null | undefined): string {
+function reasonLabel(t: TranslateFn, reason: string | null | undefined): string {
   if (!reason) return "";
   const k = REASON_KEYS[reason.trim()];
   return k ? t(k) : reason;
 }
 
-function statusLabel(t: (k: any) => string, status: SubStatus): string {
+function statusLabel(t: TranslateFn, status: SubStatus): string {
   return status === "active" ? t("adminStatusActive") : status === "suspended" ? t("adminStatusSuspended") : status === "banned" ? t("adminStatusBanned") : t("adminStatusExpired");
 }
 
@@ -164,18 +169,20 @@ const Icons: Record<string, React.FC<{ className?: string }>> = {
   ),
 };
 // ── مكونات واجهة مشتركة ──
+// تحسينات الموبايل: min-h-[44px] (معيار اللمس) + touch-manipulation (منع تأخير 300ms)
+// أحجام الخطوط: text-xs على الموبايل (12px) ثم text-[11px] على الديسكتوب (أكثر كثافة)
 const stInput =
   "w-full rounded-lg border border-navy-900/15 bg-white dark:bg-navy-800 px-3 py-2 text-[16px] text-navy-900 dark:text-white outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm";
 const stBtnGhost =
-  "rounded-lg border border-navy-900/15 px-3 py-1.5 text-[11px] font-bold text-navy-700 dark:text-navy-300 transition hover:border-navy-500 hover:text-navy-900 dark:hover:text-white";
+  "rounded-lg border border-navy-900/15 px-3 py-1.5 text-xs font-bold text-navy-700 dark:text-navy-300 transition hover:border-navy-500 hover:text-navy-900 dark:hover:text-white min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]";
 const stBtnPrimary =
-  "rounded-lg bg-navy-900 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-navy-700 disabled:opacity-60";
+  "rounded-lg bg-navy-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-navy-700 disabled:opacity-60 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]";
 const stBtnDanger =
-  "rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-red-500 disabled:opacity-60";
+  "rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-red-500 disabled:opacity-60 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]";
 const stBtnSuccess =
-  "rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60";
+  "rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]";
 const stBtnWarning =
-  "rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-600 disabled:opacity-60";
+  "rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-amber-600 disabled:opacity-60 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]";
 
 // نافذة تأكيد منبثقة
 function ConfirmDialog({
@@ -358,7 +365,7 @@ function SubscriptionCard({
 }: {
   row: SubRow;
   busy: boolean;
-  onAction: (kind: string, opts?: any) => void;
+  onAction: (kind: string, opts?: { plan?: Plan; days?: number }) => void;
   onExpand: () => void;
   isExpanded: boolean;
   isSelected: boolean;
@@ -424,7 +431,7 @@ function SubscriptionCard({
             type="checkbox"
             checked={isSelected}
             onChange={(e) => { e.stopPropagation(); onSelect(); }}
-            className="w-4 h-4 rounded border-navy-900/15 text-navy-500 focus:ring-2 focus:ring-navy-500/20 cursor-pointer"
+            className="w-5 h-5 rounded border-navy-900/15 text-navy-500 focus:ring-2 focus:ring-navy-500/20 cursor-pointer touch-manipulation sm:w-4 sm:h-4"
           />
           <div className="min-w-0 flex-1">
             {row.storeName ? (
@@ -464,7 +471,7 @@ function SubscriptionCard({
               value={editPlan}
               onChange={(e) => setEditPlan(e.target.value as Plan)}
               disabled={saving || busy}
-              className="rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-1.5 text-[16px] font-semibold text-navy-900 dark:text-white disabled:opacity-50 sm:text-[11px]"
+              className="rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-2 text-[16px] font-semibold text-navy-900 dark:text-white disabled:opacity-50 min-h-[44px] touch-manipulation sm:min-h-0 sm:py-1.5 sm:text-[11px]"
             >
               <option value="basic">{t("adminPlanBasicPrice")}</option>
               <option value="pro">{t("adminPlanProPrice")}</option>
@@ -479,7 +486,7 @@ function SubscriptionCard({
               value={editDays}
               onChange={(e) => setEditDays(e.target.value)}
               disabled={saving || busy}
-              className="w-20 rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-1.5 text-[16px] font-semibold text-navy-900 dark:text-white disabled:opacity-50 sm:text-[11px]"
+              className="w-20 rounded-lg border border-navy-900/15 bg-white dark:bg-navy-900 px-3 py-2 text-[16px] font-semibold text-navy-900 dark:text-white disabled:opacity-50 min-h-[44px] touch-manipulation sm:min-h-0 sm:py-1.5 sm:text-[11px]"
               placeholder="30"
             />
             <span className="text-[10px] text-navy-700 dark:text-navy-300">{t("adminDay")}</span>
@@ -487,7 +494,7 @@ function SubscriptionCard({
             <button
               onClick={handleSaveSubscription}
               disabled={saving || busy}
-              className="rounded-lg bg-emerald-500 hover:bg-emerald-600 px-4 py-1.5 text-[11px] font-bold text-white transition disabled:opacity-50"
+              className="rounded-lg bg-emerald-500 hover:bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white transition disabled:opacity-50 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]"
             >
               {saving ? t("adminSaving") : t("adminSave")}
             </button>
@@ -602,7 +609,7 @@ function SubscriptionCard({
               <button
                 onClick={(e) => { e.stopPropagation(); onAction("delete_pages"); }}
                 disabled={busy}
-                className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/40"
+                className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/40 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]"
               >
                 {t("adminDeletePages")}
               </button>
@@ -611,7 +618,7 @@ function SubscriptionCard({
               <button
                 onClick={(e) => { e.stopPropagation(); onAction("delete"); }}
                 disabled={busy}
-                className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-100 disabled:opacity-60 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40"
+                className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-100 disabled:opacity-60 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]"
               >
                 {t("adminDeleteSub")}
               </button>
@@ -624,7 +631,7 @@ function SubscriptionCard({
       <div className="flex justify-end">
         <button
           onClick={(e) => { e.stopPropagation(); onExpand(); }}
-          className="p-1 text-navy-900/40 hover:text-navy-900 dark:text-navy-300/40 dark:hover:text-white"
+          className="p-2 text-navy-900/40 hover:text-navy-900 dark:text-navy-300/40 dark:hover:text-white min-h-[44px] min-w-[44px] touch-manipulation sm:min-h-0 sm:min-w-0 sm:p-1"
         >
           <svg className={`w-5 h-5 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -733,7 +740,7 @@ function SmartWarnings({ rows }: { rows: SubRow[] }) {
           <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
             ⚠️ {t("adminQuotaWarn", { count: quotaExceeded.length })}
           </p>
-          <div className="grid gap-1 max-h-32 overflow-auto">
+          <div className="grid gap-1 max-h-48 overflow-auto sm:max-h-32">
             {quotaExceeded.map((r) => (
               <div key={r.userId} className="text-[10px] text-amber-800 dark:text-amber-300 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <code className="font-mono text-navy-900 dark:text-white min-w-0 truncate">{r.userId}</code>
@@ -751,7 +758,7 @@ function SmartWarnings({ rows }: { rows: SubRow[] }) {
           <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
             🔔 {t("adminExpiringWarn", { count: expiringSoon.length })}
           </p>
-          <div className="grid gap-1 max-h-32 overflow-auto">
+          <div className="grid gap-1 max-h-48 overflow-auto sm:max-h-32">
             {expiringSoon.map((r) => (
               <div key={r.userId} className="text-[10px] text-amber-800 dark:text-amber-300 flex flex-wrap items-center justify-between gap-2">
                 <code className="font-mono text-navy-900 dark:text-white min-w-0 truncate">{r.userId}</code>
@@ -767,7 +774,7 @@ function SmartWarnings({ rows }: { rows: SubRow[] }) {
           <p className="text-[11px] font-bold text-red-700 dark:text-red-400">
             🔴 {t("adminSuspendedAuto", { count: suspendedAuto.length })}
           </p>
-          <div className="grid gap-1 max-h-32 overflow-auto">
+          <div className="grid gap-1 max-h-48 overflow-auto sm:max-h-32">
             {suspendedAuto.map((r) => (
               <div key={r.userId} className="text-[10px] text-red-800 dark:text-red-300 flex flex-wrap items-center justify-between gap-2">
                 <code className="font-mono text-navy-900 dark:text-white min-w-0 truncate">{r.userId}</code>
@@ -835,8 +842,8 @@ function SearchFilterBar({
         <option value="pro">{t("adminPlanPro")}</option>
         <option value="gold">{t("adminPlanGold")}</option>
       </select>
-      <button onClick={onRefresh} disabled={loading} className={stBtnGhost}>
-        <Icons.Refresh className="inline mr-1" /> {t("adminRefresh")}
+      <button onClick={onRefresh} disabled={loading} className={`${stBtnGhost} flex items-center justify-center gap-1.5`}>
+        <Icons.Refresh className="inline" /> {t("adminRefresh")}
       </button>
     </div>
   );
@@ -854,6 +861,8 @@ export function AdminPanel({ email }: { email: string }) {
   // نافذة روابط تجربة الڤيست
   const [showTrials, setShowTrials] = useState(false);
   const [showSiteCopy, setShowSiteCopy] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [showStorage, setShowStorage] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<SubStatus | "all">("all");
   const [planFilter, setPlanFilter] = useState<Plan | "all">("all");
@@ -1327,7 +1336,7 @@ async function loadFallback() {
               role="tab"
               aria-selected={activeTab === tab}
               onClick={() => { setActiveTab(tab); setSearchQuery(""); }}
-              className={`rounded-full px-4 py-1.5 text-[11px] font-bold transition ${
+              className={`rounded-full px-4 py-2 text-xs font-bold transition min-h-[44px] touch-manipulation sm:min-h-0 sm:py-1.5 sm:text-[11px] ${
                 activeTab === tab
                   ? "bg-navy-900 text-white"
                   : "bg-navy-50 text-navy-700 hover:bg-navy-100 dark:bg-navy-800 dark:text-navy-300 dark:hover:bg-navy-700"
@@ -1356,16 +1365,23 @@ async function loadFallback() {
             </select>
             <button
               onClick={() => setShowTrials(true)}
-              className="rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-600"
+              className="rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-600 min-h-[44px] touch-manipulation sm:min-h-0"
             >
               {t("adminTrialLinks")}
             </button>
             <button
               onClick={() => setShowSiteCopy(true)}
               title={t("siteCopyTitle")}
-              className="rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 dark:border-white/15 dark:text-ivory-50"
+              className="rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 dark:border-white/15 dark:text-ivory-50 min-h-[44px] touch-manipulation sm:min-h-0"
             >
               ⚙ {t("siteCopyShort")}
+            </button>
+            <button
+              onClick={() => setShowCredentials(true)}
+              title={t("credSub")}
+              className="rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 dark:border-white/15 dark:text-ivory-50 min-h-[44px] touch-manipulation sm:min-h-0"
+            >
+              🔑 {t("credTitle")}
             </button>
             <button onClick={load} disabled={loading} className={stBtnGhost}>
               {loading ? <Icons.Refresh className="animate-spin w-4 h-4" /> : t("adminRefresh")}
@@ -1376,7 +1392,7 @@ async function loadFallback() {
         {/* إجراءات جماعية عند التحديد */}
         {selectedIds.size > 0 && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
-            <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">{selectedIds.size} {t("adminSelected")}</span>
+            <span className="text-xs font-bold text-blue-700 dark:text-blue-300 sm:text-[11px]">{selectedIds.size} {t("adminSelected")}</span>
             <button onClick={() => handleBulkAction("extend_7")} className={stBtnPrimary} disabled={busyId != null}>{t("adminExtend7")}</button>
             <button onClick={() => handleBulkAction("extend_30")} className={stBtnPrimary} disabled={busyId != null}>{t("adminExtend30")}</button>
             <button onClick={() => handleBulkAction("activate")} className={stBtnSuccess} disabled={busyId != null}>{t("adminActivate")}</button>
@@ -1448,7 +1464,7 @@ async function loadFallback() {
                         <button
                           onClick={() => setConfirm({ userId: r.userId, kind: "unban_purge" })}
                           disabled={busyId === r.userId}
-                          className="rounded-lg border border-red-300 dark:border-red-700 px-3 py-1.5 text-[11px] font-bold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-60"
+                          className="rounded-lg border border-red-300 dark:border-red-700 px-3 py-1.5 text-xs font-bold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-60 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]"
                         >
                           {t("adminDeleteInventory")}
                         </button>
@@ -1492,7 +1508,7 @@ async function loadFallback() {
             )}
 
             {health.entries.length > 0 && (
-              <div className="grid gap-1.5 max-h-72 overflow-auto">
+              <div className="grid gap-1.5 max-h-[50vh] overflow-auto sm:max-h-72">
                 {health.entries.map((e) => (
                   <div
                     key={e.slug}
@@ -1542,7 +1558,7 @@ async function loadFallback() {
         {products.length === 0 && !productsBusy ? (
           <p className="py-6 text-center text-[11px] text-navy-900/45 dark:text-navy-300/45">{t("adminNoProducts")}</p>
         ) : (
-          <div className="grid max-h-[32rem] gap-2 overflow-auto">
+          <div className="grid max-h-[50vh] gap-2 overflow-auto sm:max-h-[32rem]">
             {products.map((p) => (
               <div
                 key={p.slug}
@@ -1577,7 +1593,7 @@ async function loadFallback() {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <a href={`/p/${p.slug}`} target="_blank" rel="noopener" className={stBtnGhost}>{t("adminOpen")}</a>
+                  <a href={`/p/${p.slug}`} target="_blank" rel="noopener" className={stBtnGhost} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{t("adminOpen")}</a>
                   <button onClick={() => setEditProduct(p)} disabled={productBusySlug === p.slug} className={stBtnPrimary}>{t("adminEdit")}</button>
                   {p.hidden ? (
                     <button onClick={() => applyProductAction(p.slug, "unhide")} disabled={productBusySlug === p.slug} className={stBtnSuccess}>{t("adminShow")}</button>
@@ -1588,7 +1604,7 @@ async function loadFallback() {
                   <button
                     onClick={() => setProductDeleteTarget(p)}
                     disabled={productBusySlug === p.slug}
-                    className="rounded-full border border-red-500/40 px-2.5 py-1.5 text-[11px] font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 sm:px-4 sm:py-2 sm:text-xs dark:hover:bg-red-500/10"
+                    className="rounded-full border border-red-500/40 px-2.5 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 sm:px-4 sm:py-2 sm:text-[11px] dark:hover:bg-red-500/10 min-h-[44px] touch-manipulation sm:min-h-0"
                     title={t("adminDeleteProductTitle")}
                     aria-label={t("adminDeleteProductTitle")}
                   >
@@ -1665,9 +1681,18 @@ async function loadFallback() {
       <section className="liquid-glass liquid-glass--rounded grid gap-3 overflow-hidden rounded-2xl p-4 sm:gap-4 sm:rounded-3xl sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-base font-bold">{t("adminFallbackTitle")}</h2>
-          <button onClick={loadFallback} disabled={fallbackBusy} className={stBtnGhost}>
-            {t("adminRefresh")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowStorage(true)}
+              title={t("storSub")}
+              className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-100 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]"
+            >
+              {t("storOpen")}
+            </button>
+            <button onClick={loadFallback} disabled={fallbackBusy} className={stBtnGhost}>
+              {t("adminRefresh")}
+            </button>
+          </div>
         </div>
 
         {/* شريط السعة */}
@@ -1725,7 +1750,7 @@ async function loadFallback() {
             <button
               onClick={() => setFallback("disable")}
               disabled={fallbackBusy}
-              className="rounded-lg bg-navy-900 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-navy-700 disabled:opacity-60"
+              className="rounded-lg bg-navy-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-navy-700 disabled:opacity-60 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]"
             >
               {t("adminDisableFallback")}
             </button>
@@ -1733,7 +1758,7 @@ async function loadFallback() {
             <button
               onClick={() => setFallback("enable")}
               disabled={fallbackBusy}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60"
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60 min-h-[44px] touch-manipulation sm:min-h-0 sm:text-[11px]"
             >
               {t("adminEnableFallback")}
             </button>
@@ -1799,6 +1824,8 @@ async function loadFallback() {
       {/* نافذة روابط تجربة الڤيست */}
       {showTrials && <GuestTrialsPanel onClose={() => setShowTrials(false)} />}
       {showSiteCopy && <SiteCopyPanel onClose={() => setShowSiteCopy(false)} />}
+      {showCredentials && <CredentialsPanel onClose={() => setShowCredentials(false)} />}
+      {showStorage && <StoragePanel onClose={() => setShowStorage(false)} />}
     </div>
   );
 }

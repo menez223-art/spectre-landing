@@ -1,6 +1,6 @@
 ﻿// مقارنة ثابتة زمنياً (timing-safe equal) لحماية من تسريب البادئات عبر توقيت الاستجابة.
 import { timingSafeEqual } from "crypto";
-import { MASTER_USERNAME, MASTER_PASSWORD } from "@/app/lib/credentials";
+import { getStudioCredentials } from "@/app/lib/credentials";
 import {
   addApprovedDevice,
   createPendingCode,
@@ -25,10 +25,9 @@ import {
 } from "@/app/lib/utils/api";
 import { isNonEmptyString } from "@/app/lib/utils/validation";
 import { isExpired, nowISO } from "@/app/lib/utils/date";
+import { getAdminEmail } from "@/app/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").toLowerCase();
 
 // ── حدّ إيقاع لكل بصمة (KV — أفضل جهد، لا يحجب الشرعيين عند عطب التخزين) ──
 // غرضه الأساسي: منع قصف بريد المشرف برموز تحقق متكررة باستغلال بيانات
@@ -81,12 +80,15 @@ export async function POST(request: Request) {
   const password = String(body.password ?? "");
   const fingerprint = String(body.fingerprint ?? "").trim();
 
-  if (username.toLowerCase() !== MASTER_USERNAME) {
+  // قراءة بيانات الدخول الفعلية (تجاوز KV أولاً، ثم env)
+  const { username: expectedUsername, password: expectedPassword } = await getStudioCredentials();
+
+  if (username.toLowerCase() !== expectedUsername.toLowerCase()) {
     return unauthorizedResponse("invalid_credentials");
   }
   // مقارنة كلمة المرور بـ timingSafeEqual لمنع تسريب البادئات عبر التوقيت.
   // حارس الطول يمنع رمي ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH (نفس النمط في adminAuth).
-  const expected = Buffer.from(MASTER_PASSWORD, "utf-8");
+  const expected = Buffer.from(expectedPassword, "utf-8");
   const provided = Buffer.from(password, "utf-8");
   if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
     return unauthorizedResponse("invalid_credentials");
@@ -103,7 +105,7 @@ export async function POST(request: Request) {
   // فحص الحظر الشامل (اقتراح 2): إيميل محظور أو صفّ جهاز محظور → يُمنع الدخول.
   // نُستثني المشرف (بريده يطابق ADMIN_EMAIL) كي لا يُغلق النظام على نفسه.
   const email = await getProfileEmail(fingerprint);
-  const isAdminUser = Boolean(email) && email!.toLowerCase() === ADMIN_EMAIL;
+  const isAdminUser = Boolean(email) && email!.toLowerCase() === (await getAdminEmail());
   if (!isAdminUser) {
     // حظر صفّ الجهاز المستقل — يشمل الأجهزة التي ليس لها إيميل مربوط
     // (هوية device:<hash> فقط) فيُمنع من الدخول فوراً رغم غياب البريد.
@@ -135,12 +137,12 @@ export async function POST(request: Request) {
     // يغلق ثغرة «فقدان سجل الحساب ⇒ اعتماد تلقائي لأول مَن يعرف الباص».
     if (!(await hasAnyApprovedDevice())) {
       await addApprovedDevice(fingerprint);
-      return successResponse({ approved: true, username: MASTER_USERNAME });
+      return successResponse({ approved: true, username: expectedUsername });
     }
 
     // جهاز معتمد → دخول مباشر
     if (await isDeviceApproved(fingerprint)) {
-      return successResponse({ approved: true, username: MASTER_USERNAME });
+      return successResponse({ approved: true, username: expectedUsername });
     }
 
     // جهاز جديد: رمز معلّق وصالح → لا نرسل بريدًا جديدًا (تفادي تكرار الإزعاج)

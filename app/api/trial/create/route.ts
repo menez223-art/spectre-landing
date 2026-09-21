@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { hasPublishStore } from "@/app/lib/publishStore";
-import { getKv } from "@/app/lib/kvStore";
+import { getKv, setKv, deleteKv } from "@/app/lib/kvStore";
 import {
   createTrial,
   getTrial,
@@ -103,6 +103,40 @@ export async function POST(request: Request) {
     const byWa = await getTrialByWhatsapp(wa);
     if (byWa) return NextResponse.json({ error: "whatsapp_used" }, { status: 409 });
 
+    // ٧) رمز التفعيل عبر واتساب — **شرط أساسي** لإنشاء رابط التجربة.
+    //    يُطلب بالرمز، ويُربط بالإيميل + الجهاز + الواتساب معاً (لا يكفي الرمز وحده).
+    //    حدّ المحاولات 5 ثم يُبطَل الرمز (منع التخمين).
+    const code = String(body.code ?? "").trim();
+    if (!/^\d{6}$/.test(code)) return bad("bad_code");
+
+    const codeKey = `trial-code/${email}.json`;
+    let codeRec: { code?: string; whatsapp?: string; deviceFp?: string; tries?: number; expiresAt?: string } | null = null;
+    try {
+      codeRec = await getKv(codeKey);
+    } catch {
+      return bad("storage", 502);
+    }
+    if (!codeRec || typeof codeRec.code !== "string") {
+      return NextResponse.json({ error: "code_required" }, { status: 403 });
+    }
+    if (codeRec.deviceFp !== deviceFp || codeRec.whatsapp !== wa) {
+      return NextResponse.json({ error: "code_mismatch" }, { status: 403 });
+    }
+    const codeExp = Date.parse(String(codeRec.expiresAt ?? ""));
+    if (!Number.isFinite(codeExp) || codeExp <= Date.now()) {
+      try { await deleteKv(codeKey); } catch { /* تنظيف اختياري */ }
+      return NextResponse.json({ error: "code_expired" }, { status: 403 });
+    }
+    const tries = typeof codeRec.tries === "number" ? codeRec.tries : 0;
+    if (tries >= 5) {
+      try { await deleteKv(codeKey); } catch { /* تنظيف اختياري */ }
+      return NextResponse.json({ error: "code_locked" }, { status: 429 });
+    }
+    if (codeRec.code !== code) {
+      try { await setKv(codeKey, { ...codeRec, tries: tries + 1 }); } catch { /* عدّ اختياري */ }
+      return NextResponse.json({ error: "bad_code" }, { status: 403 });
+    }
+
     const slug = newSlug();
     // ثيم الزائر المختار في الاستوديو (معقّم خادمياً) — وإلا لوحة الصنف الجاهزة.
     const chosen = sanitizeTheme(body.theme);
@@ -139,6 +173,10 @@ export async function POST(request: Request) {
       trialUntil,
     };
     const rec = await createTrial({ email, whatsapp: wa, deviceFp, slug }, { product, meta });
+
+    // استهلاك الرمز — يُحذف فور النجاح كي لا يُستعمل ثانيةً
+    try { await deleteKv(codeKey); } catch { /* تنظيف اختياري */ }
+
     const origin = new URL(request.url).origin;
 
     return NextResponse.json({

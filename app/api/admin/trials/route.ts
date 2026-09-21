@@ -7,7 +7,7 @@
 // ⚠️ لا يمسّ هذا المسار أي رابط لمشترك حقيقي — روابط الڤيست فقط.
 
 import { NextResponse } from "next/server";
-import { ADMIN_EMAIL, getAdminSession } from "@/app/lib/adminAuth";
+import { getAdminEmail, assertAdminSession } from "@/app/lib/adminAuth";
 import { isDeviceApproved } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
 import { getPublishedMeta, getPublishedProduct, setPublishedMeta } from "@/app/lib/publishStore";
@@ -30,14 +30,15 @@ function forbidden() {
 }
 
 // بوابة الأدمن — نفس منطق مسارات الأدمن الأخرى:
-//   1) جلسة موقّعة (كوكي)، أو 2) جهاز استوديو معتمد مربوط ببريد ADMIN_EMAIL.
+//   1) جلسة موقّعة (كوكي)، أو 2) جهاز استوديو معتمد مربوط ببريد الأدمن الفعلي.
 async function assertAdmin(fingerprint?: string): Promise<boolean> {
-  if (!ADMIN_EMAIL) return false;
-  if (getAdminSession() === ADMIN_EMAIL) return true;
+  if (await assertAdminSession()) return true;
+  const adminEmail = await getAdminEmail();
+  if (!adminEmail) return false;
   if (!fingerprint) return false;
   if (!(await isDeviceApproved(fingerprint))) return false;
   const email = await getProfileEmail(fingerprint);
-  return email?.toLowerCase() === ADMIN_EMAIL;
+  return email?.toLowerCase() === adminEmail;
 }
 
 export async function GET(request: Request) {

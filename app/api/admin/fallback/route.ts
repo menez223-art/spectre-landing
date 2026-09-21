@@ -3,7 +3,7 @@
 // بـ ADMIN_EMAIL). لا يُثق بالعميل — كل طلب يُتحقَّق منه خادمياً.
 
 import { NextResponse } from "next/server";
-import { getAdminSession } from "@/app/lib/adminAuth";
+import { getAdminEmail, assertAdminSession } from "@/app/lib/adminAuth";
 import { isDeviceApproved } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
 import { getKv, setKv } from "@/app/lib/kvStore";
@@ -17,16 +17,16 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").toLowerCase();
 const FALLBACK_MODE_KEY = "fallback_mode";
 
 async function assertAdmin(fingerprint?: string): Promise<boolean> {
-  if (!ADMIN_EMAIL) return false;
-  if (getAdminSession() === ADMIN_EMAIL) return true;
+  if (await assertAdminSession()) return true;
+  const adminEmail = await getAdminEmail();
+  if (!adminEmail) return false;
   if (!fingerprint) return false;
   if (!(await isDeviceApproved(fingerprint))) return false;
   const email = await getProfileEmail(fingerprint);
-  return email?.toLowerCase() === ADMIN_EMAIL;
+  return email?.toLowerCase() === adminEmail;
 }
 
 function forbidden(): NextResponse {

@@ -4,10 +4,9 @@ import { getProfileEmail } from "@/app/lib/profileStore";
 import { getMergedProfileView } from "@/app/lib/marketingStore";
 import { reassignOwner } from "@/app/lib/publishStore";
 import { getSubscription, ensureSubscription, recomputeStatus, remainingDays, reconcileSubscription } from "@/app/lib/subsStore";
+import { getAdminEmail } from "@/app/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").toLowerCase();
 
 // فحص حالة الجهاز عند فتح الاستوديو — معتمد؟ يُعرض المحتوى، وإلا فالعميل يعرض تسجيل الدخول.
 // كما يتحقّق من حالة اشتراك المستخدم: محظور/موقوف/منتهٍ → يُمنع الدخول حتى لو الجهاز معتمد.
@@ -28,9 +27,9 @@ export async function GET(request: Request) {
       // اقتراح 2: تمييز «جهاز محظور على صفّه المستقل» (بما فيه الأجهزة بلا إيميل،
       // أو جهاز معتمد حُظر لاحقاً) عن «غير معتمد أصلاً». المحظور يُرجع blocked:true
       // كي يطرده AuthGate إلى الرئيسية، لا أن يعرض له شاشة تفعيل الرمز.
-      // نُستثني المشرف (ADMIN_EMAIL) كي لا يُقفل نظامه على نفسه.
+      // نُستثني المشرف (بريد الأدمن الفعلي) كي لا يُقفل نظامه على نفسه.
       const email0 = await getProfileEmail(fingerprint);
-      const isAdminUser = Boolean(email0) && email0!.toLowerCase() === ADMIN_EMAIL;
+      const isAdminUser = Boolean(email0) && email0!.toLowerCase() === (await getAdminEmail());
       if (!isAdminUser) {
         let deviceBanned = false;
         try { deviceBanned = await isDeviceBanned(fingerprint); } catch {
@@ -53,8 +52,8 @@ export async function GET(request: Request) {
     const email = await getProfileEmail(fingerprint);
     const subUserId = email ?? getDeviceOwner(fingerprint);
 
-    // المشرف = البريد المربوط يطابق ADMIN_EMAIL (يُحسب خادميًا فقط).
-    const isAdmin = Boolean(email) && email!.toLowerCase() === ADMIN_EMAIL;
+    // المشرف = البريد المربوط يطابق بريد الأدمن الفعلي (يُحسب خادميًا فقط).
+    const isAdmin = Boolean(email) && email!.toLowerCase() === (await getAdminEmail());
 
     // ضمان وجود صف اشتراك لكل مستخدم يدخل الستوديو (بما فيه المشرف)
     // كي يعرض العميل تفاصيل اشتراكه دائماً.
