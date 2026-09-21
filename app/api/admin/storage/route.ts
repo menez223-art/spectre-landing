@@ -6,9 +6,10 @@
 // ⚠️ لا رجعة في الحذف — الواجهة تعرض تأكيداً إلزامياً + تحذيرات حسب الخطورة.
 
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { assertAdminSession } from "@/app/lib/adminAuth";
 import { deleteKvMany, listKvKeys } from "@/app/lib/kvStore";
+import { SITE_COPY_TAG } from "@/app/lib/siteCopyShared";
 
 export const dynamic = "force-dynamic";
 
@@ -112,7 +113,9 @@ export async function POST(request: Request) {
       deleted += n;
     }
 
-    // الرئيسية تقرأ site-copy — نُبطل الكاش بعد أي حذف
+    // الرئيسية تقرأ site-copy — نُبطل الكاش (وسم + مسار) بعد أي حذف.
+    // الوسم ضروري: بدون إسقاط مدخل unstable_cache تبقى الرئيسية بنصوص محذوفة.
+    revalidateTag(SITE_COPY_TAG);
     revalidatePath("/");
 
     return NextResponse.json({ ok: true, deleted, perCategory });

@@ -9,6 +9,8 @@
 import { NextResponse } from "next/server";
 import { getKv, setKv } from "@/app/lib/kvStore";
 import { normalizeWhatsapp } from "@/app/lib/trialStore";
+import { findSubscriberConflict } from "@/app/lib/trialGuard";
+import { assertAdminSession } from "@/app/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,15 @@ function generateCode(): string {
   crypto.getRandomValues(bytes);
   const n = (bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24)) >>> 0;
   return String(100000 + (n % 900000)); // 100000-999999
+}
+
+/** هل الطلب صادر بجلسة أدمن موقّعة؟ (استثناء اختبار المالك — مطابق لمسار الإنشاء) */
+async function isAdminRequest(): Promise<boolean> {
+  try {
+    return await assertAdminSession();
+  } catch {
+    return false;
+  }
 }
 
 async function hitLimit(key: string): Promise<boolean> {
@@ -61,6 +72,28 @@ export async function POST(request: Request) {
 
   if (await hitLimit(deviceFp)) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+
+  // شروط المالك الثلاثة تُفحص **قبل** توليد الرمز: لا معنى لفتح واتساب
+  // وإرسال رمز لطلب ساقط أصلاً (رقم/جهاز/إيميل يخصّ مشتركاً حقيقياً).
+  // فشل التخزين ⇒ 502 صريح لا رمز (fail-closed) بدل تمرير الطلب بصمت.
+  // استثناء جلسة الأدمن الموقّعة مطابق لمسار الإنشاء (لاختبار المالك فقط).
+  let conflict: string | null = null;
+  if (!(await isAdminRequest())) {
+    try {
+      conflict = await findSubscriberConflict({ email, whatsapp, deviceFp });
+    } catch {
+      return NextResponse.json({ error: "storage" }, { status: 502 });
+    }
+  }
+  if (conflict === "email") {
+    return NextResponse.json({ error: "already_subscribed" }, { status: 409 });
+  }
+  if (conflict === "whatsapp") {
+    return NextResponse.json({ error: "whatsapp_subscribed" }, { status: 409 });
+  }
+  if (conflict === "device") {
+    return NextResponse.json({ error: "device_subscribed" }, { status: 409 });
   }
 
   const code = generateCode();

@@ -7,12 +7,12 @@
 //    خارجها يُتجاهَل في طبقة التخزين نفسها، فلا يمكن تخريب بقية الواجهة.
 
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getAdminEmail, assertAdminSession } from "@/app/lib/adminAuth";
 import { isDeviceApproved } from "@/app/lib/authStore";
 import { getProfileEmail } from "@/app/lib/profileStore";
 import { getSiteCopy, saveSiteCopy } from "@/app/lib/siteCopy";
-import { SITE_COPY_GROUPS, SITE_COPY_KEYS, type SiteCopy } from "@/app/lib/siteCopyShared";
+import { SITE_COPY_GROUPS, SITE_COPY_KEYS, SITE_COPY_TAG, type SiteCopy } from "@/app/lib/siteCopyShared";
 import { translate } from "@/app/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -75,8 +75,12 @@ export async function POST(request: Request) {
   try {
     // طبقة التخزين تُنقّي المفاتيح والقيم بنفسها (sanitize) — لا نثق بالمدخل.
     const saved = await saveSiteCopy(incoming as SiteCopy);
-    // إبطال كاش unstable_cache فوراً حتى تظهر التعديلات في الرئيسية دون انتظار
-    // مدة revalidate (60 ثانية). هذا هو إصلاح «غيّرت الكلمات ولم تتغير».
+    // إبطال الكاش **بوسم** + إبطال كاش المسار. الاثنان معاً مقصودان:
+    //   • revalidateTag يُسقط مدخل unstable_cache فوراً ⇒ القراءة التالية بالقيمة الجديدة
+    //     (revalidatePath وحده كان لا يكفي: الطبقة الداخلية تبقى بائتة فتظل الصفحة
+    //      تُبنى من نص قديم بلا نهاية — علّة «غيّرت ولم تتغير»).
+    //   • revalidatePath يُبطل كاش مسار الرئيسية (ISR) ⇒ لا انتظار ٦٠ ثانية.
+    revalidateTag(SITE_COPY_TAG);
     revalidatePath("/");
     return NextResponse.json({ ok: true, copy: saved });
   } catch (err) {

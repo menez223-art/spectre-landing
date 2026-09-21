@@ -65,13 +65,18 @@ const keyFor = (email: string) => `${P}${norm(email)}.json`;
 const devKeyFor = (deviceFp: string) => `${D}${deviceFp}.json`;
 
 /**
- * تطبيع رقم الواتساب إلى أرقام فقط، مع إزالة البادئة الدولية المزدوجة:
- * `+213 555 11 11 11` و `00213555111111` و `213555111111` ⇒ `213555111111`
- * التوحيد ضروري وإلا تهرّب المستخدم من قيد «مرة واحدة» بتغيير التنسيق.
+ * تطبيع رقم الواتساب إلى الصيغة الدولية الكنسية (بلا +) — الجزائر افتراضاً:
+ *   `+213 555 11 11 11` · `00213555111111` · `213555111111` ⇒ `213555111111`
+ *   `0555111111` ⇒ `2135551111`  ← الحالة المحلية (تُطبَّع إلى الدولية)
+ * التوحيد ضروري وإلا تهرّب المستخدم من قيد «مرة واحدة» بتغيير التنسيق،
+ * وهو **نفس** التوحيد المستعمل لمقارنة رقم الضيف بأرقام المشتركين
+ * (وإلا لَما التُقط رقم مشترك مخزَّن بصيغة محلية تبدأ بـ 0).
  */
 export function normalizeWhatsapp(raw: string): string {
-  const digits = String(raw ?? "").replace(/[^\d]/g, "");
-  return digits.replace(/^00/, "");
+  const digits = String(raw ?? "").replace(/[^\d]/g, "").replace(/^00/, "");
+  // صيغة محلية جزائرية: 0 + 9 خانات (10 إجمالاً) ⇒ 213 + الخانات التسع
+  if (/^0\d{9}$/.test(digits)) return `213${digits.slice(1)}`;
+  return digits;
 }
 
 const waKeyFor = (whatsapp: string) => `${W}${normalizeWhatsapp(whatsapp)}.json`;
@@ -81,23 +86,36 @@ export async function getTrial(email: string): Promise<TrialRecord | null> {
   return rec && typeof rec.email === "string" ? rec : null;
 }
 
-export async function getTrialByDevice(deviceFp: string): Promise<TrialRecord | null> {
-  if (!deviceFp) return null;
-  const idx = await getKv<{ email?: string }>(devKeyFor(deviceFp));
+/**
+ * الفهرس يشير إلى سجل غير موجود = فهرس معلّق (سجل حُرِّر أو حُذف بمسار آخر).
+ * نعتبر **السجل هو مصدر الحقيقة** فننظّف الفهرس المعلّق ونكمل، بدل رمي خطأ
+ * كان يُسقط مسار الإنشاء على 502 بلا أي علاج ممكن من لوحة الأدمن.
+ */
+async function readIndexedTrial(indexKey: string): Promise<TrialRecord | null> {
+  const idx = await getKv<{ email?: string }>(indexKey);
   if (!idx || typeof idx.email !== "string") return null;
   const rec = await getTrial(idx.email);
-  if (!rec) throw new Error("trial_index_inconsistent");
+  if (!rec) {
+    console.warn("[trialStore] فهرس تجربة معلّق بلا سجل — تنظيف:", indexKey, idx.email);
+    try {
+      await deleteKvMany([indexKey]);
+    } catch {
+      /* تنظيف اختياري */
+    }
+    return null;
+  }
   return rec;
+}
+
+export async function getTrialByDevice(deviceFp: string): Promise<TrialRecord | null> {
+  if (!deviceFp) return null;
+  return readIndexedTrial(devKeyFor(deviceFp));
 }
 
 export async function getTrialByWhatsapp(whatsapp: string): Promise<TrialRecord | null> {
   const d = normalizeWhatsapp(whatsapp);
   if (!d) return null;
-  const idx = await getKv<{ email?: string }>(waKeyFor(d));
-  if (!idx || typeof idx.email !== "string") return null;
-  const rec = await getTrial(idx.email);
-  if (!rec) throw new Error("trial_index_inconsistent");
-  return rec;
+  return readIndexedTrial(waKeyFor(d));
 }
 
 export async function listTrials(): Promise<TrialRecord[]> {
