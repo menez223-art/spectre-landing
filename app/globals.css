@@ -1,0 +1,470 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────
+   متغيرات الألوان المخصصة — يمكن للمستخدم تغييرها
+   الألوان الافتراضية: emerald/teal
+   ────────────────────────────────────────────────────────────── */
+:root {
+  --theme-primary: #10b981;
+  --theme-secondary: #0d9488;
+  --theme-primary-rgb: 16, 185, 129;
+  --theme-secondary-rgb: 13, 148, 136;
+}
+
+/* مخططات ألوان بديلة */
+[data-theme="blue"] {
+  --theme-primary: #3b82f6;
+  --theme-secondary: #2563eb;
+  --theme-primary-rgb: 59, 130, 246;
+  --theme-secondary-rgb: 37, 99, 235;
+}
+
+[data-theme="purple"] {
+  --theme-primary: #8b5cf6;
+  --theme-secondary: #7c3aed;
+  --theme-primary-rgb: 139, 92, 246;
+  --theme-secondary-rgb: 124, 58, 237;
+}
+
+[data-theme="rose"] {
+  --theme-primary: #f43f5e;
+  --theme-secondary: #e11d48;
+  --theme-primary-rgb: 244, 63, 94;
+  --theme-secondary-rgb: 225, 29, 72;
+}
+
+[data-theme="orange"] {
+  --theme-primary: #f97316;
+  --theme-secondary: #ea580c;
+  --theme-primary-rgb: 249, 115, 22;
+  --theme-secondary-rgb: 234, 88, 12;
+}
+
+[data-theme="cyan"] {
+  --theme-primary: #06b6d4;
+  --theme-secondary: #0891b2;
+  --theme-primary-rgb: 6, 182, 212;
+  --theme-secondary-rgb: 8, 145, 178;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-ivory-50 font-body text-navy-900 antialiased selection:bg-navy-500/20;
+  }
+
+  /* الخلفية الموحّدة للوضع الليلي — يطبّقها الصنف .dark على <html> */
+  .dark body {
+    @apply bg-[#05080c] text-ivory-50;
+  }
+
+  /* تطبيق ألوان الثيم على العناصر */
+  .theme-primary-bg {
+    background-color: var(--theme-primary);
+  }
+  .theme-secondary-bg {
+    background-color: var(--theme-secondary);
+  }
+  .theme-primary-text {
+    color: var(--theme-primary);
+  }
+  .theme-secondary-text {
+    color: var(--theme-secondary);
+  }
+  .theme-gradient {
+    background-image: linear-gradient(to right, var(--theme-primary), var(--theme-secondary));
+  }
+  .theme-shadow {
+    box-shadow: 0 10px 15px -3px rgba(var(--theme-primary-rgb), 0.3), 0 4px 6px -4px rgba(var(--theme-primary-rgb), 0.3);
+  }
+  .theme-shadow-lg {
+    box-shadow: 0 20px 25px -5px rgba(var(--theme-primary-rgb), 0.4), 0 8px 10px -6px rgba(var(--theme-primary-rgb), 0.4);
+  }
+  .theme-glow {
+    box-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.5);
+  }
+
+/* ──────────────────────────────────────────────────────────────
+   الوضع الليلي — تجاوزات مركزية للواجهة.
+   نبقي أزرار bg-navy-* داكنة (تُقرأ بنص فاتح)، ونقلب فقط
+   النصوص/الحدود/الأسطح الفاتحة لتناسب الخلفية الداكنة.
+   هذه التجاوزات أعلى تخصيصاً من أدوات Tailwind فتربح دائماً.
+   ────────────────────────────────────────────────────────────── */
+.dark .bg-white {
+  background-color: #161b22;
+}
+.dark .bg-ivory-50 {
+  background-color: #161b22;
+}
+.dark .bg-ivory-100 {
+  background-color: #1c232e;
+}
+.dark .border-navy-900\/10 {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.dark .border-navy-900\/15 {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* نصوص navy — تصبح فاتحة على الخلفية الداكنة */
+.dark .text-navy-900 {
+  color: #e8eef7;
+}
+.dark .text-navy-800 {
+  color: #c4d4ed;
+}
+.dark .text-navy-700 {
+  color: #9bb4da;
+}
+.dark .text-navy-600 {
+  color: #6f8fc0;
+}
+.dark .text-navy-500 {
+  color: #6f8fc0;
+}
+.dark .text-navy-400 {
+  color: #9bb4da;
+}
+.dark .text-navy-300 {
+  color: #c4d4ed;
+}
+.dark .text-navy-200 {
+  color: #e8eef7;
+}
+.dark .text-navy-100 {
+  color: #f7f4ed;
+}
+.dark .text-navy-50 {
+  color: #f7f4ed;
+}
+
+/* نصوص navy بشفافية — نفس اللون الفاتح مع نسبة الشفافية الأصلية */
+.dark .text-navy-900\/45 {
+  color: rgba(232, 238, 247, 0.45);
+}
+.dark .text-navy-900\/50 {
+  color: rgba(232, 238, 247, 0.5);
+}
+.dark .text-navy-900\/55 {
+  color: rgba(232, 238, 247, 0.55);
+}
+.dark .text-navy-900\/70 {
+  color: rgba(232, 238, 247, 0.7);
+}
+.dark .text-navy-900\/35 {
+  color: rgba(232, 238, 247, 0.35);
+}
+.dark .text-navy-700\/70 {
+  color: rgba(155, 180, 218, 0.7);
+}
+
+/* أثناء التحويم على الأزرار الفاتحة — نص فاتح */
+.dark .hover\:text-navy-900:hover {
+  color: #e8eef7;
+}
+.dark .hover\:border-navy-500:hover {
+  border-color: #4a6a96;
+}
+
+/* العناصر النائبة في الحقول */
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgba(232, 238, 247, 0.4);
+}
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .container-landing {
+    @apply mx-auto max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* ── Apple Liquid Glass (web-approximation) ──
+     تدرّج شبه شفاف + ضبابية قوية + لمسات إضاءة داخلية.
+     العناصر المستهلكة تضيف overflow-hidden + radius الخاصة بها. */
+  .liquid-glass {
+    position: relative;
+    isolation: isolate;
+    border: 1px solid rgb(255 255 255 / .32);
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / .30), rgb(255 255 255 / .08)),
+      rgb(255 255 255 / .12);
+    backdrop-filter: blur(24px) saturate(180%) contrast(1.05);
+    -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(1.05);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / .48),
+      inset 0 -1px 0 rgb(255 255 255 / .12),
+      0 18px 60px rgb(0 0 0 / .18);
+  }
+  .liquid-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle at 50% 0%, rgb(255 255 255 / .55), transparent 34%),
+      linear-gradient(90deg, rgb(255 255 255 / .18), transparent 42%, rgb(255 255 255 / .14));
+    pointer-events: none;
+  }
+  .liquid-glass::after {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: inherit;
+    border: 1px solid rgb(255 255 255 / .14);
+    pointer-events: none;
+  }
+  .dark .liquid-glass {
+    border-color: rgb(255 255 255 / .14);
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / .08), rgb(255 255 255 / .02)),
+      rgb(5 8 12 / .72);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / .18),
+      0 18px 70px rgb(0 0 0 / .72);
+  }
+  .liquid-glass--rounded { border-radius: 1.5rem; }
+  .liquid-glass--pill { border-radius: 9999px; }
+  @media (prefers-reduced-transparency: reduce) {
+    .liquid-glass {
+      background: rgb(255 255 255 / .96);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    .dark .liquid-glass { background: #161b22; }
+  }
+}
+
+/* ── شريط اختيار المنتجات (وضع المتجر) ──
+   نبقى على عرض منتج واحد كبير في Showcase؛ هنا شريط مدمج بصور
+   مصغّرة منظّمة لا يأخذ مساحة كبيرة. على الموبايل: شريط أفقي قابل
+   للتمرير (scroll-snap). على الشاشات الكبيرة: شبكة متجاوبة تملأ العرض.
+   (كانت هذه الأصناف مفقودة في نسخة React فتفيض الصور بلا قيد.) */
+.product-picker {
+  display: grid;
+  gap: 0.75rem;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(38%, 9.5rem);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 640px) {
+  .product-picker {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    overflow-x: visible;
+  }
+}
+.product-card {
+  display: grid;
+  gap: 0.5rem;
+  text-align: start;
+  cursor: pointer;
+  scroll-snap-align: start;
+  border-radius: 1.25rem;
+  border: 1px solid var(--c-border, rgba(0, 0, 0, 0.1));
+  background: var(--c-surface, #fff);
+  padding: 0.6rem;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.product-card:hover {
+  transform: translateY(-0.125rem);
+  border-color: var(--c-border-strong, rgba(0, 0, 0, 0.2));
+}
+.product-card--selected {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 2px var(--c-primary-soft, rgba(79, 70, 229, 0.15));
+}
+.product-card__thumb {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 0.875rem;
+  background: var(--c-surface-2, #f1f5f9);
+  box-shadow: 0 0 0 1px var(--c-border, rgba(0, 0, 0, 0.08));
+}
+.product-card__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.product-card__ph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+}
+.product-card__body {
+  display: grid;
+  gap: 0.15rem;
+}
+.product-card__name {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.product-card__price {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--c-accent);
+}
+
+/* انتقال سلس عند الدخول إلى الاستوديو — تعتيم + انزلاق لطيف.
+   يُفعَّل عبر إضافة .page-enter إلى <html> أثناء التنقّل، ويُزال بعد التحميل.
+   احترام تقليل الحركة (prefers-reduced-motion) مُعالَج أدناه. */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px) scale(0.995);
+  transition: opacity 0.32s ease, transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    opacity: 0;
+    transform: none;
+    transition: opacity 0.18s ease;
+  }
+}
+
+/* هالة متوهّجة خلف صورة المنتج — اللون من متغيرات الثيم */
+.glow-halo {
+  position: absolute;
+  inset: -2.5rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--c-glow) 0%, transparent 70%);
+  filter: blur(22px);
+  animation: glow-pulse 8s ease-in-out infinite;
+}
+
+/* تدرّج فوق صورة المنتج لضمان قراءة النص */
+.img-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: var(--c-img-overlay);
+}
+
+/* نص بتدرّج لوني — يستخدم لـ nameEn/العلامة */
+.l-text-gradient {
+  background-image: linear-gradient(to left, var(--c-accent), var(--c-text));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ظهور سلس لزر الطلب الثابت على الهاتف */
+@keyframes cta-rise {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.cta-rise {
+  animation: cta-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* طفو هادئ للصورة الرئيسية — كأن المجوهرة معلّقة في الهواء */
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.04);
+  }
+}
+
+/* ── تأثير التدرّج المتحرك للنص ── */
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 3s ease infinite;
+}
+
+/* تأثير glow للأزرار */
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-glow:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Glass morphism */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
