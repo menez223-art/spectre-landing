@@ -57,3 +57,6 @@ backup-untracked-2026-08-30/
 # تخزين التطوير المحلي (devKvStore) — بيانات تجربة فقط، لا تُلتزم ولا تُنشر
 .dev-kv/
 
+
+# بقايا أدوات محلية (freebuff harness)
+.freebuff/

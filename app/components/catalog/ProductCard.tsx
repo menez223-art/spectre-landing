@@ -97,12 +97,12 @@ export function ProductCard({ product }: { product: StoreCard }) {
               </Link>
             </h4>
             {product.eyebrow && (
-              <p className="mt-1 truncate text-[11px] font-semibold text-navy-900/45 dark:text-ivory-50/45">
+              <p className="mt-1 truncate text-[11px] font-semibold text-navy-900/65 dark:text-ivory-50/65">
                 {product.eyebrow}
               </p>
             )}
             {product.ownerDisplayName && (
-              <p className="mt-1 truncate text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+              <p className="mt-1 truncate text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
                 🛍️ {t("byOwner")} {product.ownerDisplayName}
               </p>
             )}
@@ -112,7 +112,7 @@ export function ProductCard({ product }: { product: StoreCard }) {
               {formatDZD(product.price)}
             </p>
             {product.oldPrice && product.oldPrice > product.price && (
-              <p className="text-[11px] text-navy-900/40 line-through dark:text-ivory-50/40">
+              <p className="text-[11px] text-navy-900/65 line-through dark:text-ivory-50/65">
                 {formatDZD(product.oldPrice)}
               </p>
             )}

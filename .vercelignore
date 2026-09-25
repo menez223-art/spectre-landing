@@ -27,3 +27,5 @@ ui-audit
 env_dump.json
 cookies.txt
 *.backup
+
+.freebuff

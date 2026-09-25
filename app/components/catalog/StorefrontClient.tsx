@@ -146,7 +146,7 @@ export function StorefrontClient() {
                 >
                   {cat}
                 </h2>
-                <span className="text-[11px] font-bold text-navy-900/45 dark:text-ivory-50/45">
+                <span className="text-[11px] font-bold text-navy-900/65 dark:text-ivory-50/65">
                   {t("catalogSectionCount", { n: items.length })}
                 </span>
               </div>
