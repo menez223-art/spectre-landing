@@ -128,7 +128,7 @@ export function CredentialsPanel({ onClose }: { onClose: () => void }) {
     }
   }
   const inputCls =
-    "w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/30 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#0f141a] dark:text-ivory-50 dark:placeholder:text-ivory-50/25 min-h-[44px] touch-manipulation sm:min-h-0";
+    "w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/60 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#0f141a] dark:text-ivory-50 dark:placeholder:text-ivory-50/60 min-h-[44px] touch-manipulation sm:min-h-0";
   const labelCls = "block text-[11px] font-bold text-navy-700 dark:text-navy-300";
   const btnPrimary =
     "rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60 min-h-[44px] touch-manipulation sm:min-h-0";

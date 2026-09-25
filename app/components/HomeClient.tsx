@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 
 import Link from "next/link";
@@ -63,14 +63,14 @@ export function HomeClient() {
               {t("heroSub")}
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-              <StudioLink className="liquid-glass liquid-glass--pill group relative inline-flex w-full justify-center overflow-hidden rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-8 py-4 text-sm font-bold text-white shadow-xl shadow-emerald-500/40 transition hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/60 sm:w-auto">
+              <StudioLink className="liquid-glass liquid-glass--pill group relative inline-flex w-full justify-center overflow-hidden rounded-full theme-gradient px-8 py-4 text-sm font-bold text-white theme-shadow transition hover:scale-105 hover:theme-shadow-lg sm:w-auto">
                 <span className="relative z-10 flex items-center gap-2">
                   {t("ctaStart")}
                   <svg className="h-5 w-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-teal-600 to-emerald-500 opacity-0 transition-opacity group-hover:opacity-100" />
+                
               </StudioLink>
               <a
                 href="#catalog"
