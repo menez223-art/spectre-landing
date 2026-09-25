@@ -47,7 +47,7 @@ export function remainingDays(expiryDate: string | null): number | null {
  */
 export function isExpired(expiryDate: string | null): boolean {
   if (!expiryDate) return false;
-  return new Date(expiryDate).getTime() < Date.now();
+  return new Date(expiryDate).getTime() <= Date.now();
 }
 
 /**

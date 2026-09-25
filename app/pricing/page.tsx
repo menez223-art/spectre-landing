@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useLocale } from "@/app/components/LocaleProvider";
 import { PageHeader } from "@/app/components/PageHeader";
@@ -115,7 +115,7 @@ export default function PricingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-xs font-bold tracking-wide text-navy-400 dark:text-navy-300">{t("pricingEyebrow")}</p>
           <h1 className="mt-3 font-display text-3xl font-extrabold text-navy-900 dark:text-ivory-50 sm:text-4xl">{t("pricingTitle")}</h1>
-          <p className="mt-4 max-w-2xl mx-auto text-base leading-7 text-navy-700/70 dark:text-ivory-50/70">{t("pricingSub")}</p>
+          <p className="mt-4 max-w-2xl mx-auto text-base leading-7 text-navy-700/90 dark:text-ivory-50/80">{t("pricingSub")}</p>
         </div>
 
         <div className="mt-12 grid gap-8 lg:grid-cols-3">
@@ -129,7 +129,7 @@ export default function PricingPage() {
               }`}
             >
               {plan.popular && (
-                <div className="absolute -right-12 top-8 rotate-45 bg-gradient-to-r from-blue-500 to-purple-600 px-12 py-1 text-xs font-bold text-white shadow-lg">
+                <div className="absolute -right-12 top-8 rotate-45 theme-gradient px-12 py-1 text-xs font-bold text-white shadow-lg">
                   {plan.name}
                 </div>
               )}
@@ -138,9 +138,9 @@ export default function PricingPage() {
                 <h2 className="font-display text-2xl font-extrabold text-navy-900 dark:text-ivory-50">{plan.name}</h2>
                 <div className="flex items-baseline justify-center gap-1">
                   <span className="font-display text-5xl font-extrabold text-navy-900 dark:text-ivory-50">{plan.price}</span>
-                  <span className="text-sm font-semibold text-navy-700/70 dark:text-ivory-50/70">{plan.period}</span>
+                  <span className="text-sm font-semibold text-navy-700/90 dark:text-ivory-50/80">{plan.period}</span>
                 </div>
-                <p className="text-sm text-navy-700/70 dark:text-ivory-50/70">{plan.description}</p>
+                <p className="text-sm text-navy-700/90 dark:text-ivory-50/80">{plan.description}</p>
               </div>
 
               {/* شبكة الإحصائيات — أرقام كبيرة تحت الوصف (متطابقة مع الإنتاج) */}
@@ -148,7 +148,7 @@ export default function PricingPage() {
                 {plan.stats.map((stat, sidx) => (
                   <div key={sidx} className="text-center">
                     <div className="font-display text-2xl font-extrabold text-navy-900 dark:text-ivory-50">{stat.value}</div>
-                    <div className="mt-1 text-[10px] font-semibold text-navy-700/70 dark:text-ivory-50/70">{stat.label}</div>
+                    <div className="mt-1 text-[10px] font-semibold text-navy-700/90 dark:text-ivory-50/80">{stat.label}</div>
                   </div>
                 ))}
               </div>
@@ -165,8 +165,8 @@ export default function PricingPage() {
               </ul>
 
               <div className="grid gap-2 pt-2 border-t border-navy-900/10 dark:border-white/10">
-                <p className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">{t("noteQuotasTotal")}</p>
-                <p className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">{t("noteRenewable")}</p>
+                <p className="text-[11px] text-navy-900/70 dark:text-ivory-50/70">{t("noteQuotasTotal")}</p>
+                <p className="text-[11px] text-navy-900/70 dark:text-ivory-50/70">{t("noteRenewable")}</p>
               </div>
 
               <a
@@ -175,8 +175,8 @@ export default function PricingPage() {
                 rel="noopener noreferrer"
                 className={`mt-2 grid w-full place-items-center rounded-xl py-4 text-sm font-bold transition ${
                   plan.highlight
-                    ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg hover:shadow-xl"
-                    : "border-2 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
+                    ? "bg-gradient-to-r from-emerald-700 to-teal-800 text-white shadow-lg hover:shadow-xl hover:from-emerald-600 hover:to-teal-700"
+                    : "border-2 border-emerald-600/40 bg-emerald-600/10 text-emerald-800 hover:bg-emerald-600/20 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-300 dark:hover:bg-emerald-400/20"
                 }`}
               >
                 <span className="inline-flex items-center gap-2">
@@ -211,7 +211,7 @@ export default function PricingPage() {
               >
                 <span className="text-3xl transition group-hover:scale-110">{item.icon}</span>
                 <h3 className="font-display text-lg font-bold text-navy-900 dark:text-ivory-50">{item.title}</h3>
-                <p className="text-sm text-navy-700/70 dark:text-ivory-50/70">{item.desc}</p>
+                <p className="text-sm text-navy-700/90 dark:text-ivory-50/80">{item.desc}</p>
               </div>
             ))}
           </div>

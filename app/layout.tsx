@@ -35,25 +35,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // الموقع عربي بالكامل (RTL) — lang/dir الثابتان يمنحان محركات البحث
-    // الاتجاه الصحيح، وصفحات /p/[slug] المولَّدة تتولى html/lang خاصتها.
-    <html lang="ar" dir="rtl">
+    <html suppressHydrationWarning>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
       </head>
       <body className={`${cairo.variable} ${tajawal.variable} font-body min-h-screen`}>
-        <ThemeProvider>
-          <LocaleProvider>
+        <LocaleProvider>
+          <ThemeProvider>
             <NavigationProgress />
             {children}
-          </LocaleProvider>
-        </ThemeProvider>
+          </ThemeProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

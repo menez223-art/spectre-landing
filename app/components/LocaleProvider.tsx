@@ -48,12 +48,12 @@ export function LocaleProvider({
 
   // متداخل ⇒ نورث اللغة من الأعلى؛ جذري ⇒ حالتنا الخاصة.
   const lang: Lang = outer ? outer.lang : ownLang;
+  const dir: "rtl" | "ltr" = lang === "ar" ? "rtl" : "ltr";
   const setLang = useCallback(
     (l: Lang) => (outer ? outer.setLang(l) : setOwnLang(l)),
     [outer]
   );
-  const dir: "rtl" | "ltr" = lang === "ar" ? "rtl" : "ltr";
-
+  
   // قراءة اللغة المحفوظة بعد التركيب — للمزوّد الجذري فقط.
   // حارس first-run: مع React StrictMode تُعاد تشغيل التأثيرات مرتين؛ لو أُعيد
   // هذا التأثير بعد أن غيّر المستخدم اللغة، كان الاستعادة تكتب فوق اختياره.

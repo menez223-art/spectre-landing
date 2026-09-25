@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useLocale } from "@/app/components/LocaleProvider";
@@ -27,7 +27,7 @@ export default function StorePage() {
             <h1 className="mt-3 font-display text-3xl font-extrabold text-navy-900 dark:text-ivory-50 sm:text-4xl">
               {t("catalogTitle")}
             </h1>
-            <p className="mt-3 max-w-md text-sm leading-6 text-navy-700/70 dark:text-ivory-50/70">
+            <p className="mt-3 max-w-md text-sm leading-6 text-navy-700/90 dark:text-ivory-50/80">
               {t("catalogSub")}
             </p>
           </div>

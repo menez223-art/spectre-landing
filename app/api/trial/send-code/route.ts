@@ -1,4 +1,4 @@
-﻿// إرسال رمز تفعيل التجربة عبر واتساب — يولّد رابط wa.me يفتح محادثة
+// إرسال رمز تفعيل التجربة عبر واتساب — يولّد رابط wa.me يفتح محادثة
 // مع رقم المستخدم ويكتب الرمز فيها (بدون WhatsApp Cloud API — مجاني).
 //
 // ⚠️ الأمان:
@@ -44,6 +44,9 @@ async function hitLimit(key: string): Promise<boolean> {
     await setKv(k, { c: next, t: cur.t });
     return next > RL_MAX;
   } catch {
+    // fail-open مقصود (نفس نمط auth/login): عطل عدّاد الإيقاع لا يجب
+    // أن يحجب المستخدم الشرعي — الحماية الجوهرية (حدّ التجارب/الحظر)
+    // تبقى fail-closed في فحوصاتها الخاصة.
     return false;
   }
 }

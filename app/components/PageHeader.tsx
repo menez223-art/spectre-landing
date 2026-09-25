@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -54,7 +54,7 @@ export function PageHeader({ showAdminButton = true, onAdminClick, hideOnScroll 
         }`}
       >
         <div className="container-landing py-3 sm:py-4">
-          <div className="liquid-glass liquid-glass--pill flex flex-wrap items-center justify-between gap-x-3 gap-y-2 overflow-hidden rounded-full px-3 py-2 sm:px-4">
+          <div className="liquid-glass liquid-glass--pill flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-full px-3 py-2 sm:px-4">
             {/* الشعار */}
             <Link href="/" prefetch className="group flex items-center gap-2 sm:gap-3">
               <div className="grid h-9 w-9 place-items-center rounded-xl theme-gradient font-display text-lg font-bold text-white theme-shadow transition group-hover:theme-shadow-lg sm:h-10 sm:w-10">
@@ -90,6 +90,7 @@ export function PageHeader({ showAdminButton = true, onAdminClick, hideOnScroll 
               </Link>
               {showAdminButton && (
                 <button
+                  type="button"
                   onClick={onAdminClick}
                   title={t("adminLoginTitle")}
                   aria-label={t("adminLoginTitle")}

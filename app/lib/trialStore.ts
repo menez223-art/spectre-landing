@@ -11,6 +11,7 @@
 // لا يلمس نظام الحظر/السماح القائم (authStore) — التجربة حالة منفصلة تماماً.
 
 import { getKv, setKv, deleteKvMany, listKv, insertKvMany } from "./kvStore";
+import { nowISO } from "./utils/date";
 import type { Product } from "./types";
 import type { PublishMeta } from "./publishStore";
 import { deletePublishedProduct } from "./publishStore";
@@ -239,6 +240,11 @@ export async function releaseTrial(email: string): Promise<boolean> {
   if (!cur) return false;
   // لا نحرّر هويات صفحة نشطة أو محوّلة ونترك منتجاً يتيماً.
   if (cur.status !== "burned" && cur.status !== "deleted") throw new Error("trial_not_releasable");
+
+  const items: { key: string; value: unknown }[] = [];
+  items.push({ key: `trial-release-log/${email}-${Date.now()}.json`, value: { action: "trial_released", email, timestamp: nowISO() } });
+
+  await insertKvMany(items);
   await deleteKvMany([keyFor(email), devKeyFor(cur.deviceFp), waKeyFor(cur.whatsapp)]);
   return true;
 }

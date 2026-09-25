@@ -33,6 +33,9 @@ async function hitLimit(key: string): Promise<boolean> {
     await setKv(k, { c: next, t: cur.t });
     return next > RL_MAX;
   } catch {
+    // fail-open مقصود (نفس نمط auth/login): عطل عدّاد الإيقاع لا يجب
+    // أن يحجب المستخدم الشرعي — الحماية الجوهرية (قفل الرمز بعد 5
+    // محاولات خاطئة) تبقى fail-closed في checkTrialCodeRecord.
     return false;
   }
 }

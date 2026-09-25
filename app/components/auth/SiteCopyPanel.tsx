@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 // نافذة «الإعدادات المتقدمة» — تعديل نصوص **الصفحة الرئيسية** بالعربية والإنجليزية.
 //
@@ -102,7 +102,7 @@ export function SiteCopyPanel({ onClose }: { onClose: () => void }) {
   }
 
   const inputCls =
-    "w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-[13px] text-navy-900 outline-none transition placeholder:text-navy-900/30 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 dark:border-white/15 dark:bg-[#0f141a] dark:text-ivory-50 dark:placeholder:text-ivory-50/25";
+    "w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-[13px] text-navy-900 outline-none transition placeholder:text-navy-900/60 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 dark:border-white/15 dark:bg-[#0f141a] dark:text-ivory-50 dark:placeholder:text-ivory-50/60";
 
   const active = groups.find((g) => g.id === tab) ?? groups[0];
 

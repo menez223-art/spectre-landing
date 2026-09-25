@@ -1,4 +1,4 @@
-﻿// مقارنة ثابتة زمنياً (timing-safe equal) لحماية من تسريب البادئات عبر توقيت الاستجابة.
+// مقارنة ثابتة زمنياً (timing-safe equal) لحماية من تسريب البادئات عبر توقيت الاستجابة.
 import { timingSafeEqual } from "crypto";
 import { getStudioCredentials } from "@/app/lib/credentials";
 import {
