@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* Next.js يحقن وسم viewport الافتراضي تلقائياً — إضافته يدوياً تُنتج وسمين مكررين. */}
         <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
       </head>
       <body className={`${cairo.variable} ${tajawal.variable} font-body min-h-screen`}>
