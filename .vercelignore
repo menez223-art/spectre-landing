@@ -21,11 +21,8 @@ test-results
 playwright-report
 graphify-out
 link
-ui-audit
 *.log
 *.tsbuildinfo
 env_dump.json
 cookies.txt
 *.backup
-
-.freebuff

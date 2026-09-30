@@ -63,14 +63,14 @@ export function HomeClient() {
               {t("heroSub")}
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-              <StudioLink className="liquid-glass liquid-glass--pill group relative inline-flex w-full justify-center overflow-hidden rounded-full theme-gradient px-8 py-4 text-sm font-bold text-white theme-shadow transition hover:scale-105 hover:theme-shadow-lg sm:w-auto">
+              <StudioLink className="liquid-glass liquid-glass--pill group relative inline-flex w-full justify-center overflow-hidden rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-8 py-4 text-sm font-bold text-white shadow-xl shadow-emerald-500/40 transition hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/60 sm:w-auto">
                 <span className="relative z-10 flex items-center gap-2">
                   {t("ctaStart")}
                   <svg className="h-5 w-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </span>
-                
+                <div className="absolute inset-0 bg-gradient-to-r from-teal-600 to-emerald-500 opacity-0 transition-opacity group-hover:opacity-100" />
               </StudioLink>
               <a
                 href="#catalog"
@@ -196,7 +196,7 @@ export function HomeClient() {
                   href="https://www.facebook.com/share/1Ep7pL32L4/"
                   target="_blank"
                   rel="noopener"
-                  className="inline-flex items-center gap-3 rounded-full bg-[#166fe5] px-8 py-4 font-bold text-white shadow-xl shadow-[#166fe5]/30 transition hover:bg-[#0f62c9] hover:shadow-2xl hover:shadow-[#0f62c9]/50"
+                  className="inline-flex items-center gap-3 rounded-full bg-[#1877f2] px-8 py-4 font-bold text-white shadow-xl shadow-[#1877f2]/30 transition hover:bg-[#166fe5] hover:shadow-2xl hover:shadow-[#1877f2]/50"
                 >
                   <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
