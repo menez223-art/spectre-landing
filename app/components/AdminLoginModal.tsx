@@ -34,22 +34,22 @@ export function AdminLoginModal({ open, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/60 p-4 backdrop-blur-sm"
+      className="neu-app fixed inset-0 z-50 flex items-center justify-center !bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="liquid-glass liquid-glass--rounded w-full max-w-md overflow-hidden rounded-3xl p-6 shadow-2xl">
+      <div className="neu-card w-full max-w-md overflow-hidden p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-bold text-navy-900 dark:text-ivory-50">
+          <h3 className="text-lg font-bold">
             {t("adminLoginTitle")}
           </h3>
           <button
             onClick={onClose}
             aria-label={t("close")}
-            className="grid h-8 w-8 place-items-center rounded-full text-navy-500 transition hover:bg-navy-900/5 hover:text-navy-900 dark:text-ivory-50/60 dark:hover:bg-white/10"
+            className="neu-circle neu-circle--sm !h-8 !w-8"
           >
-            ✕
+            <i className="fa-solid fa-xmark" aria-hidden="true" />
           </button>
         </div>
         <AdminLoginBox />

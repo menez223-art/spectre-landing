@@ -38,13 +38,13 @@ export function AdminLoginBox() {
   }
 
   const inputCls =
-    "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-sm text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15";
+    "neu-input !px-4 !py-2.5 !text-sm";
 
   return (
-    <div className="grid w-full max-w-sm gap-4 rounded-3xl border border-rose-300/40 bg-white p-6 shadow-xl shadow-navy-950/20">
+    <div className="grid w-full max-w-sm gap-4">
       <div className="text-center">
-        <p className="font-display text-lg font-extrabold text-navy-900 dark:text-ivory-50">{t("adminLoginTitle")}</p>
-        <p className="mt-1 text-[11px] text-navy-900/50 dark:text-ivory-50/50">{t("adminOnly")}</p>
+        <p className="text-lg font-extrabold">{t("adminLoginTitle")}</p>
+        <p className="mt-1 text-[11px] t-muted">{t("adminOnly")}</p>
       </div>
       <form onSubmit={handleLogin} className="grid gap-3">
         <input
@@ -68,12 +68,12 @@ export function AdminLoginBox() {
           required
         />
         {error && (
-          <p className="rounded-xl bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-600">{error}</p>
+          <p className="neu-inset px-3 py-2 text-[11px] font-semibold t-danger">{error}</p>
         )}
         <button
           type="submit"
           disabled={busy}
-          className="rounded-full bg-rose-700 px-6 py-3 text-sm font-bold text-white transition hover:bg-rose-600 disabled:opacity-60"
+          className="neu-btn neu-btn--lg neu-btn--block !rounded-full"
         >
           {busy ? "…" : t("adminEnter")}
         </button>

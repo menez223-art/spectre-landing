@@ -37,28 +37,28 @@ function AdminHeader({ email }: { email: string }) {
     router.refresh();
   };
   return (
-    <main dir={dir} className="min-h-screen bg-ivory-50 text-navy-900 dark:bg-[#0d1117] dark:text-ivory-50">
+    <main dir={dir} className="neu-app min-h-screen">
       {/* Header بسيط */}
-      <header className="sticky top-0 z-30 border-b border-navy-900/10 bg-white/85 backdrop-blur dark:border-white/10 dark:bg-[#0d1117]/85">
+      <header className="sticky top-0 z-30 bg-[var(--bg-color)] [box-shadow:var(--shadow-outer-sm)]">
         <div className="container-landing flex flex-wrap items-center justify-between gap-3 py-3 sm:py-4">
           <div className="flex items-center gap-3">
-            <Link href="/" className="font-display text-base font-extrabold sm:text-xl">
+            <Link href="/" className="text-base font-extrabold sm:text-xl">
               {t("adminPageTitle")}
             </Link>
             <a
               href="/studio"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 sm:inline-flex sm:text-[11px] dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 min-h-[44px] touch-manipulation sm:min-h-0"
+              className="neu-btn neu-btn--success !hidden items-center !gap-1.5 !px-3 !py-1.5 !text-xs sm:!inline-flex sm:!text-[11px] min-h-[44px] touch-manipulation sm:min-h-0"
               title={t("adminOpenStudioTip")}
             >
-              <span>🛒</span>
+              <span><i className="fa-solid fa-store" aria-hidden="true" /></span>
               <span>{t("adminStoreManage")}</span>
-              <span aria-hidden className="text-[10px] opacity-70">↗</span>
+              <span aria-hidden className="text-[10px] opacity-70"><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /></span>
             </a>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="hidden rounded-full bg-rose-100 px-3 py-1 text-[11px] font-bold text-rose-700 dark:bg-rose-900/30 dark:text-rose-300 sm:inline">
+            <span className="neu-badge !hidden !px-3 !py-1 !text-[11px] !font-bold sm:!inline">
               {email}
             </span>
             <ThemeToggle
@@ -73,7 +73,7 @@ function AdminHeader({ email }: { email: string }) {
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-full border border-navy-900/15 px-3 py-1.5 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 sm:px-4 sm:py-2 sm:text-[11px] dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400 min-h-[44px] touch-manipulation sm:min-h-0"
+              className="neu-btn neu-btn--muted !px-3 !py-1.5 !text-xs sm:!px-4 sm:!py-2 sm:!text-[11px] min-h-[44px] touch-manipulation sm:min-h-0"
             >
               {t("adminExit")}
             </button>

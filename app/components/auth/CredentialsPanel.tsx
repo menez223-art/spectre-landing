@@ -128,37 +128,37 @@ export function CredentialsPanel({ onClose }: { onClose: () => void }) {
     }
   }
   const inputCls =
-    "w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/30 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#0f141a] dark:text-ivory-50 dark:placeholder:text-ivory-50/25 min-h-[44px] touch-manipulation sm:min-h-0";
-  const labelCls = "block text-[11px] font-bold text-navy-700 dark:text-navy-300";
+    "neu-input !px-3 !py-2.5 !text-[16px] sm:!text-sm min-h-[44px] touch-manipulation sm:min-h-0";
+  const labelCls = "block text-[11px] font-bold";
   const btnPrimary =
-    "rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60 min-h-[44px] touch-manipulation sm:min-h-0";
+    "neu-btn neu-btn--success !px-4 !py-2 !text-xs min-h-[44px] touch-manipulation sm:min-h-0";
   const btnDanger =
-    "rounded-lg border border-red-300 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-500/10 min-h-[44px] touch-manipulation sm:min-h-0";
+    "neu-btn neu-btn--danger !px-3 !py-2 !text-xs min-h-[44px] touch-manipulation sm:min-h-0";
 
   const studioOverridden = status?.studio.overridden ?? false;
   const adminOverridden = status?.admin.overridden ?? false;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-navy-950/70 p-3" role="dialog" aria-modal="true">
-      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-navy-900/15 bg-white shadow-2xl dark:border-white/10 dark:bg-[#161b22]">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-navy-900/10 px-5 py-4 dark:border-white/10">
+    <div className="neu-app fixed inset-0 z-50 grid place-items-center !bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-3" role="dialog" aria-modal="true">
+      <div className="neu-card flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-5 py-4">
           <div className="min-w-0">
-            <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">
-              🔑 {t("credTitle")}
+            <h2 className="text-base font-bold">
+              <i className="fa-solid fa-key t-primary" aria-hidden="true" /> {t("credTitle")}
             </h2>
-            <p className="text-[11px] leading-5 text-navy-900/50 dark:text-ivory-50/50">
+            <p className="text-[11px] leading-5 t-muted">
               {t("credSub")}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="shrink-0 rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 min-h-[44px] touch-manipulation dark:bg-navy-700 dark:hover:bg-navy-600 sm:min-h-0"
+            className="neu-btn shrink-0 !rounded-full !px-4 !py-2 !text-xs min-h-[44px] touch-manipulation sm:min-h-0"
           >
             {t("adminCancel")}
           </button>
         </div>
 
-        <div className="mx-5 mt-4 rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-[11px] font-semibold leading-5 text-amber-800 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-300">
+        <div className="neu-inset mx-5 mt-4 !px-3 !py-2.5 text-[11px] font-semibold leading-5 t-warning">
           {t("credWarn")}
         </div>
         <div className="flex flex-wrap gap-1.5 px-5 pt-4">
@@ -168,18 +168,18 @@ export function CredentialsPanel({ onClose }: { onClose: () => void }) {
               <button
                 key={k}
                 onClick={() => { setTab(k); setMsg(null); }}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition min-h-[44px] touch-manipulation sm:min-h-0 ${
+                className={`neu-tab flex items-center gap-2 !rounded-full !px-4 !py-2 !text-xs min-h-[44px] touch-manipulation sm:min-h-0 ${
                   tab === k
-                    ? "bg-navy-900 text-white"
-                    : "bg-navy-50 text-navy-700 hover:bg-navy-100 dark:bg-navy-800 dark:text-navy-300 dark:hover:bg-navy-700"
+                    ? "is-active"
+                    : ""
                 }`}
               >
                 {k === "studio" ? t("credStudioTab") : t("credAdminTab")}
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] ${
+                  className={`neu-badge !px-2 !py-0.5 !text-[10px] ${
                     overridden
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-                      : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-ivory-50/60"
+                      ? "neu-badge--success"
+                      : ""
                   }`}
                 >
                   {overridden ? t("credOverridden") : t("credDefault")}
@@ -191,7 +191,7 @@ export function CredentialsPanel({ onClose }: { onClose: () => void }) {
 
         <div className="grid gap-4 overflow-auto px-5 py-4">
           {loading ? (
-            <p className="py-6 text-center text-xs text-navy-900/45 dark:text-ivory-50/45">…</p>
+            <p className="py-6 text-center text-xs t-muted">…</p>
           ) : tab === "studio" ? (
             <div className="grid gap-3">
               <div className="grid gap-1.5">
@@ -274,10 +274,10 @@ export function CredentialsPanel({ onClose }: { onClose: () => void }) {
 
           {msg && (
             <p
-              className={`rounded-xl border px-3 py-2 text-[11px] font-bold ${
+              className={`neu-inset px-3 py-2 text-[11px] font-bold ${
                 msg.ok
-                  ? "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-500/10 dark:text-emerald-300"
-                  : "border-red-300/50 bg-red-50 text-red-700 dark:border-red-700/50 dark:bg-red-500/10 dark:text-red-300"
+                  ? "t-success"
+                  : "t-danger"
               }`}
             >
               {msg.text}

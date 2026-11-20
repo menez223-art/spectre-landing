@@ -34,11 +34,11 @@ const STATUS_KEYS: Record<Status, string> = {
 };
 
 const STATUS_CLS: Record<Status, string> = {
-  active: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
-  converted: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
-  expired: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-  burned: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
-  deleted: "bg-navy-900/10 text-navy-700 dark:bg-white/10 dark:text-ivory-50/70",
+  active: "neu-badge--success",
+  converted: "neu-badge--primary",
+  expired: "neu-badge--warning",
+  burned: "neu-badge--danger",
+  deleted: "",
 };
 
 function fmtLeft(ms: number): string {
@@ -139,15 +139,15 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
   }
 
   const btn =
-    "rounded-full px-3 py-1.5 text-[11px] font-bold transition disabled:opacity-40 disabled:cursor-not-allowed";
+    "neu-btn !rounded-full !px-3 !py-1.5 !text-[11px]";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-navy-950/70 p-3" role="dialog" aria-modal="true">
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-navy-900/15 bg-white shadow-2xl dark:border-white/10 dark:bg-[#161b22]">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-navy-900/10 px-5 py-4 dark:border-white/10">
+    <div className="neu-app fixed inset-0 z-50 grid place-items-center !bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-3" role="dialog" aria-modal="true">
+      <div className="neu-card flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-5 py-4">
           <div className="min-w-0">
-            <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">{tr("adminTrialsPanelTitle")}</h2>
-            <p className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">
+            <h2 className="text-base font-bold">{tr("adminTrialsPanelTitle")}</h2>
+            <p className="text-[11px] t-muted">
               {tr("trialPanelSub")}
             </p>
           </div>
@@ -156,10 +156,10 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
               onClick={toggleGeneration}
               disabled={toggling}
               title={genOff ? tr("trialEnableGeneration") : tr("trialDisableGeneration")}
-              className={`rounded-full px-4 py-2 text-xs font-bold transition disabled:opacity-50 ${
+              className={`neu-btn !rounded-full !px-4 !py-2 !text-xs ${
                 genOff
-                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                  : "bg-amber-600 text-white hover:bg-amber-700"
+                  ? "neu-btn--success"
+                  : "neu-btn--warning"
               }`}
             >
               {genOff ? tr("trialEnableGeneration") : tr("trialDisableGeneration")}
@@ -167,13 +167,13 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
             <button
               onClick={load}
               disabled={loading}
-              className="rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 disabled:opacity-50 dark:border-white/15 dark:text-ivory-50"
+              className="neu-btn neu-btn--muted !rounded-full !px-4 !py-2 !text-xs"
             >
               {loading ? "…" : tr("adminRefresh")}
             </button>
             <button
               onClick={onClose}
-              className="rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700"
+              className="neu-btn !rounded-full !px-4 !py-2 !text-xs"
             >
               {tr("trialClose")}
             </button>
@@ -181,16 +181,16 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         {error && (
-          <p className="border-b border-red-200 bg-red-50 px-5 py-2 text-[11px] font-bold text-red-700 dark:border-red-900/40 dark:bg-red-500/10 dark:text-red-300">
+          <p className="border-b border-[color:color-mix(in_srgb,var(--danger-color)_30%,transparent)] bg-[color-mix(in_srgb,var(--danger-color)_8%,var(--bg-color))] px-5 py-2 text-[11px] font-bold t-danger">
             {error}
           </p>
         )}
 
         <div
-          className={`border-b px-5 py-2 text-[11px] font-bold transition ${
+          className={`border-b px-5 py-2 text-[11px] font-bold ${
             genOff
-              ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-400/10 dark:text-amber-200"
-              : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-500/10 dark:text-emerald-200"
+              ? "border-[color:color-mix(in_srgb,var(--warning-color)_30%,transparent)] bg-[color-mix(in_srgb,var(--warning-color)_8%,var(--bg-color))] t-warning"
+              : "border-[color:color-mix(in_srgb,var(--success-color)_30%,transparent)] bg-[color-mix(in_srgb,var(--success-color)_8%,var(--bg-color))] t-success"
           }`}
         >
           {genOff ? tr("trialGenerationOff") : tr("trialGenerationOn")}
@@ -198,9 +198,9 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {loading && items.length === 0 ? (
-            <p className="py-10 text-center text-xs text-navy-900/45 dark:text-ivory-50/45">{tr("adminLoading")}</p>
+            <p className="py-10 text-center text-xs t-muted">{tr("adminLoading")}</p>
           ) : items.length === 0 ? (
-            <p className="py-10 text-center text-xs text-navy-900/45 dark:text-ivory-50/45">
+            <p className="py-10 text-center text-xs t-muted">
               {tr("trialNoTrials")}
             </p>
           ) : (
@@ -208,31 +208,31 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
               {items.map((t) => (
                 <div
                   key={t.email}
-                  className="grid gap-2 rounded-2xl border border-navy-900/10 p-3 dark:border-white/10"
+                  className="neu-row grid gap-2 !p-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="truncate text-xs font-bold text-navy-900 dark:text-ivory-50" dir="ltr">
+                    <span className="truncate text-xs font-bold" dir="ltr">
                       {t.email}
                     </span>
-                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${STATUS_CLS[t.status]}`}>
+                    <span className={`neu-badge !px-2.5 !py-1 !text-[10px] ${STATUS_CLS[t.status]}`}>
                       {tr(STATUS_KEYS[t.status] as I18nKey)}
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-navy-900/60 dark:text-ivory-50/60">
-                    <span dir="ltr">📱 {t.whatsapp || "—"}</span>
-                    <span dir="ltr">🔗 /p/{t.slug}</span>
-                    {t.status === "active" && <span>⏳ {tr("trialRemaining")}: {fmtLeft(t.remainingMs)}</span>}
-                    <span>📅 {new Date(t.createdAt).toLocaleDateString("ar-DZ")}</span>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] t-muted">
+                    <span dir="ltr"><i className="fa-solid fa-phone" aria-hidden="true" /> {t.whatsapp || "—"}</span>
+                    <span dir="ltr"><i className="fa-solid fa-link" aria-hidden="true" /> /p/{t.slug}</span>
+                    {t.status === "active" && <span><i className="fa-solid fa-clock" aria-hidden="true" /> {tr("trialRemaining")}: {fmtLeft(t.remainingMs)}</span>}
+                    <span><i className="fa-solid fa-calendar-days" aria-hidden="true" /> {new Date(t.createdAt).toLocaleDateString("ar-DZ")}</span>
                   </div>
 
                   {planFor?.email === t.email ? (
-                    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-blue-50 p-2 dark:bg-blue-500/10">
-                      <span className="text-[11px] font-bold text-blue-800 dark:text-blue-300">{tr("adminChoosePlan")}</span>
+                    <div className="neu-inset flex flex-wrap items-center gap-2 !p-2">
+                      <span className="text-[11px] font-bold t-primary">{tr("adminChoosePlan")}</span>
                       <select
                         value={planFor.plan}
                         onChange={(e) => setPlanFor({ email: t.email, plan: e.target.value })}
-                        className="rounded-lg border border-navy-900/15 bg-white px-2 py-1 text-[11px] dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+                        className="neu-input !w-auto ![appearance:auto] !px-2 !py-1 !text-[11px]"
                       >
                         <option value="basic">basic</option>
                         <option value="pro">pro</option>
@@ -241,11 +241,11 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
                       <button
                         onClick={() => act(t.email, "convert", { plan: planFor.plan })}
                         disabled={busy === t.email}
-                        className={`${btn} bg-blue-600 text-white hover:bg-blue-700`}
+                        className={`${btn}`}
                       >
                         {tr("trialConfirmActivation")}
                       </button>
-                      <button onClick={() => setPlanFor(null)} className={`${btn} border border-navy-900/15 dark:border-white/15 dark:text-ivory-50`}>
+                      <button onClick={() => setPlanFor(null)} className={`${btn} neu-btn--muted`}>
                         {tr("trialCancel")}
                       </button>
                     </div>
@@ -260,29 +260,29 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
                         className={`${btn} ${
                           t.status === "burned" || t.status === "deleted"
                             ? "pointer-events-none opacity-40"
-                            : "bg-emerald-600 text-white hover:bg-emerald-700"
+                            : "neu-btn--success"
                         }`}
                       >
-                        {tr("trialOpenLink")} ↗
+                        {tr("trialOpenLink")} <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" />
                       </a>
                       <button
                         onClick={() => setPlanFor({ email: t.email, plan: "basic" })}
                         disabled={busy === t.email}
-                        className={`${btn} bg-blue-600 text-white hover:bg-blue-700`}
+                        className={`${btn}`}
                       >
                         {tr("trialAssignPlan")}
                       </button>
                       <button
                         onClick={() => setConfirm({ email: t.email, kind: "burn_now" })}
                         disabled={busy === t.email}
-                        className={`${btn} border border-red-500/40 text-red-600 hover:border-red-500`}
+                        className={`${btn} neu-btn--danger`}
                       >
                         {tr("trialBurnNow")}
                       </button>
                       <button
                         onClick={() => setConfirm({ email: t.email, kind: "release_email" })}
                         disabled={busy === t.email}
-                        className={`${btn} border border-navy-900/15 text-navy-700 hover:border-navy-500 dark:border-white/15 dark:text-ivory-50`}
+                        className={`${btn} neu-btn--muted`}
                       >
                         {tr("trialReleaseEmail")}
                       </button>
@@ -295,13 +295,13 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         {confirm && (
-          <div className="absolute inset-0 z-10 grid place-items-center bg-navy-950/80 p-4">
-            <div className="w-full max-w-sm overflow-hidden rounded-3xl border border-red-500/40 bg-white dark:bg-[#161b22]">
-              <div className="bg-red-600 px-5 py-3 text-center text-sm font-extrabold text-white">
+          <div className="absolute inset-0 z-10 grid place-items-center bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4">
+            <div className="neu-card w-full max-w-sm overflow-hidden">
+              <div className="px-5 py-3 text-center text-sm font-extrabold t-danger">
                 {confirm.kind === "burn_now" ? tr("trialConfirmBurnTitle") : tr("trialConfirmReleaseTitle")}
               </div>
               <div className="grid gap-3 p-5">
-                <p className="text-xs leading-6 text-navy-800 dark:text-ivory-50/80">
+                <p className="text-xs leading-6 t-muted">
                   {confirm.kind === "burn_now"
                     ? tr("trialConfirmBurnMsg")
                     : tr("trialConfirmReleaseMsg")}
@@ -309,13 +309,13 @@ export function GuestTrialsPanel({ onClose }: { onClose: () => void }) {
                 <button
                   onClick={() => act(confirm.email, confirm.kind)}
                   disabled={busy === confirm.email}
-                  className="rounded-full bg-red-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+                  className="neu-btn neu-btn--danger !rounded-full !px-4 !py-2.5 !text-xs"
                 >
                   {tr("trialConfirmBtn")}
                 </button>
                 <button
                   onClick={() => setConfirm(null)}
-                  className="rounded-full border border-navy-900/15 px-4 py-2.5 text-xs font-bold text-navy-700 dark:border-white/15 dark:text-ivory-50"
+                  className="neu-btn neu-btn--muted !rounded-full !px-4 !py-2.5 !text-xs"
                 >
                   {tr("trialRevertBtn")}
                 </button>

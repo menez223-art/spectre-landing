@@ -102,23 +102,23 @@ export function SiteCopyPanel({ onClose }: { onClose: () => void }) {
   }
 
   const inputCls =
-    "w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-[13px] text-navy-900 outline-none transition placeholder:text-navy-900/30 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 dark:border-white/15 dark:bg-[#0f141a] dark:text-ivory-50 dark:placeholder:text-ivory-50/25";
+    "neu-input !px-3 !py-2 !text-[13px]";
 
   const active = groups.find((g) => g.id === tab) ?? groups[0];
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-navy-950/70 p-3" role="dialog" aria-modal="true">
-      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-navy-900/15 bg-white shadow-2xl dark:border-white/10 dark:bg-[#161b22]">
+    <div className="neu-app fixed inset-0 z-50 grid place-items-center !bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-3" role="dialog" aria-modal="true">
+      <div className="neu-card flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden">
         {/* الترويسة */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-navy-900/10 px-5 py-4 dark:border-white/10">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-5 py-4">
           <div className="min-w-0">
-            <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">
+            <h2 className="text-base font-bold">
               {t("siteCopyTitle")}
             </h2>
-            <p className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">
+            <p className="text-[11px] t-muted">
               {t("siteCopySub")}
               {modifiedCount > 0 && (
-                <span className="ms-2 rounded-full bg-amber-100 px-2 py-0.5 font-bold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                <span className="neu-badge neu-badge--warning ms-2 !px-2 !py-0.5">
                   {modifiedCount} {t("siteCopyModified")}
                 </span>
               )}
@@ -128,13 +128,13 @@ export function SiteCopyPanel({ onClose }: { onClose: () => void }) {
             <button
               onClick={load}
               disabled={loading}
-              className="rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 disabled:opacity-50 dark:border-white/15 dark:text-ivory-50"
+              className="neu-btn neu-btn--muted !rounded-full !px-4 !py-2 !text-xs"
             >
               {loading ? "…" : t("adminRefresh")}
             </button>
             <button
               onClick={onClose}
-              className="rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700"
+              className="neu-btn !rounded-full !px-4 !py-2 !text-xs"
             >
               {t("adminCancel")}
             </button>
@@ -142,17 +142,17 @@ export function SiteCopyPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* تبويبات المجموعات */}
-        <div className="flex flex-wrap gap-1.5 border-b border-navy-900/10 px-5 py-3 dark:border-white/10">
+        <div className="flex flex-wrap gap-1.5 border-b border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-5 py-3">
           {groups.map((g) => {
             const n = g.keys.filter((k) => copy.ar[k] || copy.en[k]).length;
             return (
               <button
                 key={g.id}
                 onClick={() => setTab(g.id)}
-                className={`rounded-full px-3.5 py-1.5 text-[11px] font-bold transition ${
+                className={`neu-tab !rounded-full !px-3.5 !py-1.5 !text-[11px] ${
                   tab === g.id
-                    ? "bg-navy-900 text-ivory-50 dark:bg-white dark:text-navy-900"
-                    : "bg-navy-900/5 text-navy-700 hover:bg-navy-900/10 dark:bg-white/5 dark:text-ivory-50/70 dark:hover:bg-white/10"
+                    ? "is-active"
+                    : ""
                 }`}
               >
                 {t(`siteCopyGroup_${g.id}` as I18nKey)}
@@ -165,7 +165,7 @@ export function SiteCopyPanel({ onClose }: { onClose: () => void }) {
         {/* الصفوف */}
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {loading ? (
-            <p className="py-10 text-center text-xs text-navy-900/50 dark:text-ivory-50/50">…</p>
+            <p className="py-10 text-center text-xs t-muted">…</p>
           ) : (
             <div className="grid gap-3">
               {active?.keys.map((key) => {
@@ -173,26 +173,26 @@ export function SiteCopyPanel({ onClose }: { onClose: () => void }) {
                 return (
                   <div
                     key={key}
-                    className={`rounded-2xl border p-3 ${
+                    className={`neu-panel !p-3 ${
                       isMod
-                        ? "border-amber-300/60 bg-amber-50/60 dark:border-amber-500/25 dark:bg-amber-500/5"
-                        : "border-navy-900/10 dark:border-white/10"
+                        ? "![box-shadow:var(--shadow-inner-sm)]"
+                        : ""
                     }`}
                   >
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <code dir="ltr" className="min-w-0 flex-1 truncate text-[11px] text-navy-900/45 dark:text-ivory-50/40">
+                      <code dir="ltr" className="min-w-0 flex-1 truncate text-[11px] t-muted">
                         {key}
                       </code>
                       <div className="flex shrink-0 items-center gap-2">
                         {isMod && (
-                          <span className="rounded-full bg-amber-200/70 px-2 py-0.5 text-[10px] font-bold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
+                          <span className="neu-badge neu-badge--warning !px-2 !py-0.5 !text-[10px]">
                             {t("siteCopyModified")}
                           </span>
                         )}
                         <button
                           onClick={() => resetKey(key)}
                           disabled={!isMod}
-                          className="rounded-full border border-navy-900/15 px-3 py-1 text-[10px] font-bold text-navy-700 transition hover:border-navy-500 disabled:opacity-30 dark:border-white/15 dark:text-ivory-50"
+                          className="neu-btn neu-btn--muted !rounded-full !px-3 !py-1 !text-[10px]"
                         >
                           {t("siteCopyReset")}
                         </button>
@@ -200,7 +200,7 @@ export function SiteCopyPanel({ onClose }: { onClose: () => void }) {
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div>
-                        <p className="mb-1 text-[10px] font-bold text-navy-900/50 dark:text-ivory-50/45">
+                        <p className="mb-1 text-[10px] font-bold t-muted">
                           العربية
                         </p>
                         <input
@@ -212,7 +212,7 @@ export function SiteCopyPanel({ onClose }: { onClose: () => void }) {
                         />
                       </div>
                       <div>
-                        <p className="mb-1 text-[10px] font-bold text-navy-900/50 dark:text-ivory-50/45">
+                        <p className="mb-1 text-[10px] font-bold t-muted">
                           English
                         </p>
                         <input
@@ -232,28 +232,28 @@ export function SiteCopyPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* التذييل */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-navy-900/10 px-5 py-4 dark:border-white/10">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-5 py-4">
           <div className="text-[11px]">
             {msg ? (
-              <span className={msg.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}>
+              <span className={msg.ok ? "t-success" : "t-danger"}>
                 {msg.text}
               </span>
             ) : (
-              <span className="text-navy-900/45 dark:text-ivory-50/40">{t("siteCopyEmptyHint")}</span>
+              <span className="t-muted">{t("siteCopyEmptyHint")}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={resetAll}
               disabled={modifiedCount === 0 || saving}
-              className="rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 disabled:opacity-40 dark:border-white/15 dark:text-ivory-50"
+              className="neu-btn neu-btn--muted !rounded-full !px-4 !py-2 !text-xs"
             >
               {t("siteCopyResetAll")}
             </button>
             <button
               onClick={save}
               disabled={saving}
-              className="rounded-full bg-amber-500 px-6 py-2 text-xs font-bold text-white transition hover:bg-amber-600 disabled:opacity-60"
+              className="neu-btn neu-btn--warning !rounded-full !px-6 !py-2 !text-xs"
             >
               {saving ? "…" : t("siteCopySave")}
             </button>

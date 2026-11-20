@@ -33,10 +33,10 @@ const LABEL_KEYS: Record<string, I18nKey> = {
 };
 
 const DANGER_CLS: Record<Danger, string> = {
-  critical: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
-  high: "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300",
-  med: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
-  low: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-ivory-50/60",
+  critical: "neu-badge--danger",
+  high: "neu-badge--warning",
+  med: "neu-badge--warning",
+  low: "",
 };
 
 export function StoragePanel({ onClose }: { onClose: () => void }) {
@@ -125,33 +125,33 @@ export function StoragePanel({ onClose }: { onClose: () => void }) {
   }
 
   const inputCls =
-    "w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/30 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#0f141a] dark:text-ivory-50 dark:placeholder:text-ivory-50/25 min-h-[44px] touch-manipulation sm:min-h-0";
+    "neu-input !px-3 !py-2.5 !text-[16px] sm:!text-sm min-h-[44px] touch-manipulation sm:min-h-0";
   const ghostBtn =
-    "rounded-lg border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 dark:border-white/15 dark:text-ivory-50 min-h-[44px] touch-manipulation sm:min-h-0";
+    "neu-btn neu-btn--muted !px-4 !py-2 !text-xs min-h-[44px] touch-manipulation sm:min-h-0";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-navy-950/70 p-3" role="dialog" aria-modal="true">
-      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-navy-900/15 bg-white shadow-2xl dark:border-white/10 dark:bg-[#161b22]">
+    <div className="neu-app fixed inset-0 z-50 grid place-items-center !bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-3" role="dialog" aria-modal="true">
+      <div className="neu-card flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden">
         {/* الترويسة */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-navy-900/10 px-5 py-4 dark:border-white/10">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-5 py-4">
           <div className="min-w-0">
-            <h2 className="font-display text-base font-bold text-navy-900 dark:text-white">
+            <h2 className="text-base font-bold">
               {t("storTitle")}
             </h2>
-            <p className="text-[11px] leading-5 text-navy-900/50 dark:text-ivory-50/50">{t("storSub")}</p>
+            <p className="text-[11px] leading-5 t-muted">{t("storSub")}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button onClick={load} disabled={loading || busy} className={ghostBtn}>
               {loading ? "…" : t("storRefresh")}
             </button>
-            <button onClick={onClose} className={`${ghostBtn} bg-navy-900 text-ivory-50 dark:bg-navy-700`}>
+            <button onClick={onClose} className="neu-btn !px-4 !py-2 !text-xs min-h-[44px] touch-manipulation sm:min-h-0">
               {t("storCancel")}
             </button>
           </div>
         </div>
 
         {/* أدوات التحديد */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-navy-900/10 px-5 py-3 dark:border-white/10">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-5 py-3">
           <button
             onClick={() => { setSelected(allSelected ? new Set() : new Set(cats.map((c) => c.id))); setMsg(null); }}
             className={ghostBtn}
@@ -159,7 +159,7 @@ export function StoragePanel({ onClose }: { onClose: () => void }) {
             {allSelected ? t("storClear") : t("storSelectAll")}
           </button>
           {selected.size > 0 && (
-            <span className="rounded-full bg-blue-100 px-3 py-1 text-[11px] font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+            <span className="neu-badge neu-badge--primary !px-3 !py-1 !text-[11px]">
               {selected.size} · {totalKeys} {t("storKeysUnit")}
             </span>
           )}
@@ -168,7 +168,7 @@ export function StoragePanel({ onClose }: { onClose: () => void }) {
         {/* قائمة الفئات */}
         <div className="grid gap-2 overflow-auto px-5 py-4">
           {loading && cats.length === 0 ? (
-            <p className="py-6 text-center text-xs text-navy-900/45 dark:text-ivory-50/45">…</p>
+            <p className="py-6 text-center text-xs t-muted">…</p>
           ) : (
             cats.map((c) => {
               const n = counts[c.id] ?? 0;
@@ -176,22 +176,22 @@ export function StoragePanel({ onClose }: { onClose: () => void }) {
               return (
                 <label
                   key={c.id}
-                  className={`flex cursor-pointer flex-wrap items-center gap-3 rounded-2xl border p-3 transition ${
+                  className={`neu-row flex cursor-pointer flex-wrap items-center gap-3 !p-3 ${
                     isSel
-                      ? "border-red-400 bg-red-50 dark:border-red-700 dark:bg-red-500/10"
-                      : "border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-navy-800"
+                      ? "![box-shadow:var(--shadow-inner-sm)]"
+                      : ""
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={isSel}
                     onChange={() => toggle(c.id)}
-                    className="w-5 h-5 rounded border-navy-900/15 text-red-600 focus:ring-2 focus:ring-red-500/20 cursor-pointer touch-manipulation shrink-0"
+                    className="w-5 h-5 accent-[var(--danger-color)] cursor-pointer touch-manipulation shrink-0"
                   />
-                  <span className="min-w-0 flex-1 text-xs font-bold text-navy-900 dark:text-white">
+                  <span className="min-w-0 flex-1 text-xs font-bold">
                     {t(LABEL_KEYS[c.id] ?? "storTitle")}
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${DANGER_CLS[c.danger]}`}>
+                  <span className={`neu-badge !whitespace-normal max-w-[360px] text-start !leading-[1.6] !rounded-xl !px-2.5 !py-1.5 !text-[10px] ${DANGER_CLS[c.danger]}`}>
                     {c.danger === "critical"
                       ? t("storWarnCritical")
                       : c.danger === "high"
@@ -200,7 +200,7 @@ export function StoragePanel({ onClose }: { onClose: () => void }) {
                       ? t("storWarnMed")
                       : t("storWarnLow")}
                   </span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:bg-white/10 dark:text-ivory-50/70">
+                  <span className="neu-badge !px-2 !py-0.5 !text-[10px]">
                     {n} {n === 1 ? t("storKeyUnit") : t("storKeysUnit")}
                   </span>
                 </label>
@@ -209,9 +209,9 @@ export function StoragePanel({ onClose }: { onClose: () => void }) {
           )}
         </div>
         {/* منطقة التأكيد + التنفيذ */}
-        <div className="grid gap-3 border-t border-navy-900/10 px-5 py-4 dark:border-white/10">
+        <div className="grid gap-3 border-t border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-5 py-4">
           <div className="grid gap-1.5">
-            <label className="text-[11px] font-bold text-navy-700 dark:text-navy-300" htmlFor="stor-confirm">
+            <label className="text-[11px] font-bold" htmlFor="stor-confirm">
               {t("storConfirmLabel")}
             </label>
             <input
@@ -227,10 +227,10 @@ export function StoragePanel({ onClose }: { onClose: () => void }) {
 
           {msg && (
             <p
-              className={`rounded-xl border px-3 py-2 text-[11px] font-bold ${
+              className={`neu-inset px-3 py-2 text-[11px] font-bold ${
                 msg.ok
-                  ? "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-500/10 dark:text-emerald-300"
-                  : "border-red-300/50 bg-red-50 text-red-700 dark:border-red-700/50 dark:bg-red-500/10 dark:text-red-300"
+                  ? "t-success"
+                  : "t-danger"
               }`}
             >
               {msg.text}
@@ -240,7 +240,7 @@ export function StoragePanel({ onClose }: { onClose: () => void }) {
           <button
             onClick={runDelete}
             disabled={busy || !confirmOk || selected.size === 0}
-            className="rounded-lg bg-red-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40 min-h-[44px] touch-manipulation sm:min-h-0"
+            className="neu-btn neu-btn--danger neu-btn--block !px-4 !py-2.5 !text-xs min-h-[44px] touch-manipulation sm:min-h-0"
           >
             {busy ? t("storDeleting") : t("storDelete")}
           </button>
