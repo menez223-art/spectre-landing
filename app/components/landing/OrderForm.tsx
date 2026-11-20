@@ -351,14 +351,16 @@ export function OrderForm({ product, preview = false }: { product: Product; prev
         }
       : { _landingUrl: landingUrl };
 
-    // المسار الأول: الخادم الوكيل (يحتاج هوية جدول)
+    // المسار الأول: الخادم الوكيل (يحتاج هوية جدول).
+    // نُرفق الرابط المباشر المضمّن أيضا كي يُجرّبه الخادم كاحتياط
+    // عند فشل مسار المصنع (مثلا بعد إعادة نشر السكريبت برابط جديد).
     if (sheetKey || sheetEmail) {
       try {
         console.info("[OrderForm] إرسال الطلب عبر الوكيل");
         const res = await fetch("/api/sheet/order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sheetKey, sheetEmail, order: payload, meta }),
+          body: JSON.stringify({ sheetKey, sheetEmail, directWebhook: directWebhook || undefined, order: payload, meta }),
         });
         const txt = await res.text().catch(() => "");
         console.info("[OrderForm] رد الوكيل:", res.status, txt.slice(0, 120));

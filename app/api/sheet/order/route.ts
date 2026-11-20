@@ -59,6 +59,13 @@ export async function POST(request: Request) {
 
   const sheetKey = typeof body.sheetKey === "string" ? body.sheetKey.trim() : "";
   const sheetEmail = typeof body.sheetEmail === "string" ? body.sheetEmail.trim().toLowerCase() : "";
+  // الرابط المباشر المضمّن في المنتج (يُرسله OrderForm) — احتياط خادمي
+  // عند فشل مسار المصنع. يُقبل فقط نطاق Apps Script الرسمي كي لا يتحول
+  // الوكيل إلى مُرحّل مفتوح.
+  const directRaw = typeof body.directWebhook === "string" ? body.directWebhook.trim() : "";
+  const directWebhook = /^https:\/\/script\.google\.com\/macros\/s\/AKfycb[A-Za-z0-9_-]+\/exec(\?.*)?$/.test(directRaw)
+    ? directRaw
+    : "";
   const order = body.order;
   // كتلة اختيارية من العميل: event_id + user_data (مُجزّأ مسبقاً وفق مواصفات Meta).
   // غيابها لا يُفشل الطلب — تكامل Meta اختياري ولا يحجب مسار Sheets.
@@ -96,25 +103,52 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "missing_order" }, { status: 400, headers: corsHeaders(corsOrigin) });
   }
 
+  // مسارات التسليم بالترتيب: المصنع من الهوية الثابتة أولا، ثم متغير
+  // البيئة الصريح، ثم الرابط المضمّن كاحتياط. هذا يكسر حلقة التعطّل بعد
+  // إعادة نشر السكريبت برابط جديد (الإعلان الذاتي لا يصل لأن الطلبات
+  // تذهب للقديم، وقيمة KV القديمة تتقدّم على المتغير).
   const target = await resolveOrderTarget({
     sheetKey: sheetKey || null,
     sheetEmail: sheetEmail || null,
   });
-  if (!target) {
+  const attempts: string[] = [];
+  if (target) attempts.push(target);
+  // مسار متغير البيئة المباشر — يعمل حتى لو قيمة KV عالقة على نشر قديم.
+  const envBase = (process.env.FACTORY_URL || "").trim();
+  if (sheetKey && envBase.startsWith("https://")) {
+    const envTarget = `${envBase.replace(/\/+$/, "")}?key=${encodeURIComponent(sheetKey)}`;
+    if (!attempts.includes(envTarget)) attempts.push(envTarget);
+  }
+  if (directWebhook && !attempts.includes(directWebhook)) attempts.push(directWebhook);
+  if (!attempts.length) {
     return NextResponse.json({ error: "no_webhook" }, { status: 502, headers: corsHeaders(corsOrigin) });
   }
 
   try {
-    const upstream = await fetch(target, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=UTF-8" },
-      body: JSON.stringify(order),
-      signal: AbortSignal.timeout(15000),
-    });
-    const text = await upstream.text();
-    // التحقق من نجاح الطلب نفسه؛ Apps Script قد يردّ 500 بصيغة HTML عند السقوط.
-    if (!upstream.ok || text.trim().startsWith("ERR")) {
-      return NextResponse.json({ error: "upstream_error", detail: text.trim() }, { status: 502, headers: corsHeaders(corsOrigin) });
+    let delivered = false;
+    let lastDetail = "";
+    for (const url of attempts) {
+      try {
+        const upstream = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=UTF-8" },
+          body: JSON.stringify(order),
+          signal: AbortSignal.timeout(15000),
+        });
+        const text = await upstream.text();
+        // التحقق من نجاح الطلب نفسه؛ Apps Script قد يردّ 500 بصيغة HTML عند السقوط.
+        if (upstream.ok && !text.trim().startsWith("ERR")) {
+          delivered = true;
+          break;
+        }
+        lastDetail = text.trim().slice(0, 200);
+      } catch (err) {
+        lastDetail = err instanceof Error ? err.message : String(err);
+        console.error("[sheet/order] فشل مسار تسليم:", lastDetail.slice(0, 120));
+      }
+    }
+    if (!delivered) {
+      return NextResponse.json({ error: "upstream_error", detail: lastDetail }, { status: 502, headers: corsHeaders(corsOrigin) });
     }
 
     // === Meta Conversions API (CAPI) — تكامل حصري لمالك AMINE فقط، يفشل بصمت ===
