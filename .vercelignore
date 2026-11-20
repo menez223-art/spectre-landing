@@ -26,3 +26,9 @@ link
 env_dump.json
 cookies.txt
 *.backup
+
+# بقايا جلسات محلية إضافية (لا تُرفع إلى سياق البناء)
+brag-output*/
+capture/
+vibe_images/
+design-samples/_verify/
