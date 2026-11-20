@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guest Mode — عينة الهوية الجديدة</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  /* ── وضع الزائر (GuestStudio): نافذة حوار كاملة تُعرض هنا كشاشة مستقلة للمراجعة ── */
+  body { padding: 84px 16px 190px; }
+  .hidden { display: none !important; }
+
+  .guest-shell { max-width: 1120px; margin: 24px auto 0; overflow: hidden; padding: 0; }
+  .guest-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; flex-wrap: wrap; }
+  .guest-head-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .guest-title { font-size: 16px; font-weight: 700; }
+  .guest-head .neu-sub { margin-top: 2px; }
+
+  /* تبويبا الجوال: النموذج | المعاينة (يظهران تحت 1024px فقط — كما المصدر) */
+  .mobile-tabs { display: none; gap: 8px; padding: 0 22px 14px; }
+  .mobile-tabs .neu-tab { flex: 1; }
+  @media (max-width: 1023px) {
+    .mobile-tabs { display: flex; }
+    .guest-grid.show-form .preview-col { display: none; }
+    .guest-grid.show-preview .form-col { display: none; }
+  }
+
+  .guest-grid { display: grid; gap: 24px; padding: 22px; align-items: start; }
+  @media (min-width: 1024px) { .guest-grid { grid-template-columns: 1fr 1fr; } }
+  .form-col { display: grid; gap: 20px; min-width: 0; }
+
+  .section-card { background: var(--bg-color); border-radius: var(--r-card); box-shadow: var(--shadow-outer); padding: 24px; display: grid; gap: 16px; }
+  .sec-h { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .field { display: grid; gap: 6px; }
+  .field-label { font-size: 12px; font-weight: 600; color: var(--text-main); }
+  .field-hint { font-size: 10px; color: var(--text-muted); line-height: 1.6; }
+  .input-sm { padding: 10px 14px; font-size: 13px; }
+  .form-2 { display: grid; gap: 14px; }
+  @media (min-width: 560px) { .form-2 { grid-template-columns: 1fr 1fr; } }
+  .select-wrap { position: relative; }
+  .select-wrap .select-caret { position: absolute; top: 50%; inset-inline-end: 16px; transform: translateY(-50%); color: var(--text-muted); font-size: 12px; pointer-events: none; }
+  .btn-sm { padding: 8px 14px; font-size: 12px; }
+
+  /* صناديق الرسائل: neu-inset + أيقونة حالة + نص ورقي منفصل */
+  .msg-box { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; font-size: 11px; font-weight: 600; line-height: 1.8; text-align: start; }
+  .msg-box i { margin-top: 3px; flex-shrink: 0; }
+  .msg-box--danger { color: var(--danger-color); }
+  .msg-box--warning { color: var(--warning-color); }
+  .msg-box--success { color: var(--success-color); }
+  .msg-box--info { color: var(--primary-color); }
+
+  /* كتلة رابط التجربة (أول عنصر — بارز) */
+  .trial-block { display: grid; gap: 10px; }
+  .trial-cta { width: 100%; padding: 16px 20px; font-size: 14px; box-shadow: var(--shadow-outer); }
+  .missing-box { padding: 12px 14px; display: grid; gap: 6px; font-size: 11px; line-height: 1.8; color: var(--warning-color); text-align: start; }
+  .missing-box .mb-title { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .missing-box ul { list-style: disc; padding-inline-start: 22px; display: grid; gap: 2px; }
+  .missing-box .mb-note { opacity: 0.85; }
+
+  /* مبدّلات (نمط التوصيل / طريقة الصورة / داكن فاتح) */
+  .mode-toggle { display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--bg-color); box-shadow: var(--shadow-inner-sm); }
+  .mode-toggle .neu-tab { flex: 1; border-radius: 999px; padding: 8px 14px; box-shadow: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .mode-toggle .neu-tab.is-active { box-shadow: var(--shadow-outer-sm); color: var(--primary-color); }
+
+  /* محرر أسعار الولايات */
+  .wilaya-panel { padding: 16px; display: grid; gap: 12px; }
+  .wilaya-cols { display: flex; gap: 8px; font-size: 10px; font-weight: 600; color: var(--text-muted); }
+  .wilaya-cols span { flex: 1; }
+  .wilaya-cols .wname { width: 110px; flex: none; }
+  .wilaya-grid { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; padding-inline-end: 4px; }
+  @media (min-width: 560px) { .wilaya-grid { grid-template-columns: 1fr 1fr; } }
+  .wilaya-row { display: flex; align-items: center; gap: 8px; }
+  .wilaya-name { width: 110px; flex-shrink: 0; font-size: 11px; font-weight: 500; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wilaya-row .neu-input { padding: 7px 10px; font-size: 12px; }
+
+  /* الصورة */
+  .dropzone { display: grid; place-items: center; gap: 8px; text-align: center; padding: 34px 20px; cursor: pointer; }
+  .dropzone i { font-size: 30px; color: var(--text-muted); }
+  .dropzone .dz-title { font-size: 13px; font-weight: 700; color: var(--text-main); }
+  .dropzone .dz-hint { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+  .img-row { display: flex; align-items: center; gap: 12px; padding: 8px; }
+  .img-thumb { width: 56px; height: 56px; flex-shrink: 0; border-radius: var(--r-control); background: var(--bg-color); box-shadow: var(--shadow-inner-sm); display: grid; place-items: center; color: var(--text-muted); font-size: 20px; }
+  .img-thumb--lg { width: 96px; height: 112px; font-size: 28px; }
+  .img-row .img-label { flex: 1; font-size: 12px; color: var(--text-muted); }
+  .img-actions { display: grid; gap: 8px; }
+  .url-note { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+  .url-line { display: flex; gap: 8px; }
+  .url-line .neu-input { flex: 1; }
+
+  /* ألوان المنتج */
+  .color-row { display: flex; align-items: center; gap: 8px; }
+  .color-row input[type="color"] { width: 42px; height: 38px; flex-shrink: 0; border: none; background: transparent; padding: 0; cursor: pointer; }
+  .color-row .neu-input { flex: 1; }
+  .color-box { display: flex; align-items: center; gap: 8px; padding: 6px; }
+  .color-box input[type="color"] { width: 38px; height: 30px; border: none; background: transparent; padding: 0; cursor: pointer; flex-shrink: 0; }
+  .color-box .hex { flex: 1; min-width: 0; border: none; background: transparent; color: var(--text-main); font-size: 12px; font-family: inherit; outline: none; }
+  .swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .swatch { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm); cursor: pointer; }
+  .swatch:active { box-shadow: var(--shadow-btn-active); }
+  .btn-dashed { width: 100%; border: 1.5px dashed var(--text-muted); background: var(--bg-color); box-shadow: none; color: var(--text-muted); border-radius: var(--r-control); padding: 11px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-dashed:active { box-shadow: var(--shadow-btn-active); }
+
+  /* خيارات متقدمة */
+  .adv-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; background: none; border: none; cursor: pointer; font-family: inherit; color: inherit; padding: 0; text-align: start; }
+  .adv-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; flex-wrap: wrap; }
+  .adv-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+  .sub-section { padding: 18px; display: grid; gap: 12px; }
+  .feature-row, .stat-row { display: grid; gap: 8px; padding: 10px; align-items: center; }
+  @media (min-width: 560px) { .feature-row { grid-template-columns: 1fr 1.4fr auto; } .stat-row { grid-template-columns: 0.8fr 1.4fr auto; } }
+  .testimonial-row { padding: 12px; display: grid; gap: 8px; }
+  .testimonial-foot { display: grid; gap: 8px; }
+  @media (min-width: 560px) { .testimonial-foot { grid-template-columns: 1fr 1fr; } }
+  .testimonial-city { display: flex; gap: 8px; }
+  .testimonial-city .neu-input { flex: 1; }
+  .del-link { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--danger-color); display: inline-flex; align-items: center; gap: 6px; padding: 6px; }
+  .hint-line { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+
+  /* أزرار العمليات */
+  .ops { display: grid; gap: 10px; }
+  .ops-row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+  /* المعاينة النائبة (صفحة الهبوط خارج نطاق العينة) */
+  .preview-card { overflow: hidden; }
+  @media (min-width: 1024px) { .preview-card { position: sticky; top: 24px; } }
+  .preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; font-size: 12px; font-weight: 700; color: var(--text-main); }
+  .preview-bar .pv-name { color: var(--text-muted); font-weight: 600; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preview-body { padding: 18px; }
+  .preview-ph { min-height: 440px; display: grid; place-items: center; text-align: center; gap: 12px; padding: 30px; }
+  .preview-ph i { font-size: 42px; color: var(--text-muted); }
+  .preview-ph .pv-label { font-size: 13px; font-weight: 700; color: var(--text-main); line-height: 1.7; }
+  .preview-ph .pv-sub { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+
+  /* لوحة التجربة (TrialPanel) */
+  .trial-card { max-width: 560px; }
+  .trial-head { text-align: center; padding: 18px 54px; }
+  .trial-head .th-title { font-size: 18px; font-weight: 700; color: var(--primary-color); }
+  .trial-body { padding: 24px; display: grid; gap: 16px; }
+  .trial-lead { font-size: 13px; line-height: 1.9; color: var(--text-main); }
+  .trial-field { display: grid; gap: 6px; }
+  .trial-field .field-label { font-weight: 700; }
+  .wa-send { align-self: start; }
+  .code-input { text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 0.4em; }
+  .trial-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .trial-url { direction: ltr; text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600; color: var(--text-main); word-break: break-all; font-family: 'Poppins', monospace; }
+  .remaining-box { padding: 12px; text-align: center; display: grid; gap: 4px; }
+  .remaining-box .rb-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  .remaining-box .rb-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--warning-color); font-family: 'Poppins', monospace; }
+  .made-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .made-title i { color: var(--success-color); }
+  .ended-text { font-size: 13px; line-height: 1.9; color: var(--text-main); }
+  .disabled-box { padding: 12px 14px; display: grid; gap: 4px; color: var(--warning-color); text-align: start; }
+  .disabled-box .db-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .disabled-box .db-msg { font-size: 11px; line-height: 1.8; }
+  .neu-overlay--confirm { z-index: 210; }
+  .confirm-card { max-width: 420px; }
+  .confirm-title { font-size: 16px; font-weight: 700; color: var(--danger-color); display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .confirm-body { font-size: 13px; line-height: 1.9; margin-bottom: 16px; }
+
+  /* الرسالة التوجيهية (demoNotice) */
+  .notice-card { max-width: 480px; text-align: center; }
+  .notice-title { font-size: 18px; font-weight: 700; color: var(--warning-color); display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 16px; }
+  .notice-body { font-size: 13px; line-height: 1.9; color: var(--text-main); margin-bottom: 18px; text-align: start; }
+  .notice-actions { display: grid; gap: 10px; }
+
+  /* ملاحظة عينة (ليست من التصميم) */
+  .sample-note { border: 1.5px dashed var(--text-muted); border-radius: 12px; padding: 10px 14px; font-size: 11px; line-height: 1.8; color: var(--text-muted); text-align: start; max-width: 1120px; margin: 0 auto; }
+  .sample-note--inline { max-width: none; margin: 0; }
+
+  /* ── أداة مراجعة: ليست من التصميم (تُزال عند التطبيق) ── */
+  .review-bar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 14px; border: 1.5px dashed var(--text-muted); border-radius: 12px; background: var(--bg-color); font-size: 11px; color: var(--text-muted); max-width: calc(100vw - 24px); box-shadow: var(--shadow-outer-sm); }
+  .review-bar button { border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm); color: var(--text-muted); border-radius: 10px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .review-bar button.is-active { box-shadow: var(--shadow-inner-sm); color: var(--primary-color); }
+  .review-bar .rb-sep { width: 2px; height: 20px; border-radius: 2px; background: var(--bg-color); box-shadow: var(--shadow-inner-sm); }
+</style>
+</head>
+<body>
+
+  <!-- أزرار التحكم (اللغة + الثيم) — في المصدر داخل ترويسة النافذة؛ هنا أعلى الشاشة (نسخة واحدة) -->
+  <div class="top-controls">
+    <button class="neu-circle" id="langBtn" data-en-title="Change language" data-ar-title="تغيير اللغة" title="Change language">AR</button>
+    <button class="neu-circle" id="themeBtn" data-en-title="Toggle dark mode" data-ar-title="تبديل الوضع الليلي" title="Toggle dark mode">
+      <i class="fa-solid fa-moon"></i>
+    </button>
+  </div>
+
+  <div class="sample-note">
+    <span data-en="Sample note (not part of the design): in the real app this dialog opens from «Try it free» on the home page and covers the screen. It is shown here as a standalone screen. All product data below is demo data — Guest Mode stores nothing."
+          data-ar="ملاحظة عينة (ليست من التصميم): في التطبيق الحقيقي تُفتح هذه النافذة من زر «جرّب المنصة مجاناً» في الرئيسية وتغطي الشاشة. تُعرض هنا كشاشة مستقلة. كل بيانات المنتج أدناه تجريبية — وضع الزائر لا يحفظ شيئاً.">Sample note (not part of the design): in the real app this dialog opens from «Try it free» on the home page and covers the screen. It is shown here as a standalone screen. All product data below is demo data — Guest Mode stores nothing.</span>
+  </div>
+
+  <!-- ══════════ نافذة وضع الزائر (GuestStudio) — النموذج الكامل ══════════ -->
+  <div class="guest-shell neu-card" role="dialog" aria-modal="true"
+       aria-label="Try the platform — Guest Mode" data-en-aria="Try the platform — Guest Mode" data-ar-aria="تجربة المنصة — وضع تجريبي">
+
+    <!-- الترويسة (demoTitle + tryDemoSub + إغلاق) -->
+    <div class="guest-head">
+      <div class="guest-head-id">
+        <span class="neu-circle neu-circle--sm neu-circle--primary"><i class="fa-solid fa-flask" aria-hidden="true"></i></span>
+        <div>
+          <p class="guest-title"><span data-en="Try the platform — Guest Mode" data-ar="تجربة المنصة — وضع تجريبي">Try the platform — Guest Mode</span></p>
+          <p class="neu-sub"><span data-en="No sign-in needed — see your landing page instantly" data-ar="بدون تسجيل دخول — شاهد صفحة هبوطك فوراً">No sign-in needed — see your landing page instantly</span></p>
+        </div>
+      </div>
+      <a href="home.html" class="neu-circle neu-circle--sm" id="guestClose"
+         aria-label="Close trial" data-en-aria="Close trial" data-ar-aria="إغلاق التجربة"
+         title="Close trial" data-en-title="Close trial" data-ar-title="إغلاق التجربة">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </a>
+    </div>
+    <hr class="neu-divider">
+
+    <!-- تبويبا الجوال -->
+    <div class="mobile-tabs" id="mobileTabs" style="padding-top:14px">
+      <button type="button" class="neu-tab is-active" data-mtab="form" data-en="Form" data-ar="النموذج">Form</button>
+      <button type="button" class="neu-tab" data-mtab="preview" data-en="Preview" data-ar="المعاينة">Preview</button>
+    </div>
+
+    <div class="guest-grid show-form" id="guestGrid">
+      <!-- ══════════ عمود النموذج ══════════ -->
+      <div class="form-col" id="formCol">
+
+        <!-- لافتة demoNoticeBody — أول عنصر في النموذج -->
+        <div class="msg-box msg-box--info neu-inset">
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+          <span data-en="You just saw the power of the platform! In Guest Mode: download, save, and email-linking are fully disabled — nothing is stored. To unlock saving, download, and your own studio page, please contact the admin to subscribe."
+                data-ar="شاهدت للتو قوة المنصة! في الوضع التجريبي: التحميل، الحفظ، وربط الإيميل معطّلة تماماً — لا تُحفظ أي بيانات. للحصول على صلاحيات الحفظ، التحميل، وفتح صفحة الستوديو الخاصة بك، يرجى التواصل مع الإدارة للاشتراك.">You just saw the power of the platform! In Guest Mode: download, save, and email-linking are fully disabled — nothing is stored. To unlock saving, download, and your own studio page, please contact the admin to subscribe.</span>
+        </div>
+
+        <!-- كتلة رابط التجربة — بارزة، معطّلة حتى تكتمل خانات المنتج -->
+        <div class="trial-block">
+          <button type="button" class="neu-btn trial-cta" id="publishDirect">
+            <i class="fa-solid fa-gift" aria-hidden="true"></i>
+            <span data-en="Get a free trial link — 24h" data-ar="احصل على رابط تجريبي مجاني — 24 ساعة">Get a free trial link — 24h</span>
+          </button>
+          <button type="button" class="neu-btn neu-btn--muted neu-btn--block" id="manageTrial">
+            <span data-en="Manage an existing trial" data-ar="إدارة رابط تجربة سابق">Manage an existing trial</span>
+          </button>
+          <div class="missing-box neu-inset hidden" id="missingBox">
+            <span class="mb-title">
+              <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+              <span data-en="Complete these fields first to get your link:" data-ar="أكمل هذه الحقول أولاً لتحصل على الرابط:">Complete these fields first to get your link:</span>
+            </span>
+            <ul>
+              <li><span data-en="Product name *" data-ar="اسم المنتج *">Product name *</span></li>
+              <li><span data-en="Price (DZD)" data-ar="السعر (دج)">Price (DZD)</span></li>
+              <li><span data-en="Product image" data-ar="صورة المنتج">Product image</span></li>
+              <li><span data-en="Headline (Tagline)" data-ar="العنوان الكبير (Tagline)">Headline (Tagline)</span></li>
+              <li><span data-en="Description" data-ar="الوصف">Description</span></li>
+              <li><span data-en="Features" data-ar="المميزات">Features</span></li>
+            </ul>
+            <span class="mb-note" data-en="Email and WhatsApp number (inside the dialog)" data-ar="البريد الإلكتروني ورقم الواتساب (داخل النافذة)">Email and WhatsApp number (inside the dialog)</span>
+          </div>
+        </div>
+
+        <!-- صندوق الخطأ العام (errName / errUrl / ...) — مخفي افتراضياً -->
+        <div class="msg-box msg-box--danger neu-inset hidden" id="errorBox" role="alert">
+          <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <span id="errorText" data-en="Enter the product name first" data-ar="أدخل اسم المنتج أولاً">Enter the product name first</span>
+        </div>
+
+        <!-- المعلومات الأساسية -->
+        <section class="section-card">
+          <h2 class="sec-h"><i class="fa-solid fa-circle-info t-primary" aria-hidden="true"></i><span data-en="Product info" data-ar="معلومات المنتج">Product info</span></h2>
+
+          <div class="field">
+            <span class="field-label" data-en="Product name *" data-ar="اسم المنتج *">Product name *</span>
+            <input class="neu-input input-sm" type="text" id="fName" value="سماعات لاسلكية برو" dir="auto"
+                   data-en-ph="e.g. Pro wireless earbuds" data-ar-ph="مثال: سماعات لاسلكية برو" placeholder="e.g. Pro wireless earbuds">
+          </div>
+          <div class="form-2">
+            <div class="field">
+              <span class="field-label" data-en="English name" data-ar="الاسم الإنجليزي">English name</span>
+              <input class="neu-input input-sm" type="text" id="fNameEn" dir="ltr" value="Pro Wireless Earbuds"
+                     data-en-ph="Pro Wireless Earbuds" data-ar-ph="Pro Wireless Earbuds" placeholder="Pro Wireless Earbuds">
+              <span class="field-hint" data-en="Shown as a distinct mark (used for the slug)" data-ar="يظهر كعلامة مميزة (يُستخدم للسلاگ)">Shown as a distinct mark (used for the slug)</span>
+            </div>
+            <div class="field">
+              <span class="field-label" data-en="Brand name" data-ar="اسم الشعار (Brand)">Brand name</span>
+              <input class="neu-input input-sm" type="text" id="fBrand" dir="ltr" value="ProSound"
+                     data-en-ph="ProSound" data-ar-ph="ProSound" placeholder="ProSound">
+            </div>
+          </div>
+          <div class="form-2">
+            <div class="field">
+              <span class="field-label" data-en="Price (DZD)" data-ar="السعر (دج)">Price (DZD)</span>
+              <input class="neu-input input-sm" type="text" inputmode="numeric" id="fPrice" value="4500"
+                     data-en-ph="4500" data-ar-ph="4500" placeholder="4500">
+            </div>
+            <div class="field">
+              <span class="field-label" data-en="Old price" data-ar="السعر القديم">Old price</span>
+              <input class="neu-input input-sm" type="text" inputmode="numeric" id="fOldPrice" value="5000"
+                     data-en-ph="5000" data-ar-ph="5000" placeholder="5000">
+              <span class="field-hint" data-en="Optional to show a discount" data-ar="اختياري لإظهار خصم">Optional to show a discount</span>
+            </div>
+            <div class="field">
+              <span class="field-label" data-en="Badge" data-ar="الشارة (Badge)">Badge</span>
+              <input class="neu-input input-sm" type="text" id="fBadge" value="جديد" dir="auto"
+                     data-en-ph="New / Fast" data-ar-ph="جديد / سريع" placeholder="New / Fast">
+            </div>
+            <div class="field">
+              <span class="field-label" data-en="Category" data-ar="التصنيف">Category</span>
+              <div class="select-wrap">
+                <select class="neu-input input-sm" id="categorySelect" dir="auto"></select>
+                <i class="fa-solid fa-chevron-down select-caret" aria-hidden="true"></i>
+              </div>
+              <span class="field-hint" data-en="Guides the automatic content generation" data-ar="يُوجّه توليد المحتوى التلقائي">Guides the automatic content generation</span>
+            </div>
+          </div>
+          <div class="form-2">
+            <div class="field">
+              <span class="field-label" data-en="Home delivery price (DZD)" data-ar="سعر التوصيل للمنزل (دج)">Home delivery price (DZD)</span>
+              <input class="neu-input input-sm" type="text" inputmode="numeric" id="deliveryHome" value="700"
+                     data-en-ph="700" data-ar-ph="700" placeholder="700">
+              <span class="field-hint" data-en="Default 700 — change it for your product" data-ar="السعر الافتراضي 700 — غيّره حسب منتجك">Default 700 — change it for your product</span>
+            </div>
+            <div class="field">
+              <span class="field-label" data-en="Office pickup price (DZD)" data-ar="سعر الاستلام من المكتب (دج)">Office pickup price (DZD)</span>
+              <input class="neu-input input-sm" type="text" inputmode="numeric" id="deliveryOffice" value="500"
+                     data-en-ph="500" data-ar-ph="500" placeholder="500">
+              <span class="field-hint" data-en="Default 500 — change it for your product" data-ar="السعر الافتراضي 500 — غيّره حسب منتجك">Default 500 — change it for your product</span>
+            </div>
+          </div>
+
+          <!-- مبدّل وضع التوصيل -->
+          <div class="field">
+            <span class="field-label" data-en="Delivery mode" data-ar="نمط التوصيل">Delivery mode</span>
+            <div class="mode-toggle" id="deliveryModeToggle">
+              <button type="button" class="neu-tab is-active" data-mode="fixed" data-en="One fixed price (all wilayas)" data-ar="سعر ثابت لكل الولايات">One fixed price (all wilayas)</button>
+              <button type="button" class="neu-tab" data-mode="wilaya" data-en="Price by wilaya" data-ar="سعر حسب الولاية">Price by wilaya</button>
+            </div>
+            <span class="field-hint" data-en="Fixed: one price for all wilayas · By wilaya: custom price per wilaya" data-ar="ثابت: سعر واحد لكل الولايات · حسب الولاية: سعر مخصّص لكل ولاية">Fixed: one price for all wilayas · By wilaya: custom price per wilaya</span>
+          </div>
+
+          <!-- محرر أسعار الولايات (يظهر في نمط «حسب الولاية») -->
+          <div class="wilaya-panel neu-inset hidden" id="wilayaPanel">
+            <div class="sec-head">
+              <span class="field-label" data-en="Delivery price per wilaya" data-ar="أسعار التوصيل لكل ولاية">Delivery price per wilaya</span>
+              <button type="button" class="neu-btn neu-btn--muted btn-sm" id="wilayaFill">
+                <span data-en="Fill with default" data-ar="ملء بالافتراضي">Fill with default</span>
+              </button>
+            </div>
+            <div class="wilaya-cols">
+              <span class="wname"></span>
+              <span data-en="Home (DZD)" data-ar="للمنزل (دج)">Home (DZD)</span>
+              <span data-en="Office (DZD)" data-ar="للمكتب (دج)">Office (DZD)</span>
+            </div>
+            <p class="field-hint" data-en="Set a custom delivery price (home &amp; office) for each wilaya. Leave 0 or empty to apply the default." data-ar="حدّد سعر توصيل مخصّص (للمنزل وللمكتب) لكل ولاية. اتركه 0 أو فارغاً لتطبيق السعر الافتراضي.">Set a custom delivery price (home &amp; office) for each wilaya. Leave 0 or empty to apply the default.</p>
+            <div class="wilaya-grid" id="wilayaGrid"></div>
+          </div>
+
+          <div class="field">
+            <span class="field-label" data-en="Headline (Tagline)" data-ar="العنوان الكبير (Tagline)">Headline (Tagline)</span>
+            <input class="neu-input input-sm" type="text" id="fTagline" dir="auto" value="صوت نقي يدوم طويلاً"
+                   data-en-ph="Pure sound that lasts" data-ar-ph="صوت نقي يدوم طويلاً" placeholder="Pure sound that lasts">
+            <span class="field-hint" data-en="Optional — product name is used if left empty" data-ar="اختياري — إن تُرك ظهر اسم المنتج">Optional — product name is used if left empty</span>
+          </div>
+          <div class="field">
+            <span class="field-label" data-en="Small badge (Eyebrow)" data-ar="الشارة الصغيرة (Eyebrow)">Small badge (Eyebrow)</span>
+            <input class="neu-input input-sm" type="text" id="fEyebrow" dir="auto" value="USB-C · شحن سريع"
+                   data-en-ph="USB-C · Fast charging" data-ar-ph="USB-C · شحن سريع" placeholder="USB-C · Fast charging">
+          </div>
+          <div class="field">
+            <span class="field-label" data-en="Description" data-ar="الوصف">Description</span>
+            <textarea class="neu-input input-sm" id="fDescription" dir="auto"
+                      data-en-ph="A short, professional product description" data-ar-ph="وصف قصير واحترافي للمنتج" placeholder="A short, professional product description">سماعات لاسلكية بعزل ضوضاء نشط وبطارية تدوم 36 ساعة.</textarea>
+          </div>
+          <div class="field">
+            <span class="field-label" data-en="Tags" data-ar="الشارات (Tags)">Tags</span>
+            <input class="neu-input input-sm" type="text" id="fTags" dir="auto" value="بلوتوث 5.4, إلغاء ضوضاء, بطارية 36 ساعة"
+                   data-en-ph="Bluetooth 5.4, Noise cancelling, 36h battery" data-ar-ph="بلوتوث 5.4, إلغاء ضوضاء, بطارية 36 ساعة" placeholder="Bluetooth 5.4, Noise cancelling, 36h battery">
+            <span class="field-hint" data-en="Separate with a comma" data-ar="افصل بينها بفاصلة">Separate with a comma</span>
+          </div>
+
+          <!-- محرر ألوان المنتج -->
+          <div style="display:grid;gap:10px">
+            <span class="field-label" data-en="Product colors" data-ar="ألوان المنتج">Product colors</span>
+            <span class="field-hint" data-en="Add color options for the customer to choose (display only — not saved to the sheet)." data-ar="أضف خيارات ألوان يختارها الزبون للعرض فقط (لا تُحفظ في الجدول).">Add color options for the customer to choose (display only — not saved to the sheet).</span>
+            <div id="colorsList" style="display:grid;gap:8px">
+              <div class="color-row">
+                <input type="color" value="#111111" data-en-title="Color" data-ar-title="اللون" title="Color">
+                <input class="neu-input input-sm" type="text" value="الأسود" dir="auto" data-en-ph="Black" data-ar-ph="الأسود" placeholder="Black">
+                <button type="button" class="neu-circle neu-circle--sm neu-circle--danger color-del" data-en-title="Remove" data-ar-title="إزالة" title="Remove"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+              </div>
+              <div class="color-row">
+                <input type="color" value="#2b6cb0" data-en-title="Color" data-ar-title="اللون" title="Color">
+                <input class="neu-input input-sm" type="text" value="الأزرق" dir="auto" data-en-ph="Blue" data-ar-ph="الأزرق" placeholder="Blue">
+                <button type="button" class="neu-circle neu-circle--sm neu-circle--danger color-del" data-en-title="Remove" data-ar-title="إزالة" title="Remove"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <button type="button" class="btn-dashed" id="addColorBtn">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i>
+              <span data-en="Add color" data-ar="إضافة لون">Add color</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- الصورة (صورة واحدة فقط في وضع الزائر) -->
+        <section class="section-card">
+          <div class="sec-head">
+            <h2 class="sec-h"><i class="fa-solid fa-image t-primary" aria-hidden="true"></i><span data-en="Product image" data-ar="صورة المنتج">Product image</span></h2>
+            <button type="button" class="neu-btn neu-btn--muted btn-sm" id="extractBtn">
+              <i class="fa-solid fa-palette" aria-hidden="true"></i>
+              <span data-en="Extract colors from image" data-ar="استخراج الألوان من الصورة">Extract colors from image</span>
+            </button>
+          </div>
+
+          <div class="mode-toggle" id="imageTabToggle">
+            <button type="button" class="neu-tab is-active" data-imgtab="upload">
+              <i class="fa-solid fa-image" aria-hidden="true"></i>
+              <span data-en="Upload image" data-ar="رفع صورة">Upload image</span>
+            </button>
+            <button type="button" class="neu-tab" data-imgtab="url">
+              <i class="fa-solid fa-link" aria-hidden="true"></i>
+              <span data-en="Image URL" data-ar="رابط صورة">Image URL</span>
+            </button>
+          </div>
+
+          <!-- تحذير استخراج الألوان (errPalette / errPaletteCors) — مخفي افتراضياً -->
+          <div class="msg-box msg-box--warning neu-inset hidden" id="paletteWarn">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            <span id="paletteWarnText" data-en="Could not extract colors from this image" data-ar="تعذّر استخراج الألوان من هذه الصورة">Could not extract colors from this image</span>
+          </div>
+
+          <!-- تبويب الرفع -->
+          <div id="imageUploadTab">
+            <!-- حالة وجود صورة -->
+            <div class="img-row neu-inset" id="imgHasRow">
+              <span class="img-thumb img-thumb--lg"><i class="fa-solid fa-image" aria-hidden="true"></i></span>
+              <span class="img-actions">
+                <label class="neu-btn neu-btn--muted btn-sm" style="cursor:pointer">
+                  <span data-en="Replace image" data-ar="استبدال الصورة">Replace image</span>
+                  <input type="file" accept="image/*" class="hidden" id="replaceFile">
+                </label>
+                <button type="button" class="neu-btn neu-btn--danger btn-sm" id="removeImgBtn">
+                  <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                  <span data-en="Remove" data-ar="إزالة">Remove</span>
+                </button>
+              </span>
+            </div>
+            <!-- حالة بدون صورة -->
+            <label class="dropzone neu-inset hidden" id="imgDrop">
+              <i class="fa-solid fa-image" aria-hidden="true"></i>
+              <span class="dz-title" data-en="Upload product image" data-ar="ارفع صورة المنتج">Upload product image</span>
+              <span class="dz-hint" data-en="Color palette extracted automatically · or use the «Image URL» tab" data-ar="ستُستخرج لوحة الألوان تلقائياً · أو استخدم تبويب «رابط صورة»">Color palette extracted automatically · or use the «Image URL» tab</span>
+              <input type="file" accept="image/*" class="hidden" id="dropFile">
+            </label>
+          </div>
+
+          <!-- تبويب الرابط -->
+          <div id="imageUrlTab" class="hidden" style="display:grid;gap:12px">
+            <div class="url-line">
+              <input class="neu-input input-sm" type="text" dir="ltr" id="urlInput"
+                     data-en-ph="https://example.com/product.jpg" data-ar-ph="https://example.com/product.jpg" placeholder="https://example.com/product.jpg">
+              <button type="button" class="neu-btn btn-sm" id="useUrlBtn">
+                <span data-en="Use URL" data-ar="استخدام الرابط">Use URL</span>
+              </button>
+            </div>
+            <p class="url-note" data-en="Upload an image or paste a direct link" data-ar="ارفع صورة أو ألصق رابطاً مباشراً">Upload an image or paste a direct link</p>
+            <div class="img-row neu-inset" id="urlImgRow">
+              <span class="img-thumb"><i class="fa-solid fa-image" aria-hidden="true"></i></span>
+              <span class="img-label" data-en="Current product image" data-ar="صورة المنتج الحالية">Current product image</span>
+              <button type="button" class="del-link" id="removeImgBtn2">
+                <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                <span data-en="Remove" data-ar="إزالة">Remove</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="sample-note sample-note--inline">
+            <span data-en="Sample note (not part of the design): Guest Mode supports ONE image only (docs/SPEC-guest-trial.md) — the extra-images editor exists only in the subscriber studio. The thumbnail above is an icon placeholder, not a real upload."
+                  data-ar="ملاحظة عينة (ليست من التصميم): وضع الزائر يدعم صورة واحدة فقط (docs/SPEC-guest-trial.md) — محرر الصور الإضافية موجود فقط في استوديو المشتركين. المصغّرة أعلاه عنصر نائب بأيقونة، ليست رفعاً حقيقياً.">Sample note (not part of the design): Guest Mode supports ONE image only (docs/SPEC-guest-trial.md) — the extra-images editor exists only in the subscriber studio. The thumbnail above is an icon placeholder, not a real upload.</span>
+          </div>
+        </section>
+
+        <!-- خيارات متقدمة -->
+        <section class="section-card">
+          <button type="button" class="adv-head" id="advHead">
+            <span class="adv-title">
+              <i class="fa-solid fa-sliders t-primary" aria-hidden="true"></i>
+              <span data-en="Advanced options" data-ar="خيارات متقدمة">Advanced options</span>
+              <span class="neu-badge" id="advBadge" data-en="5 items" data-ar="5 عناصر">5 items</span>
+            </span>
+            <span class="adv-toggle">
+              <span id="advToggleText" data-en="Show" data-ar="إظهار">Show</span>
+              <i class="fa-solid fa-chevron-down" id="advChevron" aria-hidden="true"></i>
+            </span>
+          </button>
+
+          <div id="advBody" class="hidden" style="display:grid;gap:18px">
+            <!-- لوحة الألوان -->
+            <div class="sub-section neu-inset">
+              <div class="sec-head">
+                <h2 class="sec-h"><span data-en="Color palette" data-ar="لوحة الألوان">Color palette</span></h2>
+                <div class="mode-toggle" id="paletteModeToggle" style="flex:none">
+                  <button type="button" class="neu-tab" data-pmode="dark" data-en="Dark" data-ar="داكن">Dark</button>
+                  <button type="button" class="neu-tab is-active" data-pmode="light" data-en="Light" data-ar="فاتح">Light</button>
+                </div>
+              </div>
+              <div class="form-2">
+                <div class="field">
+                  <span class="field-label" data-en="Primary color" data-ar="اللون الأساسي">Primary color</span>
+                  <div class="color-box neu-inset"><input type="color" value="#2b6cb0" data-en-title="Primary color" data-ar-title="اللون الأساسي" title="Primary color"><input class="hex" type="text" dir="ltr" value="#2b6cb0"></div>
+                </div>
+                <div class="field">
+                  <span class="field-label" data-en="Accent color" data-ar="اللون المميز">Accent color</span>
+                  <div class="color-box neu-inset"><input type="color" value="#b7791f" data-en-title="Accent color" data-ar-title="اللون المميز" title="Accent color"><input class="hex" type="text" dir="ltr" value="#b7791f"></div>
+                </div>
+                <div class="field">
+                  <span class="field-label" data-en="Background" data-ar="الخلفية">Background</span>
+                  <div class="color-box neu-inset"><input type="color" value="#e0e5ec" data-en-title="Background" data-ar-title="الخلفية" title="Background"><input class="hex" type="text" dir="ltr" value="#e0e5ec"></div>
+                </div>
+                <div class="field">
+                  <span class="field-label" data-en="Text" data-ar="النص">Text</span>
+                  <div class="color-box neu-inset"><input type="color" value="#333333" data-en-title="Text" data-ar-title="النص" title="Text"><input class="hex" type="text" dir="ltr" value="#333333"></div>
+                </div>
+              </div>
+              <div class="swatches hidden" id="swatchesRow">
+                <span class="field-hint" data-en="Extracted colors — click to set as primary:" data-ar="ألوان مستخرجة — اضغط لاختيار الأساسي:">Extracted colors — click to set as primary:</span>
+                <button type="button" class="swatch" style="background:#2b6cb0" data-en-title="Set primary" data-ar-title="اختيار الأساسي" title="Set primary"></button>
+                <button type="button" class="swatch" style="background:#b7791f" data-en-title="Set primary" data-ar-title="اختيار الأساسي" title="Set primary"></button>
+                <button type="button" class="swatch" style="background:#2f855a" data-en-title="Set primary" data-ar-title="اختيار الأساسي" title="Set primary"></button>
+              </div>
+            </div>
+
+            <!-- المميزات -->
+            <div class="sub-section neu-inset">
+              <div class="sec-head">
+                <h2 class="sec-h"><span data-en="Features" data-ar="المميزات">Features</span></h2>
+                <button type="button" class="neu-btn neu-btn--muted btn-sm" id="addFeatureBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i><span data-en="Add" data-ar="إضافة">Add</span></button>
+              </div>
+              <div id="featuresList" style="display:grid;gap:10px">
+                <div class="feature-row neu-inset">
+                  <input class="neu-input input-sm f-title" type="text" dir="auto" value="إلغاء ضوضاء نشط" data-en-ph="Feature title" data-ar-ph="عنوان الميزة" placeholder="Feature title">
+                  <input class="neu-input input-sm f-copy" type="text" dir="auto" value="عزل ذكي للضجيج المحيط" data-en-ph="Description" data-ar-ph="الوصف" placeholder="Description">
+                  <button type="button" class="del-link item-del"><i class="fa-solid fa-trash" aria-hidden="true"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+                </div>
+                <div class="feature-row neu-inset">
+                  <input class="neu-input input-sm f-title" type="text" dir="auto" value="بطارية 36 ساعة" data-en-ph="Feature title" data-ar-ph="عنوان الميزة" placeholder="Feature title">
+                  <input class="neu-input input-sm f-copy" type="text" dir="auto" value="شحن سريع عبر USB-C" data-en-ph="Description" data-ar-ph="الوصف" placeholder="Description">
+                  <button type="button" class="del-link item-del"><i class="fa-solid fa-trash" aria-hidden="true"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+                </div>
+              </div>
+              <p class="hint-line hidden" id="noFeatures" data-en="No features — the section will be hidden. Add 1 to 4 features." data-ar="لا ميزات — سيُخفى القسم. أضف من 1 إلى 4 ميزات.">No features — the section will be hidden. Add 1 to 4 features.</p>
+            </div>
+
+            <!-- الإحصائيات -->
+            <div class="sub-section neu-inset">
+              <div class="sec-head">
+                <h2 class="sec-h"><span data-en="Quick stats" data-ar="إحصائيات سريعة">Quick stats</span></h2>
+                <button type="button" class="neu-btn neu-btn--muted btn-sm" id="addStatBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i><span data-en="Add" data-ar="إضافة">Add</span></button>
+              </div>
+              <div id="statsList" style="display:grid;gap:10px">
+                <div class="stat-row neu-inset">
+                  <input class="neu-input input-sm s-value" type="text" dir="ltr" value="20W" data-en-ph="20W" data-ar-ph="20W" placeholder="20W">
+                  <input class="neu-input input-sm s-label" type="text" dir="auto" value="قوة الشحن" data-en-ph="Charging power" data-ar-ph="قوة الشحن" placeholder="Charging power">
+                  <button type="button" class="del-link item-del"><i class="fa-solid fa-trash" aria-hidden="true"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+                </div>
+                <div class="stat-row neu-inset">
+                  <input class="neu-input input-sm s-value" type="text" dir="ltr" value="36h" data-en-ph="36h" data-ar-ph="36h" placeholder="36h">
+                  <input class="neu-input input-sm s-label" type="text" dir="auto" value="البطارية" data-en-ph="Battery" data-ar-ph="البطارية" placeholder="Battery">
+                  <button type="button" class="del-link item-del"><i class="fa-solid fa-trash" aria-hidden="true"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- الآراء -->
+            <div class="sub-section neu-inset">
+              <div class="sec-head">
+                <h2 class="sec-h"><span data-en="Customer reviews" data-ar="آراء الزبائن">Customer reviews</span></h2>
+                <button type="button" class="neu-btn neu-btn--muted btn-sm" id="addTestimonialBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i><span data-en="Add" data-ar="إضافة">Add</span></button>
+              </div>
+              <div id="testimonialsList" style="display:grid;gap:10px">
+                <div class="testimonial-row neu-inset">
+                  <textarea class="neu-input input-sm t-quote" dir="auto" data-en-ph="What did the customer say?" data-ar-ph="ماذا قال الزبون؟" placeholder="What did the customer say?">جودة صوت ممتازة والتوصيل سريع</textarea>
+                  <div class="testimonial-foot">
+                    <input class="neu-input input-sm t-name" type="text" dir="auto" value="أمين" data-en-ph="Name" data-ar-ph="الاسم" placeholder="Name">
+                    <div class="testimonial-city">
+                      <input class="neu-input input-sm t-city" type="text" dir="auto" value="الجزائر" data-en-ph="City" data-ar-ph="المدينة" placeholder="City">
+                      <button type="button" class="del-link item-del"><i class="fa-solid fa-trash" aria-hidden="true"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- أزرار العمليات — المحظورة تفتح الرسالة التوجيهية -->
+        <div class="ops">
+          <button type="button" class="neu-btn neu-btn--block" id="generateBtn">
+            <i class="fa-solid fa-bolt" aria-hidden="true"></i>
+            <span data-en="Auto-fill" data-ar="تعبئة تلقائية">Auto-fill</span>
+          </button>
+          <div class="ops-row">
+            <button type="button" class="neu-btn neu-btn--muted" id="downloadBtn" title="Download HTML" data-en-title="Download HTML" data-ar-title="تحميل HTML">
+              <i class="fa-solid fa-download" aria-hidden="true"></i>
+              <span data-en="Download HTML" data-ar="تحميل HTML">Download HTML</span>
+            </button>
+            <button type="button" class="neu-btn neu-btn--muted" id="generatePageBtn" title="Generate page" data-en-title="Generate page" data-ar-title="توليد الصفحة">
+              <span data-en="Generate page" data-ar="توليد الصفحة">Generate page</span>
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+          </div>
+          <a href="studio-login.html" class="neu-btn neu-btn--block">
+            <span data-en="Open full studio" data-ar="فتح الستوديو الكامل">Open full studio</span>
+            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- ══════════ لوحة المعاينة الحية (نائبة — صفحة الهبوط خارج النطاق) ══════════ -->
+      <div class="preview-col" id="previewCol">
+        <div class="preview-card neu-card">
+          <div class="preview-bar">
+            <span data-en="Live preview" data-ar="معاينة مباشرة">Live preview</span>
+            <span class="pv-name" id="previewName" dir="auto">سماعات لاسلكية برو</span>
+          </div>
+          <hr class="neu-divider">
+          <div class="preview-body">
+            <div class="preview-ph neu-inset">
+              <i class="fa-solid fa-eye" aria-hidden="true"></i>
+              <span class="pv-label" data-en="Live preview (landing page out of sample scope)" data-ar="معاينة حية (صفحة الهبوط خارج نطاق العينة)">Live preview (landing page out of sample scope)</span>
+              <span class="pv-sub" data-en="The generated landing page is rendered here in the real guest dialog. It is intentionally not replicated in this design sample." data-ar="تُعرض صفحة الهبوط المولّدة هنا في نافذة الزائر الحقيقية. وهي غير مقلّدة عمداً في عينة التصميم هذه.">The generated landing page is rendered here in the real guest dialog. It is intentionally not replicated in this design sample.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ لوحة رابط التجربة (TrialPanel) — كل الحالات ══════════ -->
+  <div class="neu-overlay hidden" id="trialOverlay" role="dialog" aria-modal="true"
+       aria-label="Free trial link" data-en-aria="Free trial link" data-ar-aria="رابط تجريبي مجاني">
+    <div class="neu-card trial-card">
+      <button type="button" class="neu-circle neu-circle--sm neu-modal-close" id="trialClose"
+              aria-label="Cancel" data-en-aria="Cancel" data-ar-aria="إلغاء">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <div class="trial-head">
+        <p class="th-title"><span data-en="Free trial link" data-ar="رابط تجريبي مجاني">Free trial link</span></p>
+      </div>
+      <hr class="neu-divider">
+      <div class="trial-body">
+
+        <!-- إلغاء علوي — يظهر في كل الحالات (كما المصدر) -->
+        <button type="button" class="neu-btn neu-btn--muted btn-sm" id="trialCancelTop" style="justify-self:start">
+          <span data-en="Cancel" data-ar="إلغاء">Cancel</span>
+        </button>
+
+        <!-- صندوق الخطأ العلوي (error / restoreFailed) — كل الحالات -->
+        <div class="msg-box msg-box--danger neu-inset hidden" id="trialErr" role="alert">
+          <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <span id="trialErrText" data-en="Wrong code — check the last message you received on WhatsApp." data-ar="الرمز غير صحيح — تأكد من آخر رسالة وصلتك على واتساب.">Wrong code — check the last message you received on WhatsApp.</span>
+        </div>
+
+        <!-- حالة التحقق من رابط سابق (restoring) -->
+        <p class="hint-line hidden" id="checkingMsg" role="status" data-en="Checking your link…" data-ar="جارٍ التحقق من الرابط…">Checking your link…</p>
+
+        <!-- فرع النموذج (form / sent / verified / disabled / error) -->
+        <div id="trialFormBranch" style="display:grid;gap:16px">
+          <p class="trial-lead" data-en="We give you one real link that works for 24 hours only. Enter your email and WhatsApp number so your customers' orders reach you. Trials are for new customers only: new email + new device + new number."
+             data-ar="نمنحك رابطاً حقيقياً واحداً يعمل 24 ساعة فقط. أدخل بريدك ورقم واتسابك لتصلك طلبات الزبائن عليه. التجربة للعملاء الجدد فقط: بريد جديد + جهاز جديد + رقم جديد.">We give you one real link that works for 24 hours only. Enter your email and WhatsApp number so your customers' orders reach you. Trials are for new customers only: new email + new device + new number.</p>
+
+          <!-- حالة التعطيل العامة (closed) -->
+          <div class="disabled-box neu-inset hidden" id="disabledBox" role="status">
+            <span class="db-title">
+              <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+              <span data-en="Trial links are temporarily unavailable" data-ar="خاصية الرابط التجريبي غير متاحة الآن">Trial links are temporarily unavailable</span>
+            </span>
+            <span class="db-msg" data-en="Sorry — creating trial links has been disabled by the administrator. Please try again later." data-ar="عذراً، تم تعطيل إنشاء الروابط التجريبية مؤقتاً من قبل الإدارة. حاول مرة أخرى لاحقاً.">Sorry — creating trial links has been disabled by the administrator. Please try again later.</span>
+          </div>
+
+          <div class="trial-field">
+            <span class="field-label" data-en="Email address" data-ar="البريد الإلكتروني">Email address</span>
+            <input class="neu-input input-sm" type="email" id="tEmail" dir="ltr"
+                   data-en-ph="you@example.com" data-ar-ph="you@example.com" placeholder="you@example.com">
+          </div>
+
+          <div class="trial-field">
+            <span class="field-label" data-en="WhatsApp number (required)" data-ar="رقم الواتساب (إجباري)">WhatsApp number (required)</span>
+            <input class="neu-input input-sm" type="tel" id="tWhatsapp" dir="ltr"
+                   data-en-ph="213555123456" data-ar-ph="213555123456" placeholder="213555123456">
+            <span class="field-hint" data-en="Starts with 213 (Algeria code) — e.g. 213555123456. Do not write 0 at the start." data-ar="يبدأ الرقم بـ 213 (رمز الجزائر) — مثال: 213555123456. لا تكتب 0 في البداية.">Starts with 213 (Algeria code) — e.g. 213555123456. Do not write 0 at the start.</span>
+            <button type="button" class="neu-btn neu-btn--success btn-sm wa-send hidden" id="sendCodeBtn">
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+              <span id="sendCodeLabel" data-en="Send activation code via WhatsApp" data-ar="أرسل رمز التفعيل عبر واتساب">Send activation code via WhatsApp</span>
+            </button>
+            <span class="msg-box msg-box--success neu-inset hidden" id="codeSentMsg" style="padding:8px 12px">
+              <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+              <span data-en="WhatsApp opened — copy the code and paste it below." data-ar="فُتح واتساب — انسخ الرمز والصقه أدناه.">WhatsApp opened — copy the code and paste it below.</span>
+            </span>
+          </div>
+
+          <!-- خانة الرمز — تظهر بعد الإرسال -->
+          <div class="trial-field hidden" id="codeGroup">
+            <span class="field-label" data-en="Activation code (6 digits)" data-ar="رمز التفعيل (6 أرقام)">Activation code (6 digits)</span>
+            <input class="neu-input code-input" type="text" id="tCode" dir="ltr" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
+                   data-en-ph="••••••" data-ar-ph="••••••" placeholder="••••••">
+            <span class="field-hint" data-en="Open WhatsApp, copy the code you received, paste it here — then press “Verify code”." data-ar="افتح واتساب، انسخ الرمز الذي وصلك، والصقه هنا — ثم اضغط «تأكيد الرمز».">Open WhatsApp, copy the code you received, paste it here — then press “Verify code”.</span>
+            <button type="button" class="neu-btn btn-sm" id="verifyBtn" style="align-self:start">
+              <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+              <span id="verifyLabel" data-en="Verify code" data-ar="تأكيد الرمز">Verify code</span>
+            </button>
+            <span class="msg-box msg-box--success neu-inset hidden" id="codeOkMsg" style="padding:8px 12px">
+              <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+              <span data-en="Code accepted — press “Create my trial link”." data-ar="الرمز صحيح — اضغط «أنشئ الرابط التجريبي».">Code accepted — press “Create my trial link”.</span>
+            </span>
+          </div>
+
+          <!-- الشروط -->
+          <div class="msg-box msg-box--warning neu-inset">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            <span data-en="By continuing you accept: one link per email, device and number · the link is refused if the email, device or number belongs to a subscriber · it disappears permanently after 24 hours · it cannot be restored or re-created."
+                  data-ar="بالمتابعة تقبل: رابط واحد فقط لكل بريد وجهاز ورقم · يُرفض الرابط إن كان البريد أو الجهاز أو الرقم مسجلاً لدى مشترك · يختفي نهائياً بعد 24 ساعة · لا يمكن استرجاعه أو إنشاء رابط آخر.">By continuing you accept: one link per email, device and number · the link is refused if the email, device or number belongs to a subscriber · it disappears permanently after 24 hours · it cannot be restored or re-created.</span>
+          </div>
+
+          <div class="trial-actions">
+            <button type="button" class="neu-btn" id="submitBtn">
+              <i class="fa-solid fa-link" aria-hidden="true"></i>
+              <span id="submitLabel" data-en="Create my trial link" data-ar="أنشئ الرابط التجريبي">Create my trial link</span>
+            </button>
+            <button type="button" class="neu-btn neu-btn--muted" id="restoreBtn">
+              <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+              <span data-en="Restore an existing trial" data-ar="استعادة حالة رابط سابق">Restore an existing trial</span>
+            </button>
+            <button type="button" class="neu-btn neu-btn--muted" id="trialCancelBottom">
+              <span data-en="Cancel" data-ar="إلغاء">Cancel</span>
+            </button>
+          </div>
+
+          <div class="sample-note sample-note--inline">
+            <span data-en="Review demo (not part of the design): code 246810 verifies successfully; any other 6-digit code fails. No real WhatsApp message is sent and no data leaves this page."
+                  data-ar="تجربة للمراجعة (ليست من التصميم): الرمز 246810 يُؤكَّد بنجاح؛ أي رمز آخر من 6 أرقام يفشل. لا تُرسل رسالة واتساب حقيقية ولا تغادر أي بيانات هذه الصفحة.">Review demo (not part of the design): code 246810 verifies successfully; any other 6-digit code fails. No real WhatsApp message is sent and no data leaves this page.</span>
+          </div>
+        </div>
+
+        <!-- فرع الرابط المُنشأ (made / converted) -->
+        <div id="madeBranch" class="hidden" style="display:grid;gap:16px">
+          <p class="made-title">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span id="madeTitle" data-en="Your link is ready" data-ar="رابطك جاهز">Your link is ready</span>
+          </p>
+          <code class="trial-url neu-inset" id="trialUrl">https://spectre-dz.vercel.app/p/pro-wireless-earbuds</code>
+          <div class="remaining-box neu-inset">
+            <span class="rb-label" data-en="Time remaining" data-ar="الوقت المتبقي">Time remaining</span>
+            <span class="rb-value" id="remainingVal">23:59:41</span>
+          </div>
+          <div class="trial-actions">
+            <button type="button" class="neu-btn" id="copyBtn">
+              <i class="fa-solid fa-copy" aria-hidden="true"></i>
+              <span id="copyLabel" data-en="Copy link" data-ar="انسخ الرابط">Copy link</span>
+            </button>
+            <a href="#" class="neu-btn neu-btn--muted" id="openLinkBtn" data-en-title="Open link" data-ar-title="افتح الرابط" title="Open link">
+              <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+              <span data-en="Open link" data-ar="افتح الرابط">Open link</span>
+            </a>
+            <button type="button" class="neu-btn neu-btn--danger" id="delBtn">
+              <i class="fa-solid fa-trash" aria-hidden="true"></i>
+              <span data-en="Delete link" data-ar="احذف الرابط">Delete link</span>
+            </button>
+          </div>
+          <a href="pricing.html" class="neu-btn neu-btn--warning neu-btn--block">
+            <span data-en="Subscribe to keep your page" data-ar="اشترك للحفاظ على صفحتك">Subscribe to keep your page</span>
+          </a>
+          <div class="sample-note sample-note--inline">
+            <span data-en="Review demo (not part of the design): the link and countdown are static demo values (no live timer — weak-device rule). «Open link» is inert: the landing page itself is out of sample scope."
+                  data-ar="تجربة للمراجعة (ليست من التصميم): الرابط والعدّاد قيم تجريبية ثابتة (بلا مؤقّت حي — قاعدة الجهاز الضعيف). زر «افتح الرابط» معطّل: صفحة الهبوط نفسها خارج نطاق العينة.">Review demo (not part of the design): the link and countdown are static demo values (no live timer — weak-device rule). «Open link» is inert: the landing page itself is out of sample scope.</span>
+          </div>
+        </div>
+
+        <!-- فرع الانتهاء/الحذف (deleted) -->
+        <div id="endedBranch" class="hidden" style="display:grid;gap:16px">
+          <p class="ended-text" data-en="The trial has expired or been deleted. Another trial cannot be created." data-ar="انتهت التجربة أو حُذف الرابط. لا يمكن إنشاء تجربة أخرى.">The trial has expired or been deleted. Another trial cannot be created.</p>
+          <a href="pricing.html" class="neu-btn neu-btn--warning neu-btn--block">
+            <span data-en="Subscribe to keep your page" data-ar="اشترك للحفاظ على صفحتك">Subscribe to keep your page</span>
+          </a>
+          <button type="button" class="neu-btn neu-btn--muted" id="endedCancel">
+            <span data-en="Cancel" data-ar="إلغاء">Cancel</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ نافذة تأكيد الحذف (delConfirm) ══════════ -->
+  <div class="neu-overlay neu-overlay--confirm hidden" id="confirmOverlay" role="alertdialog" aria-modal="true"
+       aria-label="Confirm deletion" data-en-aria="Confirm deletion" data-ar-aria="تأكيد الحذف">
+    <div class="neu-card confirm-card">
+      <p class="confirm-title">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <span data-en="Confirm deletion" data-ar="تأكيد الحذف">Confirm deletion</span>
+      </p>
+      <p class="confirm-body" data-en="You will NOT be able to create another link — not with this email, device or number. Are you sure?" data-ar="لن تتمكّن من إنشاء رابط جديد بعد الحذف — لا بهذا البريد ولا بهذا الجهاز ولا بهذا الرقم. هل أنت متأكد؟">You will NOT be able to create another link — not with this email, device or number. Are you sure?</p>
+      <div style="display:grid;gap:10px">
+        <button type="button" class="neu-btn neu-btn--danger neu-btn--block" id="delYesBtn">
+          <i class="fa-solid fa-trash" aria-hidden="true"></i>
+          <span data-en="Yes, delete permanently" data-ar="نعم، احذف نهائياً">Yes, delete permanently</span>
+        </button>
+        <button type="button" class="neu-btn neu-btn--muted neu-btn--block" id="delNoBtn">
+          <span data-en="Go back" data-ar="تراجع">Go back</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ الرسالة التوجيهية عند محاولة التحميل/التوليد (demoNotice) ══════════ -->
+  <div class="neu-overlay hidden" id="noticeOverlay" role="alertdialog" aria-modal="true"
+       aria-label="This is a trial preview" data-en-aria="This is a trial preview" data-ar-aria="هذه معاينة تجريبية">
+    <div class="neu-card notice-card">
+      <p class="notice-title">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <span data-en="This is a trial preview" data-ar="هذه معاينة تجريبية">This is a trial preview</span>
+      </p>
+      <p class="notice-body" data-en="You just saw the power of the platform! In Guest Mode: download, save, and email-linking are fully disabled — nothing is stored. To unlock saving, download, and your own studio page, please contact the admin to subscribe."
+         data-ar="شاهدت للتو قوة المنصة! في الوضع التجريبي: التحميل، الحفظ، وربط الإيميل معطّلة تماماً — لا تُحفظ أي بيانات. للحصول على صلاحيات الحفظ، التحميل، وفتح صفحة الستوديو الخاصة بك، يرجى التواصل مع الإدارة للاشتراك.">You just saw the power of the platform! In Guest Mode: download, save, and email-linking are fully disabled — nothing is stored. To unlock saving, download, and your own studio page, please contact the admin to subscribe.</p>
+      <div class="notice-actions">
+        <a href="studio-login.html" class="neu-btn neu-btn--block">
+          <span data-en="Open full studio" data-ar="فتح الستوديو الكامل">Open full studio</span>
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        </a>
+        <button type="button" class="neu-btn neu-btn--muted neu-btn--block" id="noticeCloseBtn">
+          <span data-en="Close trial" data-ar="إغلاق التجربة">Close trial</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ أداة مراجعة للتنقل بين الحالات — ليست من التصميم ══════════ -->
+  <div class="review-bar">
+    <span data-en="Review tool (not part of the design):" data-ar="أداة مراجعة (ليست من التصميم):">Review tool (not part of the design):</span>
+    <button type="button" data-gstage="filled" class="is-active" data-en="Demo data" data-ar="بيانات تجريبية">Demo data</button>
+    <button type="button" data-gstage="empty" data-en="Empty form" data-ar="نموذج فارغ">Empty form</button>
+    <button type="button" data-gstage="notice" data-en="Blocked notice" data-ar="رسالة المنع">Blocked notice</button>
+    <span class="rb-sep" aria-hidden="true"></span>
+    <span data-en="Trial:" data-ar="التجربة:">Trial:</span>
+    <button type="button" data-trial="form" data-en="Form" data-ar="النموذج">Form</button>
+    <button type="button" data-trial="sent" data-en="Code sent" data-ar="رمز مُرسل">Code sent</button>
+    <button type="button" data-trial="verified" data-en="Verified" data-ar="مؤكد">Verified</button>
+    <button type="button" data-trial="created" data-en="Created" data-ar="مُنشأ">Created</button>
+    <button type="button" data-trial="ended" data-en="Ended" data-ar="منتهٍ">Ended</button>
+    <button type="button" data-trial="converted" data-en="Converted" data-ar="محوّل">Converted</button>
+    <button type="button" data-trial="disabled" data-en="Disabled" data-ar="معطّل">Disabled</button>
+    <button type="button" data-trial="error" data-en="Error" data-ar="خطأ">Error</button>
+    <button type="button" data-trial="delete" data-en="Delete" data-ar="الحذف">Delete</button>
+  </div>
+
+<script>
+  /* بيانات حقيقية من المصدر (app/data/delivery.ts + app/lib/autoContent.ts) */
+  var WILAYAS = [
+    [1,"أدرار"],[2,"الشلف"],[3,"الأغواط"],[4,"أم البواقي"],[5,"باتنة"],[6,"بجاية"],[7,"بسكرة"],[8,"بشار"],[9,"البليدة"],[10,"البويرة"],
+    [11,"تمنراست"],[12,"تبسة"],[13,"تلمسان"],[14,"تيارت"],[15,"تيزي وزو"],[16,"الجزائر"],[17,"الجلفة"],[18,"جيجل"],[19,"سطيف"],[20,"سعيدة"],
+    [21,"سكيكدة"],[22,"سيدي بلعباس"],[23,"عنابة"],[24,"قالمة"],[25,"قسنطينة"],[26,"المدية"],[27,"مستغانم"],[28,"المسيلة"],[29,"معسكر"],[30,"ورقلة"],
+    [31,"وهران"],[32,"البيض"],[33,"إليزي"],[34,"برج بوعريريج"],[35,"بومرداس"],[36,"الطارف"],[37,"تندوف"],[38,"تيسمسيلت"],[39,"الوادي"],[40,"خنشلة"],
+    [41,"سوق أهراس"],[42,"تيبازة"],[43,"ميلة"],[44,"عين الدفلى"],[45,"النعامة"],[46,"عين تموشنت"],[47,"غرداية"],[48,"غليزان"],[49,"تيميمون"],[50,"برج باجي مختار"],
+    [51,"أولاد جلال"],[52,"بني عباس"],[53,"عين صالح"],[54,"عين قزام"],[55,"تقرت"],[56,"جانت"],[57,"المغير"],[58,"المنيعة"]
+  ];
+  var CATEGORIES = ["عام","إلكترونيات","ملابس","أحذية","إكسسوارات","منزل ومطبخ","عناية وجمال"];
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ── الحالة العامة للعرض ── */
+  var gstage = "filled";        /* filled | empty */
+  var hasImage = true;          /* صورة تجريبية موجودة في الحالة الممتلئة */
+  var trialOpen = false, trialState = "form", noticeOpen = false, confirmOpen = false, restoring = false;
+
+  var DEMO = {
+    name: "سماعات لاسلكية برو", nameEn: "Pro Wireless Earbuds", brand: "ProSound",
+    price: "4500", oldPrice: "5000", badge: "جديد",
+    tagline: "صوت نقي يدوم طويلاً", eyebrow: "USB-C · شحن سريع",
+    description: "سماعات لاسلكية بعزل ضوضاء نشط وبطارية تدوم 36 ساعة.",
+    tags: "بلوتوث 5.4, إلغاء ضوضاء, بطارية 36 ساعة"
+  };
+
+  function itemCount() {
+    return document.querySelectorAll("#featuresList .feature-row").length +
+           document.querySelectorAll("#statsList .stat-row").length +
+           document.querySelectorAll("#testimonialsList .testimonial-row").length;
+  }
+  function refreshBadge() {
+    var n = itemCount();
+    SampleUI.setText($("advBadge"), n + " items", n + " عناصر");
+    $("noFeatures").classList.toggle("hidden", document.querySelectorAll("#featuresList .feature-row").length > 0);
+  }
+  function refreshImage() {
+    $("imgHasRow").classList.toggle("hidden", !hasImage);
+    $("imgDrop").classList.toggle("hidden", hasImage);
+    $("urlImgRow").classList.toggle("hidden", !hasImage);
+    $("extractBtn").classList.toggle("hidden", !hasImage);
+  }
+  function refreshPreviewName() {
+    $("previewName").textContent = $("fName").value.trim() || "—";
+  }
+
+  /* تفريغ/تعبئة الحقول الأساسية (حالتي شريط المراجعة) */
+  function setGuestFilled(filled) {
+    gstage = filled ? "filled" : "empty";
+    $("fName").value = filled ? DEMO.name : "";
+    $("fNameEn").value = filled ? DEMO.nameEn : "";
+    $("fBrand").value = filled ? DEMO.brand : "";
+    $("fPrice").value = filled ? DEMO.price : "";
+    $("fOldPrice").value = filled ? DEMO.oldPrice : "";
+    $("fBadge").value = filled ? DEMO.badge : "";
+    $("fTagline").value = filled ? DEMO.tagline : "";
+    $("fEyebrow").value = filled ? DEMO.eyebrow : "";
+    $("fDescription").value = filled ? DEMO.description : "";
+    $("fTags").value = filled ? DEMO.tags : "";
+    hasImage = filled;
+    /* إعادة ضبط كاملة كما emptyDemo في المصدر: العناصر والألوان والاستخراج */
+    $("featuresList").innerHTML = "";
+    $("statsList").innerHTML = "";
+    $("testimonialsList").innerHTML = "";
+    $("colorsList").innerHTML = "";
+    if (filled) {
+      addFeatureRow("إلغاء ضوضاء نشط", "عزل ذكي للضجيج المحيط");
+      addFeatureRow("بطارية 36 ساعة", "شحن سريع عبر USB-C");
+      addStatRow("20W", "قوة الشحن");
+      addStatRow("36h", "البطارية");
+      addTestimonialRow("جودة صوت ممتازة والتوصيل سريع", "أمين", "الجزائر");
+      addColorRow("الأسود", "#111111");
+      addColorRow("الأزرق", "#2b6cb0");
+    }
+    $("categorySelect").value = filled ? "إلكترونيات" : "عام";
+    $("swatchesRow").classList.add("hidden");
+    if (!$("advBody").classList.contains("hidden")) $("advHead").click();
+    var fixedBtn = document.querySelector('#deliveryModeToggle .neu-tab[data-mode="fixed"]');
+    if (!fixedBtn.classList.contains("is-active")) fixedBtn.click();
+    var uploadBtn = document.querySelector('#imageTabToggle .neu-tab[data-imgtab="upload"]');
+    if (!uploadBtn.classList.contains("is-active")) uploadBtn.click();
+    $("urlInput").value = "";
+    $("paletteWarn").classList.add("hidden");
+    $("missingBox").classList.toggle("hidden", filled);
+    $("publishDirect").disabled = !filled;
+    $("errorBox").classList.add("hidden");
+    refreshImage(); refreshBadge(); refreshPreviewName();
+  }
+
+  /* ── بناء صفوف العناصر (مميزات/إحصائيات/آراء/ألوان) ── */
+  function mkInput(cls, phEn, phAr, value, dir) {
+    var i = document.createElement("input");
+    i.className = "neu-input input-sm " + cls; i.type = "text";
+    i.setAttribute("dir", dir || "auto");
+    i.setAttribute("data-en-ph", phEn); i.setAttribute("data-ar-ph", phAr);
+    i.placeholder = SampleUI.lang() === "ar" ? phAr : phEn;
+    if (value) i.value = value;
+    return i;
+  }
+  function mkDel() {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "del-link item-del";
+    b.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i>';
+    var s = document.createElement("span");
+    s.setAttribute("data-en", "Delete"); s.setAttribute("data-ar", "حذف");
+    s.textContent = SampleUI.lang() === "ar" ? "حذف" : "Delete";
+    b.appendChild(s);
+    return b;
+  }
+  function addFeatureRow(title, copy) {
+    var row = document.createElement("div");
+    row.className = "feature-row neu-inset";
+    row.appendChild(mkInput("f-title", "Feature title", "عنوان الميزة", title));
+    row.appendChild(mkInput("f-copy", "Description", "الوصف", copy));
+    row.appendChild(mkDel());
+    $("featuresList").appendChild(row);
+  }
+  function addStatRow(value, label) {
+    var row = document.createElement("div");
+    row.className = "stat-row neu-inset";
+    row.appendChild(mkInput("s-value", "20W", "20W", value, "ltr"));
+    row.appendChild(mkInput("s-label", "Charging power", "قوة الشحن", label));
+    row.appendChild(mkDel());
+    $("statsList").appendChild(row);
+  }
+  function addTestimonialRow(quote, name, city) {
+    var row = document.createElement("div");
+    row.className = "testimonial-row neu-inset";
+    var q = document.createElement("textarea");
+    q.className = "neu-input input-sm t-quote"; q.setAttribute("dir", "auto");
+    q.setAttribute("data-en-ph", "What did the customer say?"); q.setAttribute("data-ar-ph", "ماذا قال الزبون؟");
+    q.placeholder = SampleUI.lang() === "ar" ? "ماذا قال الزبون؟" : "What did the customer say?";
+    if (quote) q.value = quote;
+    row.appendChild(q);
+    var foot = document.createElement("div"); foot.className = "testimonial-foot";
+    foot.appendChild(mkInput("t-name", "Name", "الاسم", name));
+    var cityWrap = document.createElement("div"); cityWrap.className = "testimonial-city";
+    cityWrap.appendChild(mkInput("t-city", "City", "المدينة", city));
+    cityWrap.appendChild(mkDel());
+    foot.appendChild(cityWrap);
+    row.appendChild(foot);
+    $("testimonialsList").appendChild(row);
+  }
+  function addColorRow(name, hex) {
+    var row = document.createElement("div");
+    row.className = "color-row";
+    var c = document.createElement("input");
+    c.type = "color"; c.value = hex || "#3b82f6";
+    c.title = "Color"; c.setAttribute("data-en-title", "Color"); c.setAttribute("data-ar-title", "اللون");
+    var n = mkInput("", "Black", "الأسود", name);
+    var d = document.createElement("button");
+    d.type = "button"; d.className = "neu-circle neu-circle--sm neu-circle--danger color-del";
+    d.title = "Remove"; d.setAttribute("data-en-title", "Remove"); d.setAttribute("data-ar-title", "إزالة");
+    d.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+    row.appendChild(c); row.appendChild(n); row.appendChild(d);
+    $("colorsList").appendChild(row);
+  }
+
+  /* حذف الصفوف (تفويض) */
+  document.addEventListener("click", function (e) {
+    var del = e.target.closest ? e.target.closest(".item-del") : null;
+    if (del) {
+      var row = del.closest(".feature-row, .stat-row, .testimonial-row");
+      if (row) row.remove();
+      refreshBadge();
+      return;
+    }
+    var cdel = e.target.closest ? e.target.closest(".color-del") : null;
+    if (cdel) { var cr = cdel.closest(".color-row"); if (cr) cr.remove(); }
+  });
+  $("addFeatureBtn").addEventListener("click", function () { addFeatureRow("", ""); refreshBadge(); });
+  $("addStatBtn").addEventListener("click", function () { addStatRow("", ""); refreshBadge(); });
+  $("addTestimonialBtn").addEventListener("click", function () { addTestimonialRow("", "", ""); refreshBadge(); });
+  $("addColorBtn").addEventListener("click", function () { addColorRow("", "#3b82f6"); });
+
+  /* ── التصنيفات ── */
+  CATEGORIES.forEach(function (c) {
+    var o = document.createElement("option");
+    o.value = c; o.textContent = c;
+    $("categorySelect").appendChild(o);
+  });
+  $("categorySelect").value = "إلكترونيات";
+
+  /* ── مبدّل نمط التوصيل + شبكة الولايات (بناء كسول) ── */
+  var wilayaBuilt = false;
+  function buildWilayas() {
+    if (wilayaBuilt) return;
+    var grid = $("wilayaGrid");
+    WILAYAS.forEach(function (w) {
+      var row = document.createElement("div");
+      row.className = "wilaya-row";
+      var name = document.createElement("span");
+      name.className = "wilaya-name"; name.setAttribute("dir", "auto");
+      name.textContent = w[0] + " · " + w[1];
+      var home = document.createElement("input");
+      home.className = "neu-input"; home.type = "text"; home.inputMode = "numeric"; home.placeholder = "700";
+      var office = document.createElement("input");
+      office.className = "neu-input"; office.type = "text"; office.inputMode = "numeric"; office.placeholder = "500";
+      row.appendChild(name); row.appendChild(home); row.appendChild(office);
+      grid.appendChild(row);
+    });
+    wilayaBuilt = true;
+  }
+  $("deliveryModeToggle").addEventListener("click", function (e) {
+    var btn = e.target.closest(".neu-tab"); if (!btn) return;
+    var mode = btn.getAttribute("data-mode");
+    this.querySelectorAll(".neu-tab").forEach(function (b) { b.classList.toggle("is-active", b === btn); });
+    var wilaya = mode === "wilaya";
+    $("wilayaPanel").classList.toggle("hidden", !wilaya);
+    $("deliveryHome").disabled = wilaya;
+    $("deliveryOffice").disabled = wilaya;
+    if (wilaya) buildWilayas();
+  });
+  $("wilayaFill").addEventListener("click", function () {
+    $("wilayaGrid").querySelectorAll(".wilaya-row").forEach(function (row) {
+      var inputs = row.querySelectorAll("input");
+      inputs[0].value = "700"; inputs[1].value = "500";
+    });
+  });
+
+  /* ── مبدّل طريقة الصورة ── */
+  $("imageTabToggle").addEventListener("click", function (e) {
+    var btn = e.target.closest(".neu-tab"); if (!btn) return;
+    var tab = btn.getAttribute("data-imgtab");
+    this.querySelectorAll(".neu-tab").forEach(function (b) { b.classList.toggle("is-active", b === btn); });
+    $("imageUploadTab").classList.toggle("hidden", tab !== "upload");
+    $("imageUrlTab").classList.toggle("hidden", tab !== "url");
+  });
+  $("removeImgBtn").addEventListener("click", function () { hasImage = false; refreshImage(); });
+  $("removeImgBtn2").addEventListener("click", function () { hasImage = false; refreshImage(); });
+  $("dropFile").addEventListener("change", function () { hasImage = true; refreshImage(); });
+  $("replaceFile").addEventListener("change", function () { hasImage = true; refreshImage(); });
+  $("useUrlBtn").addEventListener("click", function () {
+    var v = $("urlInput").value.trim();
+    if (!v) { showGuestError("Enter a valid URL", "أدخل رابطاً صالحاً"); return; }
+    if (!/^https?:\/\//i.test(v)) { showGuestError("The link must start with http(s)", "الرابط يجب أن يبدأ بـ http(s)"); return; }
+    /* عرض تجريبي: لا تحميل فعلي للصورة ولا استخراج ألوان عبر الشبكة */
+    hasImage = true; refreshImage();
+    $("errorBox").classList.add("hidden");
+  });
+  $("extractBtn").addEventListener("click", function () {
+    /* عرض تجريبي: استخراج محلي — يُظهر الألوان المستخرجة فقط */
+    $("swatchesRow").classList.remove("hidden");
+    $("paletteWarn").classList.add("hidden");
+    if ($("advBody").classList.contains("hidden")) $("advHead").click();
+  });
+
+  /* ── خيارات متقدمة ── */
+  $("advHead").addEventListener("click", function () {
+    var open = $("advBody").classList.toggle("hidden") === false;
+    SampleUI.setText($("advToggleText"), open ? "Hide" : "Show", open ? "إخفاء" : "إظهار");
+    $("advChevron").classList.toggle("fa-chevron-up", open);
+    $("advChevron").classList.toggle("fa-chevron-down", !open);
+  });
+  $("paletteModeToggle").addEventListener("click", function (e) {
+    var btn = e.target.closest(".neu-tab"); if (!btn) return;
+    this.querySelectorAll(".neu-tab").forEach(function (b) { b.classList.toggle("is-active", b === btn); });
+  });
+
+  /* ── تبويبا الجوال ── */
+  $("mobileTabs").addEventListener("click", function (e) {
+    var btn = e.target.closest(".neu-tab"); if (!btn) return;
+    var tab = btn.getAttribute("data-mtab");
+    this.querySelectorAll(".neu-tab").forEach(function (b) { b.classList.toggle("is-active", b === btn); });
+    $("guestGrid").classList.toggle("show-form", tab === "form");
+    $("guestGrid").classList.toggle("show-preview", tab === "preview");
+  });
+
+  /* ── أخطاء النموذج ── */
+  function showGuestError(en, ar) {
+    SampleUI.setText($("errorText"), en, ar);
+    $("errorBox").classList.remove("hidden");
+  }
+
+  /* التعبئة التلقائية (demoGenerate) — تملأ المحتوى وتفتح المتقدم */
+  $("generateBtn").addEventListener("click", function () {
+    if (!$("fName").value.trim()) { showGuestError("Enter the product name first", "أدخل اسم المنتج أولاً"); return; }
+    $("errorBox").classList.add("hidden");
+    $("fTagline").value = DEMO.tagline;
+    $("fEyebrow").value = DEMO.eyebrow;
+    $("fDescription").value = DEMO.description;
+    $("fTags").value = DEMO.tags;
+    $("featuresList").innerHTML = "";
+    addFeatureRow("إلغاء ضوضاء نشط", "عزل ذكي للضجيج المحيط");
+    addFeatureRow("بطارية 36 ساعة", "شحن سريع عبر USB-C");
+    $("statsList").innerHTML = "";
+    addStatRow("20W", "قوة الشحن");
+    addStatRow("36h", "البطارية");
+    $("testimonialsList").innerHTML = "";
+    addTestimonialRow("جودة صوت ممتازة والتوصيل سريع", "أمين", "الجزائر");
+    $("swatchesRow").classList.remove("hidden");
+    if ($("advBody").classList.contains("hidden")) $("advHead").click();
+    refreshBadge();
+  });
+
+  /* العمليات المحظورة — الرسالة التوجيهية */
+  $("downloadBtn").addEventListener("click", function () { noticeOpen = true; render(); });
+  $("generatePageBtn").addEventListener("click", function () { noticeOpen = true; render(); });
+  $("noticeCloseBtn").addEventListener("click", function () { noticeOpen = false; render(); });
+
+  /* اسم المنتج ينعكس في شريط المعاينة */
+  $("fName").addEventListener("input", refreshPreviewName);
+
+  /* ══════════ لوحة التجربة (TrialPanel) ══════════ */
+  var TRIAL_ERR = {
+    errEmail: ["Invalid email address.", "البريد الإلكتروني غير صالح."],
+    errWhatsapp: ["Invalid WhatsApp number — digits only (at least 8).", "رقم الواتساب غير صالح — أدخل أرقاماً فقط (8 خانات على الأقل)."],
+    errCode: ["Enter the 6-digit activation code.", "أدخل رمز التفعيل المكوّن من 6 أرقام."],
+    errCodeBad: ["Wrong code — check the last message you received on WhatsApp.", "الرمز غير صحيح — تأكد من آخر رسالة وصلتك على واتساب."],
+    errCodeRequired: ["Send the activation code via WhatsApp first — the green button above the code field.", "أرسل رمز التفعيل عبر واتساب أولاً — الزر الأخضر فوق خانة الرمز."],
+    errVerifyFirst: ["Verify the code first with the button above — then create the link.", "أكّد الرمز أولاً بالزر أعلاه — ثم أنشئ الرابط."],
+    errProduct: ["Complete the product fields first: name · price · image · tagline · description · at least one feature.", "أكمل خانات المنتج أولاً: الاسم · السعر · الصورة · العنوان · الوصف · مميزة واحدة على الأقل."],
+    errGeneric: ["Could not create the link — please try again shortly.", "تعذّر إنشاء الرابط — حاول بعد قليل."]
+  };
+  function showTrialError(key) {
+    var m = TRIAL_ERR[key] || TRIAL_ERR.errGeneric;
+    SampleUI.setText($("trialErrText"), m[0], m[1]);
+    $("trialErr").classList.remove("hidden");
+  }
+  function validEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()); }
+  function validWa(v) { return /^\d{8,15}$/.test(v.replace(/[^\d]/g, "").replace(/^00/, "")); }
+  function productComplete() {
+    if (!$("fName").value.trim()) return false;
+    if (!(Number($("fPrice").value) > 0)) return false;
+    if (!hasImage) return false;
+    if (!$("fTagline").value.trim()) return false;
+    if (!$("fDescription").value.trim()) return false;
+    var ok = false;
+    document.querySelectorAll("#featuresList .feature-row").forEach(function (r) {
+      var t = r.querySelector(".f-title"), c = r.querySelector(".f-copy");
+      if (t && c && t.value.trim() && c.value.trim()) ok = true;
+    });
+    return ok;
+  }
+
+  function setTrialState(s) {
+    trialState = s;
+    $("trialErr").classList.add("hidden");
+    /* تعبئة تجريبية موسومة حسب الحالة */
+    if (s === "form") { $("tEmail").value = ""; $("tWhatsapp").value = ""; $("tCode").value = ""; }
+    if (s === "sent") { $("tEmail").value = "client@example.com"; $("tWhatsapp").value = "213555123456"; $("tCode").value = ""; }
+    if (s === "verified") { $("tEmail").value = "client@example.com"; $("tWhatsapp").value = "213555123456"; $("tCode").value = "246810"; }
+    if (s === "error") { $("tEmail").value = "client@example.com"; $("tWhatsapp").value = "213555123456"; $("tCode").value = "111111"; showTrialError("errCodeBad"); }
+    if (s === "disabled") { $("tEmail").value = "client@example.com"; $("tWhatsapp").value = "213555123456"; $("tCode").value = ""; }
+    render();
+  }
+  function openTrial(s) { trialOpen = true; noticeOpen = false; confirmOpen = false; restoring = false; setTrialState(s); }
+  function closeTrial() { trialOpen = false; confirmOpen = false; restoring = false; render(); }
+
+  $("publishDirect").addEventListener("click", function () { if (!this.disabled) openTrial("form"); });
+  $("manageTrial").addEventListener("click", function () { openTrial("form"); });
+  $("trialClose").addEventListener("click", closeTrial);
+  $("trialCancelTop").addEventListener("click", closeTrial);
+  $("trialCancelBottom").addEventListener("click", closeTrial);
+  $("endedCancel").addEventListener("click", closeTrial);
+
+  /* إرسال الرمز — عرض تجريبي محلي (بلا wa.me حقيقي) */
+  $("sendCodeBtn").addEventListener("click", function () {
+    $("trialErr").classList.add("hidden");
+    if (!validEmail($("tEmail").value)) { showTrialError("errEmail"); return; }
+    if (!validWa($("tWhatsapp").value)) { showTrialError("errWhatsapp"); return; }
+    var lbl = $("sendCodeLabel");
+    var em = $("tEmail").value, wa = $("tWhatsapp").value;
+    SampleUI.setText(lbl, "…", "…");
+    setTimeout(function () {
+      SampleUI.setText(lbl, "Resend code", "أعد إرسال الرمز");
+      setTrialState("sent");
+      /* نُبقي قيم المستخدم بدل القيم التجريبية */
+      $("tEmail").value = em; $("tWhatsapp").value = wa;
+      render();
+    }, 450);
+  });
+
+  /* تأكيد الرمز — 246810 ينجح، أي رمز آخر يفشل (عرض تجريبي) */
+  $("verifyBtn").addEventListener("click", function () {
+    $("trialErr").classList.add("hidden");
+    var code = $("tCode").value;
+    if (!/^\d{6}$/.test(code)) { showTrialError("errCode"); return; }
+    var lbl = $("verifyLabel");
+    SampleUI.setText(lbl, "Verifying…", "جارٍ التأكيد…");
+    setTimeout(function () {
+      SampleUI.setText(lbl, "Verify code", "تأكيد الرمز");
+      if (code === "246810") { trialState = "verified"; render(); }
+      else { trialState = "error"; showTrialError("errCodeBad"); render(); }
+    }, 450);
+  });
+  $("tCode").addEventListener("input", function (e) {
+    e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+  });
+
+  /* إنشاء الرابط — نفس سلسلة شروط المصدر */
+  $("submitBtn").addEventListener("click", function () {
+    $("trialErr").classList.add("hidden");
+    if (!productComplete()) { showTrialError("errProduct"); return; }
+    if (!validEmail($("tEmail").value)) { showTrialError("errEmail"); return; }
+    if (!validWa($("tWhatsapp").value)) { showTrialError("errWhatsapp"); return; }
+    var sent = ["sent", "verified", "error"].indexOf(trialState) >= 0;
+    if (!sent) { showTrialError("errCodeRequired"); return; }
+    if (!/^\d{6}$/.test($("tCode").value)) { showTrialError("errCode"); return; }
+    if (trialState !== "verified") { showTrialError("errVerifyFirst"); return; }
+    var lbl = $("submitLabel");
+    SampleUI.setText(lbl, "Creating…", "جارٍ الإنشاء…");
+    setTimeout(function () {
+      SampleUI.setText(lbl, "Create my trial link", "أنشئ الرابط التجريبي");
+      trialState = "created"; render();
+    }, 450);
+  });
+
+  /* استعادة رابط سابق — عرض تجريبي: جارٍ التحقق ثم حالة الانتهاء */
+  $("restoreBtn").addEventListener("click", function () {
+    restoring = true; render();
+    setTimeout(function () { restoring = false; trialState = "ended"; render(); }, 600);
+  });
+
+  /* نسخ الرابط (تغذية راجعة مؤقتة) */
+  $("copyBtn").addEventListener("click", function () {
+    var url = $("trialUrl").textContent;
+    if (navigator.clipboard) { navigator.clipboard.writeText(url).catch(function () {}); }
+    SampleUI.setText($("copyLabel"), "Copied", "تم النسخ");
+    setTimeout(function () { SampleUI.setText($("copyLabel"), "Copy link", "انسخ الرابط"); }, 2000);
+  });
+
+  /* الحذف النهائي — نافذة تأكيد إلزامية */
+  $("delBtn").addEventListener("click", function () { if (!this.disabled) { confirmOpen = true; render(); } });
+  $("delNoBtn").addEventListener("click", function () { confirmOpen = false; render(); });
+  $("delYesBtn").addEventListener("click", function () { confirmOpen = false; trialState = "ended"; render(); });
+
+  /* تغيير البريد/الرقم بعد الإرسال يُلغي حالة الرمز (كما المصدر) */
+  ["tEmail", "tWhatsapp"].forEach(function (id) {
+    $(id).addEventListener("input", function () {
+      if (["sent", "verified", "error"].indexOf(trialState) >= 0) {
+        trialState = "form";
+        var em = $("tEmail").value, wa = $("tWhatsapp").value;
+        $("tCode").value = "";
+        render();
+        $("tEmail").value = em; $("tWhatsapp").value = wa;
+      }
+    });
+  });
+
+  /* ══════════ العرض العام ══════════ */
+  function render() {
+    var closed = trialState === "disabled";
+    var sent = ["sent", "verified", "error"].indexOf(trialState) >= 0;
+    var formBranch = ["form", "sent", "verified", "disabled", "error"].indexOf(trialState) >= 0 && !restoring;
+    var madeBranch = (trialState === "created" || trialState === "converted") && !restoring;
+    var endedBranch = trialState === "ended" && !restoring;
+
+    $("trialOverlay").classList.toggle("hidden", !trialOpen);
+    $("confirmOverlay").classList.toggle("hidden", !(trialOpen && confirmOpen));
+    $("noticeOverlay").classList.toggle("hidden", !noticeOpen);
+    document.body.style.overflow = (trialOpen || noticeOpen) ? "hidden" : "";
+
+    $("checkingMsg").classList.toggle("hidden", !restoring);
+    $("trialFormBranch").classList.toggle("hidden", !formBranch);
+    $("madeBranch").classList.toggle("hidden", !madeBranch);
+    $("endedBranch").classList.toggle("hidden", !endedBranch);
+
+    /* فرع النموذج */
+    $("disabledBox").classList.toggle("hidden", !closed);
+    $("tEmail").disabled = closed; $("tEmail").readOnly = closed;
+    $("tWhatsapp").disabled = closed; $("tWhatsapp").readOnly = closed;
+    $("tCode").disabled = closed;
+    var showSend = !closed && $("tEmail").value.trim() !== "" && $("tWhatsapp").value.trim() !== "";
+    $("sendCodeBtn").classList.toggle("hidden", !showSend);
+    SampleUI.setText($("sendCodeLabel"), sent ? "Resend code" : "Send activation code via WhatsApp", sent ? "أعد إرسال الرمز" : "أرسل رمز التفعيل عبر واتساب");
+    $("codeSentMsg").classList.toggle("hidden", !sent);
+    $("codeGroup").classList.toggle("hidden", !sent || closed);
+    $("codeOkMsg").classList.toggle("hidden", trialState !== "verified");
+    $("trialErr").classList.toggle("hidden", trialState !== "error");
+    $("submitBtn").disabled = closed;
+    $("restoreBtn").disabled = closed;
+
+    /* فرع المُنشأ */
+    if (trialState === "converted") {
+      SampleUI.setText($("madeTitle"), "Your link now belongs to a subscription. Manage it in the studio.", "أصبح رابطك تابعاً لاشتراك؛ أدره من الاستوديو.");
+    } else {
+      SampleUI.setText($("madeTitle"), "Your link is ready", "رابطك جاهز");
+    }
+    $("delBtn").disabled = trialState === "converted";
+
+    /* أزرار شريط المراجعة */
+    document.querySelectorAll(".review-bar button[data-gstage]").forEach(function (b) {
+      var s = b.getAttribute("data-gstage");
+      var active = (s === "notice") ? noticeOpen : (!noticeOpen && !trialOpen && gstage === s);
+      b.classList.toggle("is-active", active);
+    });
+    document.querySelectorAll(".review-bar button[data-trial]").forEach(function (b) {
+      var s = b.getAttribute("data-trial");
+      var active = trialOpen && (s === "delete" ? confirmOpen : (!confirmOpen && trialState === s));
+      b.classList.toggle("is-active", active);
+    });
+  }
+
+  document.querySelectorAll(".review-bar button[data-gstage]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var s = b.getAttribute("data-gstage");
+      if (s === "notice") { noticeOpen = true; trialOpen = false; confirmOpen = false; render(); }
+      else { noticeOpen = false; trialOpen = false; confirmOpen = false; setGuestFilled(s === "filled"); render(); }
+    });
+  });
+  document.querySelectorAll(".review-bar button[data-trial]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var s = b.getAttribute("data-trial");
+      if (s === "delete") { openTrial("created"); confirmOpen = true; render(); }
+      else openTrial(s);
+    });
+  });
+
+  /* Escape يغلق النوافذ (كما المصدر) */
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      if (confirmOpen) { confirmOpen = false; render(); }
+      else if (trialOpen) closeTrial();
+      else if (noticeOpen) { noticeOpen = false; render(); }
+    }
+  });
+  [$("trialOverlay"), $("confirmOverlay"), $("noticeOverlay")].forEach(function (ov) {
+    ov.addEventListener("mousedown", function (e) {
+      if (e.target !== ov) return;
+      if (ov === $("confirmOverlay")) { confirmOpen = false; render(); }
+      else if (ov === $("trialOverlay")) closeTrial();
+      else { noticeOpen = false; render(); }
+    });
+  });
+
+  /* تهيئة */
+  refreshImage(); refreshBadge(); refreshPreviewName(); render();
+</script>
+</body>
+</html>

@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio — عينة الهوية الجديدة</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  /* ── تخطيط الاستوديو — مشتق من tokens.css فقط (لا خلفيات ملونة) ── */
+  body { padding-bottom: 96px; }
+  .hidden { display: none !important; }
+
+  /* شريط الأدوات العلوي (بنية header في app/studio/page.tsx) */
+  .toolbar { position: sticky; top: 0; z-index: 50; background: var(--bg-color); box-shadow: var(--shadow-outer-sm); padding: 12px 0; }
+  .toolbar .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .toolbar-id { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+  .back-btn { padding: 8px 14px; font-size: 12px; }
+  .brand-link { font-size: 20px; font-weight: 700; color: var(--text-main); text-decoration: none; white-space: nowrap; }
+  .page-title { font-size: 12px; color: var(--text-muted); max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plan-badge .sep { color: var(--text-muted); }
+  .toolbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .icon-group { display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: var(--r-control); background: var(--bg-color); box-shadow: var(--shadow-inner-sm); }
+  .toolbar-sep { width: 2px; height: 28px; border-radius: 2px; background: var(--bg-color); box-shadow: var(--shadow-inner-sm); align-self: center; }
+  .btn-sm { padding: 8px 14px; font-size: 12px; }
+
+  /* الشبكة الرئيسية: محرر + معاينة */
+  .studio-grid { display: grid; gap: 24px; padding: 28px 0; align-items: start; }
+  @media (min-width: 1024px) { .studio-grid { grid-template-columns: 1fr 1fr; } }
+  .editor-col { display: grid; gap: 20px; min-width: 0; }
+
+  .section-card { background: var(--bg-color); border-radius: var(--r-card); box-shadow: var(--shadow-outer); padding: 24px; display: grid; gap: 16px; }
+  .sec-h { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .field { display: grid; gap: 6px; }
+  .field-label { font-size: 12px; font-weight: 600; color: var(--text-main); }
+  .field-hint { font-size: 10px; color: var(--text-muted); line-height: 1.6; }
+  .input-sm { padding: 10px 14px; font-size: 13px; }
+  .form-2 { display: grid; gap: 14px; }
+  @media (min-width: 560px) { .form-2 { grid-template-columns: 1fr 1fr; } }
+  select.neu-input { background-image: none; }
+  .select-wrap { position: relative; }
+  .select-wrap .select-caret { position: absolute; top: 50%; inset-inline-end: 16px; transform: translateY(-50%); color: var(--text-muted); font-size: 12px; pointer-events: none; }
+
+  /* لافتات الرسائل */
+  .banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; font-size: 12px; font-weight: 600; }
+  .banner-msg { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; line-height: 1.7; }
+  .banner-msg i { flex-shrink: 0; }
+  .notice-banner { margin-top: 16px; }
+
+  /* مبدّلات (نمط التوصيل / طريقة الصورة / داكن فاتح) */
+  .mode-toggle { display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--bg-color); box-shadow: var(--shadow-inner-sm); }
+  .mode-toggle .neu-tab { flex: 1; border-radius: 999px; padding: 8px 14px; box-shadow: none; }
+  .mode-toggle .neu-tab.is-active { box-shadow: var(--shadow-outer-sm); color: var(--primary-color); }
+
+  /* محرر أسعار الولايات */
+  .wilaya-panel { padding: 16px; display: grid; gap: 12px; }
+  .wilaya-cols { display: flex; gap: 8px; font-size: 10px; font-weight: 600; color: var(--text-muted); }
+  .wilaya-cols span { flex: 1; }
+  .wilaya-cols .wname { width: 110px; flex: none; }
+  .wilaya-grid { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; padding-inline-end: 4px; }
+  @media (min-width: 560px) { .wilaya-grid { grid-template-columns: 1fr 1fr; } }
+  .wilaya-row { display: flex; align-items: center; gap: 8px; }
+  .wilaya-name { width: 110px; flex-shrink: 0; font-size: 11px; font-weight: 500; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wilaya-row .neu-input { padding: 7px 10px; font-size: 12px; }
+
+  /* محرر المنتجات */
+  .count-note { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+  .hint-line { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+  .item-row { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--r-panel); background: var(--bg-color); box-shadow: var(--shadow-outer-sm); }
+  .item-row.is-active { box-shadow: var(--shadow-inner-sm); }
+  .item-select { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; background: none; border: none; cursor: pointer; font-family: inherit; text-align: start; padding: 0; color: inherit; }
+  .item-thumb { width: 48px; height: 48px; flex-shrink: 0; border-radius: var(--r-control); background: var(--bg-color); box-shadow: var(--shadow-inner-sm); display: grid; place-items: center; color: var(--text-muted); font-size: 18px; }
+  .item-info { min-width: 0; flex: 1; }
+  .item-name { font-size: 13px; font-weight: 700; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); flex-wrap: wrap; }
+  .color-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: var(--shadow-inner-sm); display: inline-block; }
+  .btn-dashed { width: 100%; border: 1.5px dashed var(--text-muted); background: var(--bg-color); box-shadow: none; color: var(--text-muted); border-radius: var(--r-control); padding: 11px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-dashed:active { box-shadow: var(--shadow-btn-active); }
+  .btn-dashed:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* الصورة والمعرض */
+  .dropzone { display: grid; place-items: center; gap: 8px; text-align: center; padding: 34px 20px; cursor: pointer; }
+  .dropzone i { font-size: 30px; color: var(--text-muted); }
+  .dropzone .dz-title { font-size: 13px; font-weight: 700; color: var(--text-main); }
+  .dropzone .dz-hint { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+  .img-row { display: flex; align-items: center; gap: 12px; padding: 8px; }
+  .img-thumb { width: 56px; height: 56px; flex-shrink: 0; border-radius: var(--r-control); background: var(--bg-color); box-shadow: var(--shadow-inner-sm); display: grid; place-items: center; color: var(--text-muted); font-size: 20px; }
+  .img-row .img-label { flex: 1; font-size: 12px; color: var(--text-muted); }
+  .url-note { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+  .url-line { display: flex; gap: 8px; }
+  .url-line .neu-input { flex: 1; }
+
+  /* الألوان */
+  .color-row { display: flex; align-items: center; gap: 8px; }
+  .color-row input[type="color"] { width: 42px; height: 38px; flex-shrink: 0; border: none; background: transparent; padding: 0; cursor: pointer; }
+  .color-row .neu-input { flex: 1; }
+  .color-box { display: flex; align-items: center; gap: 8px; padding: 6px; }
+  .color-box input[type="color"] { width: 38px; height: 30px; border: none; background: transparent; padding: 0; cursor: pointer; flex-shrink: 0; }
+  .color-box .hex { flex: 1; min-width: 0; border: none; background: transparent; color: var(--text-main); font-size: 12px; font-family: inherit; outline: none; }
+  .swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .swatch { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm); cursor: pointer; }
+  .swatch:active { box-shadow: var(--shadow-btn-active); }
+
+  /* خيارات متقدمة */
+  .adv-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; background: none; border: none; cursor: pointer; font-family: inherit; color: inherit; padding: 0; text-align: start; }
+  .adv-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+  .adv-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+  .sub-section { padding: 18px; display: grid; gap: 12px; }
+  .feature-row, .stat-row { display: grid; gap: 8px; padding: 10px; align-items: center; }
+  @media (min-width: 560px) { .feature-row { grid-template-columns: 1fr 1.4fr auto; } .stat-row { grid-template-columns: 0.8fr 1.4fr auto; } }
+  .testimonial-row { padding: 12px; display: grid; gap: 8px; }
+  .testimonial-foot { display: grid; gap: 8px; }
+  @media (min-width: 560px) { .testimonial-foot { grid-template-columns: 1fr 1fr; } }
+  .testimonial-city { display: flex; gap: 8px; }
+  .testimonial-city .neu-input { flex: 1; }
+  .del-link { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--danger-color); display: inline-flex; align-items: center; gap: 6px; padding: 6px; }
+
+  /* النشر */
+  .publish-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .publish-head .sec-h { flex: 1; }
+  .list-public { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
+  .list-public .lp-text { display: grid; gap: 3px; }
+  .list-public .lp-label { font-size: 12px; font-weight: 700; color: var(--text-main); }
+  .list-public .lp-hint { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+  .switch { position: relative; width: 46px; height: 26px; border-radius: 999px; border: none; background: var(--bg-color); box-shadow: var(--shadow-inner-sm); cursor: pointer; flex-shrink: 0; padding: 0; }
+  .switch:disabled { opacity: 0.45; cursor: not-allowed; }
+  .switch-knob { position: absolute; top: 3px; inset-inline-start: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--bg-color); box-shadow: var(--shadow-outer-sm); display: grid; place-items: center; color: var(--primary-color); font-size: 10px; transition: inset-inline-start 0.2s ease; }
+  .switch-knob i { opacity: 0; }
+  .switch[aria-checked="true"] .switch-knob { inset-inline-start: 23px; }
+  .switch[aria-checked="true"] .switch-knob i { opacity: 1; }
+  .published-box { padding: 16px; display: grid; gap: 12px; }
+  .published-ok { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--success-color); }
+  .url-line-pub { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .url-code { flex: 1; min-width: 0; direction: ltr; text-align: left; padding: 9px 12px; font-size: 11px; font-weight: 600; font-family: 'Poppins', monospace; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .publish-note { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+  .publish-sub { font-size: 12px; color: var(--text-muted); line-height: 1.8; }
+  .pub-list { display: grid; gap: 10px; }
+  .pub-list-title { font-size: 11px; font-weight: 700; color: var(--text-muted); }
+  .pub-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px; }
+  .pub-thumb { width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--r-control); background: var(--bg-color); box-shadow: var(--shadow-inner-sm); display: grid; place-items: center; color: var(--text-muted); font-size: 15px; }
+  .pub-info { flex: 1; min-width: 0; basis: 160px; }
+  .pub-name { font-size: 12px; font-weight: 700; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pub-url { display: block; direction: ltr; text-align: left; font-size: 10px; color: var(--primary-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .visits-badge { font-variant-numeric: tabular-nums; }
+  .pub-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .note-box { display: flex; gap: 10px; padding: 14px 16px; font-size: 11px; color: var(--text-muted); line-height: 1.8; }
+  .note-box i { flex-shrink: 0; margin-top: 3px; color: var(--primary-color); }
+
+  /* المعاينة النائبة */
+  .preview-card { overflow: hidden; }
+  @media (min-width: 1024px) { .preview-card { position: sticky; top: 90px; } }
+  .preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; font-size: 12px; font-weight: 700; color: var(--text-main); }
+  .preview-bar .pv-path { direction: ltr; color: var(--text-muted); font-weight: 600; }
+  .preview-body { padding: 18px; }
+  .preview-ph { min-height: 440px; display: grid; place-items: center; text-align: center; gap: 12px; padding: 30px; }
+  .preview-ph i { font-size: 42px; color: var(--text-muted); }
+  .preview-ph .pv-label { font-size: 13px; font-weight: 700; color: var(--text-main); line-height: 1.7; }
+  .preview-ph .pv-sub { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+
+  /* النوافذ المنبثقة */
+  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .modal-head h2 { font-size: 18px; font-weight: 700; }
+  .modal-body { display: grid; gap: 18px; }
+  .status-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .status-label { font-size: 14px; font-weight: 700; }
+  .sub-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .sub-btn .sb-left { display: flex; align-items: center; gap: 8px; }
+  .sub-btn .sb-right { display: flex; align-items: center; gap: 8px; }
+  .sub-detail { padding: 16px; display: grid; gap: 4px; }
+  .sub-detail .sd-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+  .sub-detail .sd-plan { font-size: 16px; font-weight: 700; color: var(--primary-color); }
+  .sub-detail .sd-time { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .steps-list { list-style: decimal; padding-inline-start: 22px; padding-block: 14px; padding-inline-end: 14px; display: grid; gap: 7px; font-size: 12px; line-height: 1.7; color: var(--text-main); }
+  .settings-sec { display: grid; gap: 12px; }
+  .marketing-section { padding: 18px; display: grid; gap: 14px; }
+  .marketing-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .marketing-head h3 { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .show-name-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; }
+  .show-name-row span { font-size: 12px; font-weight: 600; }
+  .mkt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .danger-zone { padding: 18px; display: grid; gap: 10px; }
+  .danger-zone h3 { font-size: 14px; font-weight: 700; color: var(--danger-color); display: flex; align-items: center; gap: 8px; }
+  .danger-zone p { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+  .modal-foot { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+  .modal-foot .neu-btn { flex: 1; }
+  .code-input { text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 0.4em; }
+  .guide-head { text-align: center; display: grid; gap: 4px; margin-bottom: 16px; }
+  .guide-head .g-title { font-size: 16px; font-weight: 700; color: var(--primary-color); }
+  .guide-head .g-sub { font-size: 11px; color: var(--text-muted); }
+  .delete-name { padding: 9px 12px; font-size: 12px; font-weight: 700; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* شاشة حجب الاشتراك */
+  .block-screen { min-height: 70vh; display: grid; place-items: center; padding: 40px 20px; }
+  .block-card { width: 100%; max-width: 460px; padding: 40px 30px; text-align: center; display: grid; gap: 16px; place-items: center; }
+  .block-card h1 { font-size: 20px; font-weight: 700; }
+  .block-card .block-msg { font-size: 13px; color: var(--text-muted); line-height: 1.9; }
+  .block-card .block-reason { font-size: 11px; color: var(--text-muted); }
+  .block-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  /* ── أداة مراجعة: ليست من التصميم (تُزال عند التطبيق) ── */
+  .review-bar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 14px; border: 1.5px dashed var(--text-muted); border-radius: 12px; background: var(--bg-color); font-size: 11px; color: var(--text-muted); max-width: calc(100vw - 24px); box-shadow: var(--shadow-outer-sm); }
+  .review-bar button { border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm); color: var(--text-muted); border-radius: 10px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .review-bar button.is-active { box-shadow: var(--shadow-inner-sm); color: var(--primary-color); }
+</style>
+</head>
+<body>
+
+<!-- ══════════ الغلاف بعد الدخول (AuthGate): بانر إشعار الأدمن + السياق ══════════ -->
+<div id="studioMain">
+
+  <!-- بانر notice من AuthGate (subscription.notice) — نص إداري ديناميكي (عيّنة) -->
+  <div class="wrap">
+    <div class="banner notice-banner neu-inset t-warning">
+      <span class="banner-msg">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span data-en="Update your published link to keep receiving orders." data-ar="حدّث رابط صفحتك المنشورة لاستمرار استقبال الطلبات.">Update your published link to keep receiving orders.</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- بانر الحظر (subBanned) — مخفي في العيّنة (الحساب غير محظور) -->
+  <div class="wrap hidden" id="bannedBanner">
+    <div class="banner notice-banner neu-inset t-danger" role="alert">
+      <span class="banner-msg" style="justify-content:center">
+        <i class="fa-solid fa-ban"></i>
+        <span data-en="This account has been banned." data-ar="تم حظر هذا الحساب.">This account has been banned.</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- بانر القفل لعدم ربط البريد (lockNoEmail) — مخفي في العيّنة (البريد مربوط) -->
+  <div class="wrap hidden" id="lockBanner">
+    <div class="banner notice-banner neu-inset t-warning" role="alert">
+      <span class="banner-msg" style="justify-content:center">
+        <i class="fa-solid fa-lock"></i>
+        <span data-en="Link your email first from Settings to be able to download HTML or produce new links." data-ar="اربط بريدك أولاً من الإعدادات لتتمكّن من تنزيل HTML أو إنتاج روابط جديدة.">Link your email first from Settings to be able to download HTML or produce new links.</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- شريط الأدوات العلوي — كما app/studio/page.tsx -->
+  <header class="toolbar">
+    <div class="wrap">
+      <div class="toolbar-id">
+        <a class="neu-btn neu-btn--muted back-btn" href="#" data-en-title="Back to home" data-ar-title="رجوع للرئيسية" title="Back to home">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span data-en="Back to home" data-ar="رجوع للرئيسية">Back to home</span>
+        </a>
+        <a class="brand-link" href="#" data-en="Brand name" data-ar="اسم الشعار (Brand)">Brand name</a>
+        <span class="page-title" data-en="Create a new landing page" data-ar="أنشئ صفحة هبوط جديدة">Create a new landing page</span>
+        <!-- شارة الخطة + الأيام المتبقية -->
+        <span class="neu-badge neu-badge--primary plan-badge" data-en-title="27 days remaining" data-ar-title="متبقٍ 27 يوم" title="27 days remaining">
+          <i class="fa-solid fa-crown"></i>
+          <span data-en="Pro" data-ar="المحترفة">Pro</span>
+          <span class="sep">·</span>
+          <span data-en="27 days remaining" data-ar="متبقٍ 27 يوم">27 days remaining</span>
+        </span>
+      </div>
+
+      <div class="toolbar-actions">
+        <!-- مجموعة الأيقونات: ثيم / لغة / إعدادات / خروج -->
+        <div class="icon-group">
+          <button class="neu-circle neu-circle--sm" id="themeBtn" data-en-title="Toggle dark mode" data-ar-title="تبديل الوضع الليلي" title="Toggle dark mode">
+            <i class="fa-solid fa-moon"></i>
+          </button>
+          <button class="neu-circle neu-circle--sm" id="langBtn" data-en-title="Change language" data-ar-title="تغيير اللغة" title="Change language">AR</button>
+          <button class="neu-circle neu-circle--sm" id="settingsBtn" data-en-title="Settings" data-ar-title="الإعدادات" title="Settings">
+            <i class="fa-solid fa-gear"></i>
+          </button>
+          <button class="neu-circle neu-circle--sm neu-circle--danger" id="logoutBtn" data-en-title="Log out · project" data-ar-title="تسجيل الخروج · project" title="Log out · project">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+        <div class="toolbar-sep"></div>
+        <!-- مجموعة الإجراءات -->
+        <button class="neu-btn btn-sm" id="genContentBtn" data-en-title="Generate content" data-ar-title="توليد المحتوى" title="Generate content">
+          <i class="fa-solid fa-bolt"></i>
+          <span data-en="Generate content" data-ar="توليد المحتوى">Generate content</span>
+        </button>
+        <button class="neu-btn neu-btn--muted btn-sm" data-en-title="Download HTML" data-ar-title="تحميل HTML" title="Download HTML">
+          <i class="fa-solid fa-download"></i>
+          <span data-en="Download HTML" data-ar="تحميل HTML">Download HTML</span>
+        </button>
+        <button class="neu-btn neu-btn--muted btn-sm" data-en-title="Generate page" data-ar-title="توليد الصفحة" title="Generate page">
+          <span data-en="Generate page" data-ar="توليد الصفحة">Generate page</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <button class="neu-btn btn-sm" id="publishTopBtn" data-en-title="Update link" data-ar-title="تحديث الرابط" title="Update link">
+          <span data-en="Update link" data-ar="تحديث الرابط">Update link</span>
+        </button>
+        <button class="neu-btn neu-btn--danger btn-sm" data-en-title="Burns the old link permanently and creates a brand-new link for your page." data-ar-title="يحرق الرابط القديم نهائياً ويُنشئ رابطاً جديداً لصفحتك." title="Burns the old link permanently and creates a brand-new link for your page.">
+          <i class="fa-solid fa-rotate"></i>
+          <span data-en="New link" data-ar="رابط جديد">New link</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="studio-grid">
+      <!-- ══════════ عمود المحرر ══════════ -->
+      <div class="editor-col">
+
+        <!-- بانر تأكيد تحميل صفحة منشورة (editNotice) — مخفي في العيّنة -->
+        <div class="banner neu-inset t-success hidden" id="editNotice">
+          <span class="banner-msg">
+            <i class="fa-solid fa-circle-check"></i>
+            <span data-en="The published page was loaded into the editor — change prices and images, then press «Update link» to publish on the same link, or «New link» for a different one." data-ar="حُمِّلت الصفحة المنشورة إلى المحرّر — عدّل الأسعار والصور ثم اضغط «تحديث الرابط» للنشر على نفس الرابط، أو «رابط جديد» لرابط مختلف.">The published page was loaded into the editor — change prices and images, then press «Update link» to publish on the same link, or «New link» for a different one.</span>
+          </span>
+          <button class="neu-circle neu-circle--sm" id="editNoticeClose" data-en-title="Close" data-ar-title="إغلاق" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- تحذير: لا جدول مربوط (warningNoSheet) — ظاهر في العيّنة -->
+        <div class="banner neu-inset t-warning" id="noSheetBanner">
+          <span class="banner-msg">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span data-en="You haven't linked a Google Sheet yet — orders from your pages won't be recorded." data-ar="لم تربط جدول Google Sheets بعد — الطلبات من صفحاتك لن تُسجَّل.">You haven't linked a Google Sheet yet — orders from your pages won't be recorded.</span>
+          </span>
+          <button class="neu-btn neu-btn--warning btn-sm" id="linkSheetNow">
+            <span data-en="Link sheet now" data-ar="ربط الجدول الآن">Link sheet now</span>
+          </button>
+        </div>
+
+        <!-- صندوق الخطأ (error) — مخفي افتراضياً -->
+        <div class="banner neu-inset t-danger hidden" id="errorBox">
+          <span class="banner-msg">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span id="errorText" data-en="Publishing failed — try again." data-ar="تعذّر النشر — حاول مجدداً.">Publishing failed — try again.</span>
+          </span>
+        </div>
+
+        <!-- المعلومات الأساسية -->
+        <section class="section-card">
+          <h2 class="sec-h"><i class="fa-solid fa-circle-info t-primary"></i><span data-en="Product info" data-ar="معلومات المنتج">Product info</span></h2>
+
+          <!-- عنوان المتجر: يظهر فقط في وضع المتجر (مخفي لمنتج واحد) -->
+          <div class="field hidden" id="storeTitleField">
+            <span class="field-label" data-en="Store title" data-ar="عنوان المتجر">Store title</span>
+            <input class="neu-input input-sm" type="text" data-en-ph="Pro Shoes Store" data-ar-ph="متجر الأحذية برو" placeholder="Pro Shoes Store">
+            <span class="field-hint" data-en="Shown as the main heading in store mode (multiple products). For a single product, its name is used automatically." data-ar="يظهر كترويسة رئيسية للصفحة في وضع المتجر (منتجات متعددة). في منتج واحد يُعتمد اسمه تلقائياً.">Shown as the main heading in store mode (multiple products). For a single product, its name is used automatically.</span>
+          </div>
+
+          <div class="field">
+            <span class="field-label" data-en="Brand name" data-ar="اسم الشعار (Brand)">Brand name</span>
+            <input class="neu-input input-sm" type="text" value="ProSound" data-en-ph="ProSound" data-ar-ph="ProSound" placeholder="ProSound">
+          </div>
+
+          <div class="form-2">
+            <div class="field">
+              <span class="field-label" data-en="Badge" data-ar="الشارة (Badge)">Badge</span>
+              <input class="neu-input input-sm" type="text" data-en-ph="New / Fast" data-ar-ph="جديد / سريع" placeholder="New / Fast">
+            </div>
+            <div class="field">
+              <span class="field-label" data-en="Category" data-ar="التصنيف">Category</span>
+              <div class="select-wrap">
+                <select class="neu-input input-sm" id="categorySelect" dir="auto"></select>
+                <i class="fa-solid fa-chevron-down select-caret"></i>
+              </div>
+              <span class="field-hint" data-en="Guides the automatic content generation" data-ar="يُوجّه توليد المحتوى التلقائي">Guides the automatic content generation</span>
+            </div>
+          </div>
+
+          <div class="form-2">
+            <div class="field">
+              <span class="field-label" data-en="Home delivery price (DZD)" data-ar="سعر التوصيل للمنزل (دج)">Home delivery price (DZD)</span>
+              <input class="neu-input input-sm" type="text" inputmode="numeric" id="deliveryHome" value="700" data-en-ph="700" data-ar-ph="700" placeholder="700">
+              <span class="field-hint" data-en="Default 700 — change it for your product" data-ar="السعر الافتراضي 700 — غيّره حسب منتجك">Default 700 — change it for your product</span>
+            </div>
+            <div class="field">
+              <span class="field-label" data-en="Office pickup price (DZD)" data-ar="سعر الاستلام من المكتب (دج)">Office pickup price (DZD)</span>
+              <input class="neu-input input-sm" type="text" inputmode="numeric" id="deliveryOffice" value="500" data-en-ph="500" data-ar-ph="500" placeholder="500">
+              <span class="field-hint" data-en="Default 500 — change it for your product" data-ar="السعر الافتراضي 500 — غيّره حسب منتجك">Default 500 — change it for your product</span>
+            </div>
+          </div>
+
+          <!-- مبدّل نمط التوصيل -->
+          <div class="field">
+            <span class="field-label" data-en="Delivery mode" data-ar="نمط التوصيل">Delivery mode</span>
+            <div class="mode-toggle" id="deliveryModeToggle">
+              <button type="button" class="neu-tab is-active" data-mode="fixed" data-en="One fixed price (all wilayas)" data-ar="سعر ثابت لكل الولايات">One fixed price (all wilayas)</button>
+              <button type="button" class="neu-tab" data-mode="wilaya" data-en="Price by wilaya" data-ar="سعر حسب الولاية">Price by wilaya</button>
+            </div>
+            <span class="field-hint" data-en="Fixed: one price for all wilayas · By wilaya: custom price per wilaya" data-ar="ثابت: سعر واحد لكل الولايات · حسب الولاية: سعر مخصّص لكل ولاية">Fixed: one price for all wilayas · By wilaya: custom price per wilaya</span>
+          </div>
+
+          <!-- محرر أسعار الولايات (يظهر في نمط «حسب الولاية») -->
+          <div class="wilaya-panel neu-inset hidden" id="wilayaPanel">
+            <div class="sec-head">
+              <span class="field-label" data-en="Delivery price per wilaya" data-ar="أسعار التوصيل لكل ولاية">Delivery price per wilaya</span>
+              <button type="button" class="neu-btn neu-btn--muted btn-sm" id="wilayaFill">
+                <span data-en="Fill with default" data-ar="ملء بالافتراضي">Fill with default</span>
+              </button>
+            </div>
+            <div class="wilaya-cols">
+              <span class="wname"></span>
+              <span data-en="Home (DZD)" data-ar="للمنزل (دج)">Home (DZD)</span>
+              <span data-en="Office (DZD)" data-ar="للمكتب (دج)">Office (DZD)</span>
+            </div>
+            <p class="field-hint" data-en="Set a custom delivery price (home &amp; office) for each wilaya. Leave 0 or empty to apply the default." data-ar="حدّد سعر توصيل مخصّص (للمنزل وللمكتب) لكل ولاية. اتركه 0 أو فارغاً لتطبيق السعر الافتراضي.">Set a custom delivery price (home &amp; office) for each wilaya. Leave 0 or empty to apply the default.</p>
+            <div class="wilaya-grid" id="wilayaGrid"></div>
+          </div>
+
+          <div class="field">
+            <span class="field-label" data-en="Headline (Tagline)" data-ar="العنوان الكبير (Tagline)">Headline (Tagline)</span>
+            <input class="neu-input input-sm" type="text" data-en-ph="Pure sound that lasts" data-ar-ph="صوت نقي يدوم طويلاً" placeholder="Pure sound that lasts">
+            <span class="field-hint" data-en="Optional — product name is used if left empty" data-ar="اختياري — إن تُرك ظهر اسم المنتج">Optional — product name is used if left empty</span>
+          </div>
+          <div class="field">
+            <span class="field-label" data-en="Small badge (Eyebrow)" data-ar="الشارة الصغيرة (Eyebrow)">Small badge (Eyebrow)</span>
+            <input class="neu-input input-sm" type="text" data-en-ph="USB-C · Fast charging" data-ar-ph="USB-C · شحن سريع" placeholder="USB-C · Fast charging">
+          </div>
+          <div class="field">
+            <span class="field-label" data-en="Description" data-ar="الوصف">Description</span>
+            <textarea class="neu-input input-sm" data-en-ph="A short, professional product description" data-ar-ph="وصف قصير واحترافي للمنتج" placeholder="A short, professional product description"></textarea>
+          </div>
+          <div class="field">
+            <span class="field-label" data-en="Tags" data-ar="الشارات (Tags)">Tags</span>
+            <input class="neu-input input-sm" type="text" data-en-ph="Bluetooth 5.4, Noise cancelling, 36h battery" data-ar-ph="بلوتوث 5.4, إلغاء ضوضاء, بطارية 36 ساعة" placeholder="Bluetooth 5.4, Noise cancelling, 36h battery">
+            <span class="field-hint" data-en="Separate with a comma" data-ar="افصل بينها بفاصلة">Separate with a comma</span>
+          </div>
+        </section>
+
+        <!-- لوحة المنتجات + الصورة + الألوان -->
+        <section class="section-card">
+          <!-- ProductItemsEditor -->
+          <div class="sec-head">
+            <h2 class="sec-h"><i class="fa-solid fa-box t-primary"></i><span data-en="Page products" data-ar="منتجات الصفحة">Page products</span></h2>
+            <span class="count-note" data-en="1 / 5 products" data-ar="1 / 5 منتجات">1 / 5 products</span>
+          </div>
+          <p class="hint-line">
+            <span data-en="Add up to 5 products and distribute up to 5 images across the whole page." data-ar="أضف حتى 5 منتجات، ووزّع حتى 5 صوراً على الصفحة ككل.">Add up to 5 products and distribute up to 5 images across the whole page.</span>
+            <span data-en="5 images left for the page" data-ar="باقي 5 صور للصفحة">5 images left for the page</span>
+          </p>
+
+          <div class="item-row is-active">
+            <button type="button" class="item-select">
+              <span class="item-thumb"><i class="fa-solid fa-box"></i></span>
+              <span class="item-info">
+                <span class="item-name" data-en="Pro Wireless Earbuds" data-ar="سماعات لاسلكية برو">Pro Wireless Earbuds</span>
+                <span class="item-meta">
+                  <span>4,500 DA</span>
+                  <span>·</span>
+                  <span class="color-dot" style="background:#111111"></span>
+                  <span class="color-dot" style="background:#2b6cb0"></span>
+                </span>
+              </span>
+            </button>
+          </div>
+
+          <button type="button" class="btn-dashed" id="addProductBtn">
+            <i class="fa-solid fa-plus"></i>
+            <span data-en="Add product" data-ar="إضافة منتج">Add product</span>
+          </button>
+
+          <!-- حقول العنصر النشط -->
+          <div class="form-2">
+            <div class="field">
+              <span class="field-label" data-en="Product name *" data-ar="اسم المنتج *">Product name *</span>
+              <input class="neu-input input-sm" type="text" value="سماعات لاسلكية برو" data-en-ph="e.g. Pro wireless earbuds" data-ar-ph="مثال: سماعات لاسلكية برو" placeholder="e.g. Pro wireless earbuds">
+            </div>
+            <div class="field">
+              <span class="field-label" data-en="English name" data-ar="الاسم الإنجليزي">English name</span>
+              <input class="neu-input input-sm" type="text" dir="ltr" value="Pro Wireless Earbuds" data-en-ph="Pro Wireless Earbuds" data-ar-ph="Pro Wireless Earbuds" placeholder="Pro Wireless Earbuds">
+            </div>
+          </div>
+          <div class="form-2">
+            <div class="field">
+              <span class="field-label" data-en="Price (DZD)" data-ar="السعر (دج)">Price (DZD)</span>
+              <input class="neu-input input-sm" type="text" inputmode="numeric" value="4500" data-en-ph="4500" data-ar-ph="4500" placeholder="4500">
+            </div>
+            <div class="field">
+              <span class="field-label" data-en="Old price" data-ar="السعر القديم">Old price</span>
+              <input class="neu-input input-sm" type="text" inputmode="numeric" value="5000" data-en-ph="5000" data-ar-ph="5000" placeholder="5000">
+            </div>
+          </div>
+
+          <hr class="neu-divider">
+
+          <!-- صورة العنصر النشط -->
+          <div class="sec-head">
+            <h2 class="sec-h"><i class="fa-solid fa-image t-primary"></i><span data-en="Product image" data-ar="صورة المنتج">Product image</span></h2>
+          </div>
+          <div class="mode-toggle" id="imageTabToggle">
+            <button type="button" class="neu-tab is-active" data-imgtab="upload">
+              <i class="fa-solid fa-image"></i>
+              <span data-en="Upload image" data-ar="رفع صورة">Upload image</span>
+            </button>
+            <button type="button" class="neu-tab" data-imgtab="url">
+              <i class="fa-solid fa-link"></i>
+              <span data-en="Image URL" data-ar="رابط صورة">Image URL</span>
+            </button>
+          </div>
+
+          <!-- تبويب الرفع -->
+          <div id="imageUploadTab">
+            <label class="dropzone neu-inset">
+              <i class="fa-solid fa-image"></i>
+              <span class="dz-title" data-en="Upload product image" data-ar="ارفع صورة المنتج">Upload product image</span>
+              <span class="dz-hint" data-en="Color palette extracted automatically · or use the «Image URL» tab" data-ar="ستُستخرج لوحة الألوان تلقائياً · أو استخدم تبويب «رابط صورة»">Color palette extracted automatically · or use the «Image URL» tab</span>
+              <input type="file" accept="image/*" class="hidden">
+            </label>
+          </div>
+
+          <!-- تبويب الرابط -->
+          <div id="imageUrlTab" class="hidden" style="display:grid;gap:12px">
+            <div class="url-line">
+              <input class="neu-input input-sm" type="text" dir="ltr" data-en-ph="https://example.com/product.jpg" data-ar-ph="https://example.com/product.jpg" placeholder="https://example.com/product.jpg">
+              <button type="button" class="neu-btn btn-sm">
+                <span data-en="Use URL" data-ar="استخدام الرابط">Use URL</span>
+              </button>
+            </div>
+            <p class="url-note" data-en="A direct link to the product image — used as-is on the page, with an attempt to extract its colors." data-ar="رابط مباشر لصورة المنتج — يُستخدم كما هو على الصفحة، مع محاولة استخراج الألوان منه.">A direct link to the product image — used as-is on the page, with an attempt to extract its colors.</p>
+          </div>
+
+          <!-- صور إضافية -->
+          <div style="display:grid;gap:12px">
+            <div class="sec-head">
+              <span class="field-label" data-en="Extra images for this product" data-ar="صور إضافية للمنتج">Extra images for this product</span>
+              <span class="count-note" data-en="5 images left for the page" data-ar="باقي 5 صور للصفحة">5 images left for the page</span>
+            </div>
+            <button type="button" class="btn-dashed">
+              <i class="fa-solid fa-plus"></i>
+              <span data-en="Add image" data-ar="إضافة صورة">Add image</span>
+            </button>
+          </div>
+
+          <hr class="neu-divider">
+
+          <!-- ألوان العنصر النشط -->
+          <div style="display:grid;gap:10px">
+            <span class="field-label" data-en="Product colors" data-ar="ألوان المنتج">Product colors</span>
+            <span class="field-hint" data-en="Add color options for the customer to choose (display only — not saved to the sheet)." data-ar="أضف خيارات ألوان يختارها الزبون للعرض فقط (لا تُحفظ في الجدول).">Add color options for the customer to choose (display only — not saved to the sheet).</span>
+            <div class="color-row">
+              <input type="color" value="#111111" data-en-title="Color" data-ar-title="اللون" title="Color">
+              <input class="neu-input input-sm" type="text" value="الأسود" data-en-ph="Black" data-ar-ph="الأسود" placeholder="Black">
+              <button type="button" class="neu-circle neu-circle--sm neu-circle--danger" data-en-title="Remove" data-ar-title="إزالة" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="color-row">
+              <input type="color" value="#2b6cb0" data-en-title="Color" data-ar-title="اللون" title="Color">
+              <input class="neu-input input-sm" type="text" value="الأزرق" data-en-ph="Blue" data-ar-ph="الأزرق" placeholder="Blue">
+              <button type="button" class="neu-circle neu-circle--sm neu-circle--danger" data-en-title="Remove" data-ar-title="إزالة" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <button type="button" class="btn-dashed">
+              <i class="fa-solid fa-plus"></i>
+              <span data-en="Add color" data-ar="إضافة لون">Add color</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- خيارات متقدمة -->
+        <section class="section-card">
+          <button type="button" class="adv-head" id="advHead">
+            <span class="adv-title">
+              <i class="fa-solid fa-sliders t-primary"></i>
+              <span data-en="Advanced options" data-ar="خيارات متقدمة">Advanced options</span>
+              <span class="neu-badge" data-en="5 items" data-ar="5 عناصر">5 items</span>
+            </span>
+            <span class="adv-toggle">
+              <span id="advToggleText" data-en="Hide" data-ar="إخفاء">Hide</span>
+              <i class="fa-solid fa-chevron-up" id="advChevron"></i>
+            </span>
+          </button>
+
+          <div id="advBody" style="display:grid;gap:18px">
+            <!-- لوحة الألوان -->
+            <div class="sub-section neu-inset">
+              <div class="sec-head">
+                <h2 class="sec-h"><span data-en="Color palette" data-ar="لوحة الألوان">Color palette</span></h2>
+                <div class="mode-toggle" id="paletteModeToggle" style="flex:none">
+                  <button type="button" class="neu-tab" data-pmode="dark" data-en="Dark" data-ar="داكن">Dark</button>
+                  <button type="button" class="neu-tab is-active" data-pmode="light" data-en="Light" data-ar="فاتح">Light</button>
+                </div>
+              </div>
+              <div class="form-2">
+                <div class="field">
+                  <span class="field-label" data-en="Primary color" data-ar="اللون الأساسي">Primary color</span>
+                  <div class="color-box neu-inset"><input type="color" value="#2b6cb0"><input class="hex" type="text" dir="ltr" value="#2b6cb0"></div>
+                </div>
+                <div class="field">
+                  <span class="field-label" data-en="Accent color" data-ar="اللون المميز">Accent color</span>
+                  <div class="color-box neu-inset"><input type="color" value="#b7791f"><input class="hex" type="text" dir="ltr" value="#b7791f"></div>
+                </div>
+                <div class="field">
+                  <span class="field-label" data-en="Background" data-ar="الخلفية">Background</span>
+                  <div class="color-box neu-inset"><input type="color" value="#e0e5ec"><input class="hex" type="text" dir="ltr" value="#e0e5ec"></div>
+                </div>
+                <div class="field">
+                  <span class="field-label" data-en="Text" data-ar="النص">Text</span>
+                  <div class="color-box neu-inset"><input type="color" value="#333333"><input class="hex" type="text" dir="ltr" value="#333333"></div>
+                </div>
+              </div>
+              <div class="swatches">
+                <span class="field-hint" data-en="Extracted colors — click to set as primary:" data-ar="ألوان مستخرجة — اضغط لاختيار الأساسي:">Extracted colors — click to set as primary:</span>
+                <button type="button" class="swatch" style="background:#2b6cb0" data-en-title="Set primary" data-ar-title="اختيار الأساسي" title="Set primary"></button>
+                <button type="button" class="swatch" style="background:#b7791f" data-en-title="Set primary" data-ar-title="اختيار الأساسي" title="Set primary"></button>
+                <button type="button" class="swatch" style="background:#2f855a" data-en-title="Set primary" data-ar-title="اختيار الأساسي" title="Set primary"></button>
+              </div>
+            </div>
+
+            <!-- المميزات -->
+            <div class="sub-section neu-inset">
+              <div class="sec-head">
+                <h2 class="sec-h"><span data-en="Features" data-ar="المميزات">Features</span></h2>
+                <button type="button" class="neu-btn neu-btn--muted btn-sm"><i class="fa-solid fa-plus"></i><span data-en="Add" data-ar="إضافة">Add</span></button>
+              </div>
+              <div class="feature-row neu-inset">
+                <input class="neu-input input-sm" type="text" value="إلغاء ضوضاء نشط" data-en-ph="Feature title" data-ar-ph="عنوان الميزة" placeholder="Feature title">
+                <input class="neu-input input-sm" type="text" value="عزل ذكي للضجيج المحيط" data-en-ph="Description" data-ar-ph="الوصف" placeholder="Description">
+                <button type="button" class="del-link"><i class="fa-solid fa-trash"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+              </div>
+              <div class="feature-row neu-inset">
+                <input class="neu-input input-sm" type="text" value="بطارية 36 ساعة" data-en-ph="Feature title" data-ar-ph="عنوان الميزة" placeholder="Feature title">
+                <input class="neu-input input-sm" type="text" value="شحن سريع عبر USB-C" data-en-ph="Description" data-ar-ph="الوصف" placeholder="Description">
+                <button type="button" class="del-link"><i class="fa-solid fa-trash"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+              </div>
+            </div>
+
+            <!-- الإحصائيات -->
+            <div class="sub-section neu-inset">
+              <div class="sec-head">
+                <h2 class="sec-h"><span data-en="Quick stats" data-ar="إحصائيات سريعة">Quick stats</span></h2>
+                <button type="button" class="neu-btn neu-btn--muted btn-sm"><i class="fa-solid fa-plus"></i><span data-en="Add" data-ar="إضافة">Add</span></button>
+              </div>
+              <div class="stat-row neu-inset">
+                <input class="neu-input input-sm" type="text" dir="ltr" value="20W" data-en-ph="20W" data-ar-ph="20W" placeholder="20W">
+                <input class="neu-input input-sm" type="text" value="قوة الشحن" data-en-ph="Charging power" data-ar-ph="قوة الشحن" placeholder="Charging power">
+                <button type="button" class="del-link"><i class="fa-solid fa-trash"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+              </div>
+              <div class="stat-row neu-inset">
+                <input class="neu-input input-sm" type="text" dir="ltr" value="36h" data-en-ph="36h" data-ar-ph="36h" placeholder="36h">
+                <input class="neu-input input-sm" type="text" value="البطارية" data-en-ph="Battery" data-ar-ph="البطارية" placeholder="Battery">
+                <button type="button" class="del-link"><i class="fa-solid fa-trash"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+              </div>
+            </div>
+
+            <!-- الآراء -->
+            <div class="sub-section neu-inset">
+              <div class="sec-head">
+                <h2 class="sec-h"><span data-en="Customer reviews" data-ar="آراء الزبائن">Customer reviews</span></h2>
+                <button type="button" class="neu-btn neu-btn--muted btn-sm"><i class="fa-solid fa-plus"></i><span data-en="Add" data-ar="إضافة">Add</span></button>
+              </div>
+              <div class="testimonial-row neu-inset">
+                <textarea class="neu-input input-sm" data-en-ph="What did the customer say?" data-ar-ph="ماذا قال الزبون؟" placeholder="What did the customer say?">جودة صوت ممتازة والتوصيل سريع</textarea>
+                <div class="testimonial-foot">
+                  <input class="neu-input input-sm" type="text" value="أمين" data-en-ph="Name" data-ar-ph="الاسم" placeholder="Name">
+                  <div class="testimonial-city">
+                    <input class="neu-input input-sm" type="text" value="الجزائر" data-en-ph="City" data-ar-ph="المدينة" placeholder="City">
+                    <button type="button" class="del-link"><i class="fa-solid fa-trash"></i><span data-en="Delete" data-ar="حذف">Delete</span></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- النشر المباشر -->
+        <section class="section-card" id="publishSection">
+          <div class="publish-head">
+            <h2 class="sec-h"><i class="fa-solid fa-globe t-primary"></i><span data-en="Direct publishing" data-ar="النشر المباشر">Direct publishing</span></h2>
+            <button type="button" class="neu-btn btn-sm" id="publishBtn"><span data-en="Publish direct link" data-ar="نشر رابط مباشر">Publish direct link</span></button>
+            <button type="button" class="neu-btn neu-btn--danger btn-sm" data-en-title="Burns the old link permanently and creates a brand-new link for your page." data-ar-title="يحرق الرابط القديم نهائياً ويُنشئ رابطاً جديداً لصفحتك." title="Burns the old link permanently and creates a brand-new link for your page.">
+              <i class="fa-solid fa-rotate"></i><span data-en="New link" data-ar="رابط جديد">New link</span>
+            </button>
+          </div>
+
+          <!-- مبدّل المتجر العام (Pro/Gold) -->
+          <div class="list-public neu-inset">
+            <span class="lp-text">
+              <span class="lp-label" data-en="Show page in public store" data-ar="عرض الصفحة في المتجر العام">Show page in public store</span>
+              <span class="lp-hint" data-en="Your page appears in the homepage store — exclusive to Pro and Gold plans. Applied on publish." data-ar="تظهر صفحتك في متجر الصفحة الرئيسية — حصري لخطتَي Pro وGold. يُطبَّق عند النشر.">Your page appears in the homepage store — exclusive to Pro and Gold plans. Applied on publish.</span>
+            </span>
+            <button type="button" role="switch" aria-checked="true" class="switch" id="listPublicSwitch" data-en-title="Show page in public store" data-ar-title="عرض الصفحة في المتجر العام" title="Show page in public store">
+              <span class="switch-knob"><i class="fa-solid fa-check"></i></span>
+            </button>
+          </div>
+
+          <!-- صندوق النشر الناجح (publishedInfo) — يظهر في حالة «النشر الناجح» -->
+          <div class="published-box neu-inset hidden" id="publishedBox">
+            <p class="published-ok">
+              <i class="fa-solid fa-circle-check"></i>
+              <span data-en="Page published — here is your direct link:" data-ar="نُشرت الصفحة — هذا هو رابطك المباشر:">Page published — here is your direct link:</span>
+            </p>
+            <div class="url-line-pub">
+              <code class="url-code neu-inset">https://spectre-dz.vercel.app/p/pro-wireless-earbuds</code>
+              <button type="button" class="neu-btn neu-btn--muted btn-sm copy-btn" data-copy="https://spectre-dz.vercel.app/p/pro-wireless-earbuds">
+                <i class="fa-solid fa-copy"></i><span class="copy-label" data-en="Copy link" data-ar="نسخ الرابط">Copy link</span>
+              </button>
+              <a class="neu-btn neu-btn--muted btn-sm" href="#" data-en-title="Open" data-ar-title="فتح" title="Open">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i><span data-en="Open" data-ar="فتح">Open</span>
+              </a>
+              <button type="button" class="neu-btn neu-btn--muted btn-sm" data-en-title="Loads the published page into the editor to change every product's price and images." data-ar-title="يحمّل الصفحة المنشورة إلى المحرّر لتعديل أسعار وصور كل منتجاتها." title="Loads the published page into the editor to change every product's price and images.">
+                <i class="fa-solid fa-pen"></i><span data-en="Edit prices &amp; images" data-ar="تعديل السعر والصور">Edit prices &amp; images</span>
+              </button>
+            </div>
+            <p class="publish-note" data-en="Paste it directly into Facebook Ads Manager. The link becomes public on the internet after the app is deployed on Vercel." data-ar="الصقه مباشرة في Facebook Ads Manager. يصبح الرابط عاماً على الإنترنت بعد نشر التطبيق على Vercel.">Paste it directly into Facebook Ads Manager. The link becomes public on the internet after the app is deployed on Vercel.</p>
+            <div>
+              <button type="button" class="del-link"><i class="fa-solid fa-ban"></i><span data-en="Unpublish" data-ar="إلغاء النشر">Unpublish</span></button>
+            </div>
+          </div>
+
+          <!-- نص بديل قبل النشر (publishSub) -->
+          <p class="publish-sub" id="publishSub" data-en="Publish the page to get a public direct link you can paste into Facebook ads. Publishing also saves the product in this browser." data-ar="انشر الصفحة لتظهر برابط مباشر على الإنترنت قابل للصق في إعلانات فيسبوك. النشر يحفظ المنتج أيضاً في هذا المتصفح.">Publish the page to get a public direct link you can paste into Facebook ads. Publishing also saves the product in this browser.</p>
+
+          <!-- مدير المنشورات -->
+          <div class="pub-list">
+            <p class="pub-list-title" data-en="Published pages (2):" data-ar="صفحات منشورة (2):">Published pages (2):</p>
+
+            <div class="pub-row neu-row">
+              <span class="pub-thumb"><i class="fa-solid fa-box"></i></span>
+              <span class="pub-info">
+                <span class="pub-name" data-en="Pro Wireless Earbuds" data-ar="سماعات لاسلكية برو">Pro Wireless Earbuds</span>
+                <span class="pub-url">https://spectre-dz.vercel.app/p/pro-wireless-earbuds</span>
+              </span>
+              <span class="neu-badge neu-badge--primary visits-badge" data-en-title="Your page visits this month" data-ar-title="زيارات صفحتك هذا الشهر" title="Your page visits this month">
+                <i class="fa-solid fa-chart-line"></i><span>1,284</span>
+              </span>
+              <span class="pub-actions">
+                <button type="button" class="neu-btn neu-btn--muted btn-sm" data-en-title="Loads the published page into the editor to change every product's price and images." data-ar-title="يحمّل الصفحة المنشورة إلى المحرّر لتعديل أسعار وصور كل منتجاتها." title="Loads the published page into the editor to change every product's price and images.">
+                  <i class="fa-solid fa-pen"></i><span data-en="Edit" data-ar="تعديل">Edit</span>
+                </button>
+                <button type="button" class="neu-btn neu-btn--muted btn-sm copy-btn" data-copy="https://spectre-dz.vercel.app/p/pro-wireless-earbuds" data-en-title="Copy link" data-ar-title="نسخ الرابط" title="Copy link">
+                  <i class="fa-solid fa-copy"></i><span class="copy-label" data-en="Copy link" data-ar="نسخ الرابط">Copy link</span>
+                </button>
+                <button type="button" class="del-link delete-product-btn" data-name-en="Pro Wireless Earbuds" data-name-ar="سماعات لاسلكية برو">
+                  <i class="fa-solid fa-trash"></i><span data-en="Cancel" data-ar="إلغاء">Cancel</span>
+                </button>
+              </span>
+            </div>
+
+            <div class="pub-row neu-row">
+              <span class="pub-thumb"><i class="fa-solid fa-box"></i></span>
+              <span class="pub-info">
+                <span class="pub-name" data-en="Smart Sport Watch" data-ar="ساعة ذكية رياضية">Smart Sport Watch</span>
+                <span class="pub-url">https://spectre-dz.vercel.app/p/smart-sport-watch</span>
+              </span>
+              <span class="neu-badge neu-badge--primary visits-badge" data-en-title="Your page visits this month" data-ar-title="زيارات صفحتك هذا الشهر" title="Your page visits this month">
+                <i class="fa-solid fa-chart-line"></i><span>367</span>
+              </span>
+              <span class="pub-actions">
+                <button type="button" class="neu-btn neu-btn--muted btn-sm" data-en-title="Loads the published page into the editor to change every product's price and images." data-ar-title="يحمّل الصفحة المنشورة إلى المحرّر لتعديل أسعار وصور كل منتجاتها." title="Loads the published page into the editor to change every product's price and images.">
+                  <i class="fa-solid fa-pen"></i><span data-en="Edit" data-ar="تعديل">Edit</span>
+                </button>
+                <button type="button" class="neu-btn neu-btn--muted btn-sm copy-btn" data-copy="https://spectre-dz.vercel.app/p/smart-sport-watch" data-en-title="Copy link" data-ar-title="نسخ الرابط" title="Copy link">
+                  <i class="fa-solid fa-copy"></i><span class="copy-label" data-en="Copy link" data-ar="نسخ الرابط">Copy link</span>
+                </button>
+                <button type="button" class="del-link delete-product-btn" data-name-en="Smart Sport Watch" data-name-ar="ساعة ذكية رياضية">
+                  <i class="fa-solid fa-trash"></i><span data-en="Cancel" data-ar="إلغاء">Cancel</span>
+                </button>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ملاحظة الطرق الأربع -->
+        <div class="note-box neu-inset">
+          <i class="fa-solid fa-circle-info"></i>
+          <span data-en="Four ways to publish: «Publish direct link» puts the page online with a link you can paste into ads, «Download HTML» gives you a single standalone file to host anywhere, «Generate page» saves it in this browser, and «Copy JSON» then paste the output into app/data/products.ts to make it a static page for all visitors at build time." data-ar="أربع طرق للنشر: «نشر رابط مباشر» يضع الصفحة على الإنترنت برابط قابل للصق في الإعلانات، و«تحميل HTML» يسلّمك ملفاً واحداً مستقلاً تُرفعه لأي استضافة، و«توليد الصفحة» يحفظها في هذا المتصفح، و«نسخ JSON» ثم الصق الناتج في app/data/products.ts لتصبح صفحة ثابتة لجميع الزوار عند البناء.">Four ways to publish: «Publish direct link» puts the page online with a link you can paste into ads, «Download HTML» gives you a single standalone file to host anywhere, «Generate page» saves it in this browser, and «Copy JSON» then paste the output into app/data/products.ts to make it a static page for all visitors at build time.</span>
+        </div>
+      </div>
+
+      <!-- ══════════ لوحة المعاينة الحية (نائبة — صفحة الهبوط خارج النطاق) ══════════ -->
+      <div class="preview-card neu-card">
+        <div class="preview-bar">
+          <span data-en="Live preview" data-ar="معاينة مباشرة">Live preview</span>
+          <span class="pv-path">/p/pro-wireless-earbuds</span>
+        </div>
+        <hr class="neu-divider">
+        <div class="preview-body">
+          <div class="preview-ph neu-inset">
+            <i class="fa-solid fa-eye"></i>
+            <span class="pv-label" data-en="Live preview (landing page out of sample scope)" data-ar="معاينة حية (صفحة الهبوط خارج نطاق العينة)">Live preview (landing page out of sample scope)</span>
+            <span class="pv-sub" data-en="The published landing page is rendered here in the real studio. It is intentionally not replicated in this design sample." data-ar="تُعرض صفحة الهبوط المنشورة هنا في الاستوديو الحقيقي. وهي غير مقلّدة عمداً في عينة التصميم هذه.">The published landing page is rendered here in the real studio. It is intentionally not replicated in this design sample.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ شاشة حجب الاشتراك (subBlocked) ══════════ -->
+<div class="block-screen hidden" id="blockScreen">
+  <div class="block-card neu-card">
+    <span class="neu-circle neu-circle--lg t-warning"><i class="fa-solid fa-hourglass-half"></i></span>
+    <h1 data-en="Subscription inactive" data-ar="الاشتراك متوقّف">Subscription inactive</h1>
+    <p class="block-msg" data-en="Your subscription has expired. Please contact support." data-ar="انتهت صلاحية اشتراكك. يرجى التواصل مع الدعم.">Your subscription has expired. Please contact support.</p>
+    <div class="block-actions">
+      <button type="button" class="neu-btn" id="blockSettingsBtn"><i class="fa-solid fa-gear"></i><span data-en="Settings" data-ar="الإعدادات">Settings</span></button>
+      <button type="button" class="neu-btn neu-btn--danger" id="blockLogoutBtn"><i class="fa-solid fa-right-from-bracket"></i><span data-en="Log out" data-ar="تسجيل الخروج">Log out</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة الإعدادات (SettingsPanel) ══════════ -->
+<div class="neu-overlay neu-overlay--wide hidden" id="settingsOverlay">
+  <div class="neu-card">
+    <div class="modal-head">
+      <h2 data-en="Settings" data-ar="الإعدادات">Settings</h2>
+      <button type="button" class="neu-btn neu-btn--muted btn-sm" id="settingsClose">
+        <i class="fa-solid fa-xmark"></i><span data-en="Close" data-ar="إغلاق">Close</span>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- لافتة إشعار الأدمن -->
+      <div class="banner neu-inset t-warning" id="settingsNotice">
+        <span class="banner-msg" style="align-items:flex-start">
+          <i class="fa-solid fa-triangle-exclamation" style="margin-top:3px"></i>
+          <span style="display:grid;gap:3px">
+            <span class="neu-eyebrow" data-en="Message from admin" data-ar="رسالة من الإدارة">Message from admin</span>
+            <span data-en="Update your published link to keep receiving orders." data-ar="حدّث رابط صفحتك المنشورة لاستمرار استقبال الطلبات.">Update your published link to keep receiving orders.</span>
+          </span>
+        </span>
+        <button type="button" class="neu-circle neu-circle--sm" id="settingsNoticeClose" data-en-title="Dismiss notice" data-ar-title="إغلاق الإشعار" title="Dismiss notice"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- الحالة -->
+      <div class="status-row">
+        <span class="status-label" data-en="Google Sheets" data-ar="جدول Google Sheets">Google Sheets</span>
+        <span class="neu-badge neu-badge--warning"><span data-en="Not linked" data-ar="غير مربوط">Not linked</span></span>
+        <span class="neu-badge"><i class="fa-solid fa-envelope"></i><span dir="ltr">owner@spectre.dz</span></span>
+      </div>
+
+      <!-- نوعية الاشتراك -->
+      <div style="display:grid;gap:10px">
+        <button type="button" class="neu-btn sub-btn" id="subBtn">
+          <span class="sb-left"><i class="fa-solid fa-star"></i><span data-en="Subscription type" data-ar="نوعية الاشتراك">Subscription type</span></span>
+          <span class="sb-right">
+            <span class="neu-badge neu-badge--primary"><span data-en="Pro" data-ar="المحترفة">Pro</span></span>
+            <span class="count-note" data-en="27 days remaining" data-ar="متبقٍ 27 يوم">27 days remaining</span>
+          </span>
+        </button>
+        <div class="sub-detail neu-inset hidden" id="subDetail">
+          <span class="sd-eyebrow" data-en="Subscription type" data-ar="نوعية الاشتراك">Subscription type</span>
+          <span class="sd-plan" data-en="Pro" data-ar="المحترفة">Pro</span>
+          <span class="sd-time" data-en="27 days remaining" data-ar="متبقٍ 27 يوم">27 days remaining</span>
+        </div>
+      </div>
+
+      <!-- التبويبان -->
+      <div class="mode-toggle" id="settingsTabs">
+        <button type="button" class="neu-tab is-active" data-stab="email" data-en="Create sheet automatically" data-ar="إنشاء الجدول تلقائيّاً">Create sheet automatically</button>
+        <button type="button" class="neu-tab" data-stab="manual" data-en="Create sheet manually" data-ar="إنشاء الجدول يدويّاً">Create sheet manually</button>
+      </div>
+
+      <!-- تبويب البريد (تلقائي) — البريد مربوط ولا جدول: نموذج الإنشاء -->
+      <div class="settings-sec" id="settingsEmailTab">
+        <p class="hint-line" data-en="Enter your email and your sheet is created automatically — it appears in your Drive shared with you, ready to receive orders. You can create more than one sheet (each email gets an independent sheet)." data-ar="أدخل بريدك وأنشئ جدولك تلقائياً — سيظهر جدولك في Drive الخاص بك مشترك معك، جاهز لاستقبال الطلبات. يمكنك إنشاء أكثر من جدول (كل بريد يحصل على جدول مستقل).">Enter your email and your sheet is created automatically — it appears in your Drive shared with you, ready to receive orders. You can create more than one sheet (each email gets an independent sheet).</p>
+        <input class="neu-input input-sm" type="email" dir="ltr" data-en-ph="your@email.com" data-ar-ph="your@email.com" placeholder="your@email.com">
+        <button type="button" class="neu-btn"><i class="fa-solid fa-table"></i><span data-en="Create my sheet" data-ar="إنشاء جدولي تلقائياً">Create my sheet</span></button>
+      </div>
+
+      <!-- تبويب اليدوي -->
+      <div class="settings-sec hidden" id="settingsManualTab">
+        <ol class="steps-list neu-inset">
+          <li data-en="Open Google Sheets and create a new spreadsheet." data-ar="افتح Google Sheets وأنشئ جدولاً جديداً.">Open Google Sheets and create a new spreadsheet.</li>
+          <li data-en="From the top menu: Extensions then Apps Script." data-ar="من القائمة العلوية: Extensions ثم Apps Script.">From the top menu: Extensions then Apps Script.</li>
+          <li data-en="Clear the existing code and paste the required Apps Script code." data-ar="امسح الكود الموجود والصق كود Apps Script المطلوب.">Clear the existing code and paste the required Apps Script code.</li>
+          <li data-en="Press Deploy then New deployment then Web app." data-ar="اضغط Deploy ثم New deployment ثم Web app.">Press Deploy then New deployment then Web app.</li>
+          <li data-en="Leave Execute as: Me, and change Who has access to Anyone." data-ar="اترك Execute as: Me، وغيّر Who has access إلى Anyone.">Leave Execute as: Me, and change Who has access to Anyone.</li>
+          <li data-en="Press Deploy then copy the /exec link that appears — paste it into the field below and save." data-ar="اضغط Deploy ثم انسخ رابط /exec الذي يظهر — الصقه في الحقل بالأسفل واحفظ.">Press Deploy then copy the /exec link that appears — paste it into the field below and save.</li>
+        </ol>
+        <input class="neu-input input-sm" type="text" dir="ltr" data-en-ph="https://script.google.com/macros/s/AKfycb…/exec" data-ar-ph="https://script.google.com/macros/s/AKfycb…/exec" placeholder="https://script.google.com/macros/s/AKfycb…/exec">
+        <div class="mkt-actions">
+          <button type="button" class="neu-btn"><i class="fa-solid fa-floppy-disk"></i><span data-en="Save link" data-ar="حفظ الرابط">Save link</span></button>
+        </div>
+        <p class="hint-line" data-en="Orders from every page you generate go straight to this sheet — don't share the link." data-ar="طلبات كل صفحة تولّدها تُرسل مباشرة إلى هذا الجدول — لا تشارك الرابط مع أحد.">Orders from every page you generate go straight to this sheet — don't share the link.</p>
+      </div>
+
+      <!-- التسويق الاختياري -->
+      <div class="marketing-section neu-inset">
+        <div class="marketing-head">
+          <h3><i class="fa-solid fa-bullhorn t-primary"></i><span data-en="Marketing (optional)" data-ar="التسويق (اختياري)">Marketing (optional)</span></h3>
+          <button type="button" class="neu-btn neu-btn--muted btn-sm" id="guideOpenBtn">
+            <i class="fa-solid fa-circle-question"></i><span data-en="How to create a Pixel?" data-ar="كيف أنشئ البيكسل؟">How to create a Pixel?</span>
+          </button>
+        </div>
+
+        <div class="field">
+          <span class="field-label" data-en="Your store name" data-ar="اسم متجرك">Your store name</span>
+          <input class="neu-input input-sm" type="text" maxlength="40" data-en-ph="e.g. Sara Fashion Store" data-ar-ph="مثال: متجر سارة للملابس" placeholder="e.g. Sara Fashion Store">
+        </div>
+
+        <div class="show-name-row neu-inset">
+          <span data-en="Show my name in the public store" data-ar="إظهار الاسم في المتجر العام">Show my name in the public store</span>
+          <button type="button" role="switch" aria-checked="false" class="switch" disabled data-en-title="Show my name in the public store" data-ar-title="إظهار الاسم في المتجر العام" title="Show my name in the public store">
+            <span class="switch-knob"><i class="fa-solid fa-check"></i></span>
+          </button>
+        </div>
+
+        <div class="field">
+          <span class="field-label-row">
+            <span class="field-label" data-en="Meta Pixel ID" data-ar="معرّف Meta Pixel">Meta Pixel ID</span>
+            <button type="button" class="neu-btn neu-btn--success btn-sm" id="testCodeOpenBtn">
+              <i class="fa-solid fa-flask"></i><span data-en="Test Code" data-ar="Test Code">Test Code</span>
+            </button>
+          </span>
+          <input class="neu-input input-sm" type="text" dir="ltr" inputmode="numeric" maxlength="30" data-en-ph="123456789012345" data-ar-ph="123456789012345" placeholder="123456789012345">
+        </div>
+
+        <div class="field">
+          <span class="field-label" data-en="TikTok Pixel ID" data-ar="معرّف TikTok Pixel">TikTok Pixel ID</span>
+          <input class="neu-input input-sm" type="text" dir="ltr" maxlength="30" data-en-ph="CC3KVBDC77U4B4F4HKCG" data-ar-ph="CC3KVBDC77U4B4F4HKCG" placeholder="CC3KVBDC77U4B4F4HKCG">
+        </div>
+
+        <div class="field">
+          <span class="field-label" data-en="WhatsApp number for orders" data-ar="رقم واتساب استلام الطلبات">WhatsApp number for orders</span>
+          <input class="neu-input input-sm" type="text" dir="ltr" inputmode="tel" data-en-ph="0555 12 34 56 or 213555123456" data-ar-ph="0555 12 34 56 أو 213555123456" placeholder="0555 12 34 56 or 213555123456">
+        </div>
+
+        <div class="mkt-actions">
+          <button type="button" class="neu-btn neu-btn--success btn-sm">
+            <i class="fa-solid fa-rotate-right"></i><span data-en="Change WhatsApp number" data-ar="تغيير رقم الواتساب">Change WhatsApp number</span>
+          </button>
+        </div>
+
+        <p class="hint-line" data-en="The Pixel measures Facebook ads on your page. Orders arrive as a ready WhatsApp message on your number — changing that number requires a fresh admin approval code each time." data-ar="البيكسل يقيس إعلانات فيسبوك على صفحتك. الطلبات تصل كرسالة واتساب جاهزة على رقمك — وتغيير الرقم يتطلب رمز موافقة جديداً من المشرف في كل مرة.">The Pixel measures Facebook ads on your page. Orders arrive as a ready WhatsApp message on your number — changing that number requires a fresh admin approval code each time.</p>
+
+        <div class="mkt-actions">
+          <button type="button" class="neu-btn"><i class="fa-solid fa-floppy-disk"></i><span data-en="Save link" data-ar="حفظ الرابط">Save link</span></button>
+        </div>
+      </div>
+
+      <!-- خروج -->
+      <div>
+        <button type="button" class="neu-btn neu-btn--danger" id="settingsLogoutBtn">
+          <i class="fa-solid fa-right-from-bracket"></i><span data-en="Log out" data-ar="تسجيل الخروج">Log out</span>
+        </button>
+      </div>
+
+      <!-- حذف الاشتراك نهائياً -->
+      <div class="danger-zone neu-inset">
+        <h3><i class="fa-solid fa-triangle-exclamation"></i><span data-en="Permanently cancel subscription" data-ar="حذف الاشتراك نهائياً">Permanently cancel subscription</span></h3>
+        <p data-en="Your subscription, all your pages and your profile will be permanently deleted. This cannot be undone." data-ar="سيُحذف اشتراكك وكل صفحاتك وملفك نهائياً. لا يمكن التراجع.">Your subscription, all your pages and your profile will be permanently deleted. This cannot be undone.</p>
+        <div>
+          <button type="button" class="neu-btn neu-btn--danger btn-sm" id="deleteAccountOpenBtn">
+            <i class="fa-solid fa-trash"></i><span data-en="Cancel subscription" data-ar="حذف الاشتراك">Cancel subscription</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة دليل البيكسل ══════════ -->
+<div class="neu-overlay hidden" id="guideOverlay">
+  <div class="neu-card">
+    <div class="guide-head">
+      <span class="g-title" data-en="Create a Meta Pixel step by step" data-ar="إنشاء Meta Pixel خطوة بخطوة">Create a Meta Pixel step by step</span>
+      <span class="g-sub" data-en="No code needed — just two minutes" data-ar="بدون أي أكواد — دقيقتان فقط">No code needed — just two minutes</span>
+    </div>
+    <ol class="steps-list neu-inset">
+      <li data-en="Open business.facebook.com and sign in with your normal Facebook account." data-ar="افتح business.facebook.com وسجّل دخولك بحساب فيسبوك العادي.">Open business.facebook.com and sign in with your normal Facebook account.</li>
+      <li data-en="From the tools menu choose «Events Manager»." data-ar="من قائمة الأدوات اختر «مدير الأحداث Events Manager».">From the tools menu choose «Events Manager».</li>
+      <li data-en="Click «Connect a Data Source» then «Web» then «Get Started»." data-ar="اضغط «ربط البيانات Connect a Data Source» ثم «الويب Web» ثم «إنشاء Get Started».">Click «Connect a Data Source» then «Web» then «Get Started».</li>
+      <li data-en="Name it after your store, then copy the number shown next to it (about 15 digits)." data-ar="سمِّه باسم متجرك ثم انسخ الرقم الظاهر بجانبه (15 رقماً تقريباً).">Name it after your store, then copy the number shown next to it (about 15 digits).</li>
+      <li data-en="Paste that number in the Pixel field here, press Save, then republish your page to activate it." data-ar="الصقه في خانة البيكسل هنا، اضغط حفظ، ثم أعد نشر صفحتك ليُفعَّل.">Paste that number in the Pixel field here, press Save, then republish your page to activate it.</li>
+    </ol>
+    <div class="banner neu-inset t-success" style="margin-top:14px">
+      <span class="banner-msg"><i class="fa-solid fa-circle-check"></i><span data-en="You never need any code or page edits — the platform injects the script automatically on publish." data-ar="لن تحتاج أي أكواد أو تعديل صفحتك — المنصة تحقن السكريبت تلقائياً عند النشر.">You never need any code or page edits — the platform injects the script automatically on publish.</span></span>
+    </div>
+    <div class="modal-foot" style="margin-top:16px">
+      <button type="button" class="neu-btn" id="guideCloseBtn"><span data-en="Close" data-ar="إغلاق">Close</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة Test Event Code ══════════ -->
+<div class="neu-overlay hidden" id="testCodeOverlay">
+  <div class="neu-card">
+    <div class="guide-head">
+      <span class="g-title" data-en="Meta Pixel Test Event Code" data-ar="Meta Pixel Test Event Code">Meta Pixel Test Event Code</span>
+      <span class="g-sub" data-en="Events Manager / Test Events" data-ar="Events Manager / Test Events">Events Manager / Test Events</span>
+    </div>
+    <div class="banner neu-inset t-success">
+      <span class="banner-msg"><i class="fa-solid fa-circle-info"></i><span data-en="Open Events Manager then Test Events on Facebook, then copy TEST CODE and paste it here. After saving, every event sent from your pages appears instantly in the Test Events panel (re-publishing the page is required to activate it on /p/&lt;slug&gt;)." data-ar="افتح Events Manager ثم Test Events في فيسبوك، ثم انسخ TEST CODE والصقه هنا. بعد الحفظ، كل حدث يُرسَل من صفحاتك سيظهر في لوحة Test Events فوراً (يتطلّب إعادة نشر الصفحة لتفعيله على /p/&lt;slug&gt;).">Open Events Manager then Test Events on Facebook, then copy TEST CODE and paste it here. After saving, every event sent from your pages appears instantly in the Test Events panel (re-publishing the page is required to activate it on /p/&lt;slug&gt;).</span></span>
+    </div>
+    <div class="field" style="margin-top:14px">
+      <span class="field-label" data-en="Test Event Code" data-ar="Test Event Code">Test Event Code</span>
+      <input class="neu-input input-sm" type="text" dir="ltr" maxlength="30" data-en-ph="TEST12345" data-ar-ph="TEST12345" placeholder="TEST12345">
+    </div>
+    <div class="modal-foot" style="margin-top:16px">
+      <button type="button" class="neu-btn"><i class="fa-solid fa-floppy-disk"></i><span data-en="Save link" data-ar="حفظ الرابط">Save link</span></button>
+      <button type="button" class="neu-btn neu-btn--muted" id="testCodeCloseBtn"><span data-en="Close" data-ar="إغلاق">Close</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة تأكيد حذف الاشتراك ══════════ -->
+<div class="neu-overlay hidden" id="deleteConfirmOverlay">
+  <div class="neu-card">
+    <div class="modal-head">
+      <h2 class="t-danger" style="display:flex;align-items:center;gap:8px"><i class="fa-solid fa-triangle-exclamation"></i><span data-en="Permanently cancel subscription" data-ar="حذف الاشتراك نهائياً">Permanently cancel subscription</span></h2>
+    </div>
+    <p class="hint-line" data-en="Type your email (owner@spectre.dz) to confirm permanent deletion:" data-ar="اكتب بريدك الإلكتروني (owner@spectre.dz) لتأكيد الحذف النهائي:">Type your email (owner@spectre.dz) to confirm permanent deletion:</p>
+    <input class="neu-input input-sm" type="text" dir="ltr" style="margin-top:12px" data-en-ph="owner@spectre.dz" data-ar-ph="owner@spectre.dz" placeholder="owner@spectre.dz">
+    <div class="modal-foot" style="margin-top:16px">
+      <button type="button" class="neu-btn neu-btn--muted" id="deleteConfirmCancel"><span data-en="Cancel" data-ar="إلغاء">Cancel</span></button>
+      <button type="button" class="neu-btn neu-btn--danger"><i class="fa-solid fa-trash"></i><span data-en="Confirm permanent deletion" data-ar="تأكيد الحذف النهائي">Confirm permanent deletion</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة تأكيد حذف المنتج ══════════ -->
+<div class="neu-overlay hidden" id="deleteProductOverlay">
+  <div class="neu-card">
+    <div class="modal-head">
+      <h2 style="display:flex;align-items:center;gap:10px">
+        <span class="neu-circle neu-circle--sm neu-circle--danger"><i class="fa-solid fa-fire"></i></span>
+        <span data-en="Delete product permanently" data-ar="حذف المنتج نهائياً">Delete product permanently</span>
+      </h2>
+    </div>
+    <p class="hint-line" data-en="If you delete this product, its link will be burned permanently and will no longer work. Are you sure?" data-ar="إذا حذفت هذا المنتج، سينحرق الرابط الخاص به نهائياً ولن يعمل بعد الآن، هل أنت متأكد؟">If you delete this product, its link will be burned permanently and will no longer work. Are you sure?</p>
+    <p class="delete-name neu-inset" id="deleteProductName" style="margin-top:12px" dir="auto">Pro Wireless Earbuds</p>
+    <div class="modal-foot" style="margin-top:16px">
+      <button type="button" class="neu-btn neu-btn--muted" id="deleteProductCancel"><span data-en="Cancel" data-ar="إلغاء">Cancel</span></button>
+      <button type="button" class="neu-btn neu-btn--danger" id="deleteProductConfirm"><i class="fa-solid fa-trash"></i><span data-en="Confirm / OK" data-ar="تأكيد / OK">Confirm / OK</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ أداة مراجعة للتنقل بين حالات الصفحة — ليست من التصميم ══════════ -->
+<div class="review-bar">
+  <span data-en="Review tool (not part of the design):" data-ar="أداة مراجعة (ليست من التصميم):">Review tool (not part of the design):</span>
+  <button type="button" data-stage="editor" class="is-active" data-en="Editor" data-ar="المحرر">Editor</button>
+  <button type="button" data-stage="published" data-en="Published" data-ar="النشر الناجح">Published</button>
+  <button type="button" data-stage="settings" data-en="Settings" data-ar="الإعدادات">Settings</button>
+  <button type="button" data-stage="blocked" data-en="Blocked" data-ar="الحجب">Blocked</button>
+</div>
+
+<script>
+  /* بيانات حقيقية من المصدر (app/data/delivery.ts + app/lib/autoContent.ts) */
+  var WILAYAS = [
+    [1,"أدرار"],[2,"الشلف"],[3,"الأغواط"],[4,"أم البواقي"],[5,"باتنة"],[6,"بجاية"],[7,"بسكرة"],[8,"بشار"],[9,"البليدة"],[10,"البويرة"],
+    [11,"تمنراست"],[12,"تبسة"],[13,"تلمسان"],[14,"تيارت"],[15,"تيزي وزو"],[16,"الجزائر"],[17,"الجلفة"],[18,"جيجل"],[19,"سطيف"],[20,"سعيدة"],
+    [21,"سكيكدة"],[22,"سيدي بلعباس"],[23,"عنابة"],[24,"قالمة"],[25,"قسنطينة"],[26,"المدية"],[27,"مستغانم"],[28,"المسيلة"],[29,"معسكر"],[30,"ورقلة"],
+    [31,"وهران"],[32,"البيض"],[33,"إليزي"],[34,"برج بوعريريج"],[35,"بومرداس"],[36,"الطارف"],[37,"تندوف"],[38,"تيسمسيلت"],[39,"الوادي"],[40,"خنشلة"],
+    [41,"سوق أهراس"],[42,"تيبازة"],[43,"ميلة"],[44,"عين الدفلى"],[45,"النعامة"],[46,"عين تموشنت"],[47,"غرداية"],[48,"غليزان"],[49,"تيميمون"],[50,"برج باجي مختار"],
+    [51,"أولاد جلال"],[52,"بني عباس"],[53,"عين صالح"],[54,"عين قزام"],[55,"تقرت"],[56,"جانت"],[57,"المغير"],[58,"المنيعة"]
+  ];
+  var CATEGORIES = ["عام","إلكترونيات","ملابس","أحذية","إكسسوارات","منزل ومطبخ","عناية وجمال"];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var studioMain = $("studioMain"), blockScreen = $("blockScreen");
+  var publishedBox = $("publishedBox"), publishSub = $("publishSub");
+  var settingsOverlay = $("settingsOverlay");
+  var guideOverlay = $("guideOverlay"), testCodeOverlay = $("testCodeOverlay");
+  var deleteConfirmOverlay = $("deleteConfirmOverlay"), deleteProductOverlay = $("deleteProductOverlay");
+  var reviewButtons = Array.prototype.slice.call(document.querySelectorAll(".review-bar button[data-stage]"));
+
+  var base = "editor", settingsOpen = false;
+
+  function render() {
+    studioMain.classList.toggle("hidden", base === "blocked");
+    blockScreen.classList.toggle("hidden", base !== "blocked");
+    publishedBox.classList.toggle("hidden", base !== "published");
+    publishSub.classList.toggle("hidden", base === "published");
+    settingsOverlay.classList.toggle("hidden", !settingsOpen);
+    if (!settingsOpen) {
+      guideOverlay.classList.add("hidden");
+      testCodeOverlay.classList.add("hidden");
+      deleteConfirmOverlay.classList.add("hidden");
+    }
+    var active = settingsOpen ? "settings" : base;
+    reviewButtons.forEach(function (b) { b.classList.toggle("is-active", b.getAttribute("data-stage") === active); });
+  }
+  function setBase(s) {
+    base = s;
+    if (s === "blocked") settingsOpen = false;
+    deleteProductOverlay.classList.add("hidden");
+    render();
+    if (s === "published") $("publishSection").scrollIntoView({ behavior: "smooth", block: "start" });
+    if (s === "editor") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function openSettings() { settingsOpen = true; render(); }
+  function closeSettings() { settingsOpen = false; render(); }
+
+  reviewButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var s = b.getAttribute("data-stage");
+      if (s === "settings") { openSettings(); }
+      else { closeSettings(); setBase(s); }
+    });
+  });
+
+  /* فتح/إغلاق الإعدادات من أزرارها الطبيعية */
+  $("settingsBtn").addEventListener("click", openSettings);
+  $("linkSheetNow").addEventListener("click", openSettings);
+  $("blockSettingsBtn").addEventListener("click", openSettings);
+  $("settingsClose").addEventListener("click", closeSettings);
+  settingsOverlay.addEventListener("mousedown", function (e) { if (e.target === settingsOverlay) closeSettings(); });
+  $("settingsNoticeClose").addEventListener("click", function () { $("settingsNotice").classList.add("hidden"); });
+
+  /* خروج — يعيد إلى عينة شاشة الدخول المحلية */
+  function doLogout() { window.location.href = "studio-login.html"; }
+  $("logoutBtn").addEventListener("click", doLogout);
+  $("settingsLogoutBtn").addEventListener("click", doLogout);
+  $("blockLogoutBtn").addEventListener("click", doLogout);
+
+  /* بانر تأكيد التحميل */
+  $("editNoticeClose").addEventListener("click", function () { $("editNotice").classList.add("hidden"); });
+
+  /* التصنيفات */
+  (function () {
+    var sel = $("categorySelect");
+    CATEGORIES.forEach(function (c) {
+      var o = document.createElement("option");
+      o.value = c; o.textContent = c;
+      sel.appendChild(o);
+    });
+  })();
+
+  /* مبدّل نمط التوصيل + بناء شبكة الولايات عند الطلب */
+  var wilayaBuilt = false;
+  function buildWilayas() {
+    if (wilayaBuilt) return;
+    var grid = $("wilayaGrid");
+    WILAYAS.forEach(function (w) {
+      var row = document.createElement("div");
+      row.className = "wilaya-row";
+      var name = document.createElement("span");
+      name.className = "wilaya-name";
+      name.setAttribute("dir", "auto");
+      name.textContent = w[0] + " · " + w[1];
+      var home = document.createElement("input");
+      home.className = "neu-input"; home.type = "text"; home.inputMode = "numeric"; home.placeholder = "700";
+      var office = document.createElement("input");
+      office.className = "neu-input"; office.type = "text"; office.inputMode = "numeric"; office.placeholder = "500";
+      row.appendChild(name); row.appendChild(home); row.appendChild(office);
+      grid.appendChild(row);
+    });
+    wilayaBuilt = true;
+  }
+  $("deliveryModeToggle").addEventListener("click", function (e) {
+    var btn = e.target.closest(".neu-tab"); if (!btn) return;
+    var mode = btn.getAttribute("data-mode");
+    this.querySelectorAll(".neu-tab").forEach(function (b) { b.classList.toggle("is-active", b === btn); });
+    var wilaya = mode === "wilaya";
+    $("wilayaPanel").classList.toggle("hidden", !wilaya);
+    $("deliveryHome").disabled = wilaya;
+    $("deliveryOffice").disabled = wilaya;
+    if (wilaya) buildWilayas();
+  });
+  $("wilayaFill").addEventListener("click", function () {
+    $("wilayaGrid").querySelectorAll(".wilaya-row").forEach(function (row) {
+      var inputs = row.querySelectorAll("input");
+      inputs[0].value = "700"; inputs[1].value = "500";
+    });
+  });
+
+  /* مبدّل طريقة الصورة */
+  $("imageTabToggle").addEventListener("click", function (e) {
+    var btn = e.target.closest(".neu-tab"); if (!btn) return;
+    var tab = btn.getAttribute("data-imgtab");
+    this.querySelectorAll(".neu-tab").forEach(function (b) { b.classList.toggle("is-active", b === btn); });
+    $("imageUploadTab").classList.toggle("hidden", tab !== "upload");
+    $("imageUrlTab").classList.toggle("hidden", tab !== "url");
+  });
+
+  /* خيارات متقدمة */
+  $("advHead").addEventListener("click", function () {
+    var body = $("advBody");
+    var open = body.classList.toggle("hidden") === false;
+    SampleUI.setText($("advToggleText"), open ? "Hide" : "Show", open ? "إخفاء" : "إظهار");
+    $("advChevron").classList.toggle("fa-chevron-up", open);
+    $("advChevron").classList.toggle("fa-chevron-down", !open);
+  });
+
+  /* مبدّل داكن/فاتح للوحة الألوان (شكلي في العيّنة) */
+  $("paletteModeToggle").addEventListener("click", function (e) {
+    var btn = e.target.closest(".neu-tab"); if (!btn) return;
+    this.querySelectorAll(".neu-tab").forEach(function (b) { b.classList.toggle("is-active", b === btn); });
+  });
+
+  /* تبويبا الإعدادات */
+  $("settingsTabs").addEventListener("click", function (e) {
+    var btn = e.target.closest(".neu-tab"); if (!btn) return;
+    var tab = btn.getAttribute("data-stab");
+    this.querySelectorAll(".neu-tab").forEach(function (b) { b.classList.toggle("is-active", b === btn); });
+    $("settingsEmailTab").classList.toggle("hidden", tab !== "email");
+    $("settingsManualTab").classList.toggle("hidden", tab !== "manual");
+  });
+
+  /* لوحة تفاصيل الاشتراك */
+  $("subBtn").addEventListener("click", function () { $("subDetail").classList.toggle("hidden"); });
+
+  /* المبدّلات (switch) */
+  document.querySelectorAll(".switch").forEach(function (sw) {
+    sw.addEventListener("click", function () {
+      if (sw.disabled) return;
+      sw.setAttribute("aria-checked", sw.getAttribute("aria-checked") === "true" ? "false" : "true");
+    });
+  });
+
+  /* النوافذ المتداخلة */
+  $("guideOpenBtn").addEventListener("click", function () { guideOverlay.classList.remove("hidden"); });
+  $("guideCloseBtn").addEventListener("click", function () { guideOverlay.classList.add("hidden"); });
+  guideOverlay.addEventListener("mousedown", function (e) { if (e.target === guideOverlay) guideOverlay.classList.add("hidden"); });
+  $("testCodeOpenBtn").addEventListener("click", function () { testCodeOverlay.classList.remove("hidden"); });
+  $("testCodeCloseBtn").addEventListener("click", function () { testCodeOverlay.classList.add("hidden"); });
+  testCodeOverlay.addEventListener("mousedown", function (e) { if (e.target === testCodeOverlay) testCodeOverlay.classList.add("hidden"); });
+  $("deleteAccountOpenBtn").addEventListener("click", function () { deleteConfirmOverlay.classList.remove("hidden"); });
+  $("deleteConfirmCancel").addEventListener("click", function () { deleteConfirmOverlay.classList.add("hidden"); });
+  deleteConfirmOverlay.addEventListener("mousedown", function (e) { if (e.target === deleteConfirmOverlay) deleteConfirmOverlay.classList.add("hidden"); });
+
+  /* حذف منتج */
+  document.querySelectorAll(".delete-product-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var lang = SampleUI.lang();
+      $("deleteProductName").textContent = btn.getAttribute(lang === "ar" ? "data-name-ar" : "data-name-en");
+      deleteProductOverlay.classList.remove("hidden");
+    });
+  });
+  $("deleteProductCancel").addEventListener("click", function () { deleteProductOverlay.classList.add("hidden"); });
+  $("deleteProductConfirm").addEventListener("click", function () { deleteProductOverlay.classList.add("hidden"); });
+  deleteProductOverlay.addEventListener("mousedown", function (e) { if (e.target === deleteProductOverlay) deleteProductOverlay.classList.add("hidden"); });
+
+  /* أزرار النشر في العيّنة تنقل إلى حالة «النشر الناجح» */
+  $("publishBtn").addEventListener("click", function () { setBase("published"); });
+  $("publishTopBtn").addEventListener("click", function () { setBase("published"); });
+
+  /* نسخ الروابط (تغذية راجعة مؤقتة) */
+  document.querySelectorAll(".copy-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var label = btn.querySelector(".copy-label");
+      var url = btn.getAttribute("data-copy") || "";
+      if (navigator.clipboard && url) { navigator.clipboard.writeText(url).catch(function () {}); }
+      SampleUI.setText(label, "Copied", "نُسخ");
+      setTimeout(function () { SampleUI.setText(label, "Copy link", "نسخ الرابط"); }, 2000);
+    });
+  });
+
+  render();
+</script>
+</body>
+</html>

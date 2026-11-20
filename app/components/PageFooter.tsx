@@ -6,8 +6,9 @@ import { useLocale } from "@/app/components/LocaleProvider";
 export function PageFooter() {
   const { t } = useLocale();
   return (
-    <footer className="border-t border-navy-900/10 dark:border-white/10">
-      <div className="container-landing flex flex-col justify-between gap-3 py-8 text-xs text-navy-900/50 sm:flex-row dark:text-ivory-50/50">
+    <footer className="neu-footer">
+      <hr className="neu-divider" />
+      <div className="neu-wrap flex flex-col justify-between gap-3 py-8 text-xs t-muted sm:flex-row">
         <p>{t("footer1")}</p>
         <p>{t("footer2")}</p>
       </div>

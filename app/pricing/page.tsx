@@ -107,111 +107,92 @@ export default function PricingPage() {
   };
 
   return (
-    <main className="min-h-screen bg-ivory-50 text-navy-900 dark:bg-[#0d1117] dark:text-ivory-50">
+    <main className="neu-app">
       <PageHeader showAdminButton onAdminClick={() => setShowAdmin(true)} />
 
       {/* قسم الأسعار */}
-      <section className="container-landing py-16 lg:py-24">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs font-bold tracking-wide text-navy-400 dark:text-navy-300">{t("pricingEyebrow")}</p>
-          <h1 className="mt-3 font-display text-3xl font-extrabold text-navy-900 dark:text-ivory-50 sm:text-4xl">{t("pricingTitle")}</h1>
-          <p className="mt-4 max-w-2xl mx-auto text-base leading-7 text-navy-700/70 dark:text-ivory-50/70">{t("pricingSub")}</p>
+      <section className="neu-wrap py-16 lg:py-24">
+        <div className="mx-auto max-w-4xl text-center">
+          <p className="neu-eyebrow">{t("pricingEyebrow")}</p>
+          <h1 className="mt-3 text-3xl font-bold sm:text-4xl">{t("pricingTitle")}</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 t-muted">{t("pricingSub")}</p>
         </div>
 
         <div className="mt-12 grid gap-8 lg:grid-cols-3">
           {plans.map((plan) => (
-            <article
-              key={plan.key}
-              className={`liquid-glass liquid-glass--rounded relative grid gap-6 overflow-hidden rounded-3xl p-8 transition hover:-translate-y-2 hover:shadow-2xl ${
-                plan.highlight
-                  ? "ring-2 ring-blue-500/40"
-                  : ""
-              }`}
-            >
+            <article key={plan.key} className="neu-card relative grid gap-6 p-8">
               {plan.popular && (
-                <div className="absolute -right-12 top-8 rotate-45 bg-gradient-to-r from-blue-500 to-purple-600 px-12 py-1 text-xs font-bold text-white shadow-lg">
+                <span className="neu-badge neu-badge--warning absolute -top-3 start-6">
+                  <i className="fa-solid fa-star" aria-hidden="true" />
                   {plan.name}
-                </div>
+                </span>
               )}
 
-              <div className="grid gap-3">
-                <h2 className="font-display text-2xl font-extrabold text-navy-900 dark:text-ivory-50">{plan.name}</h2>
+              <div className="grid gap-3 text-center">
+                <h2 className="text-2xl font-bold">{plan.name}</h2>
                 <div className="flex items-baseline justify-center gap-1">
-                  <span className="font-display text-5xl font-extrabold text-navy-900 dark:text-ivory-50">{plan.price}</span>
-                  <span className="text-sm font-semibold text-navy-700/70 dark:text-ivory-50/70">{plan.period}</span>
+                  <span className="text-5xl font-bold t-primary">{plan.price}</span>
+                  <span className="text-sm font-semibold t-muted">{plan.period}</span>
                 </div>
-                <p className="text-sm text-navy-700/70 dark:text-ivory-50/70">{plan.description}</p>
+                <p className="text-sm t-muted">{plan.description}</p>
               </div>
 
-              {/* شبكة الإحصائيات — أرقام كبيرة تحت الوصف (متطابقة مع الإنتاج) */}
-              <div className="grid grid-cols-3 gap-2 rounded-2xl border border-navy-900/10 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5">
+              {/* شبكة الإحصائيات */}
+              <div className="neu-inset grid grid-cols-3 gap-2 p-3">
                 {plan.stats.map((stat, sidx) => (
                   <div key={sidx} className="text-center">
-                    <div className="font-display text-2xl font-extrabold text-navy-900 dark:text-ivory-50">{stat.value}</div>
-                    <div className="mt-1 text-[10px] font-semibold text-navy-700/70 dark:text-ivory-50/70">{stat.label}</div>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                    <div className="mt-1 text-[10px] font-semibold t-muted">{stat.label}</div>
                   </div>
                 ))}
               </div>
 
               <ul className="grid gap-3" role="list">
                 {plan.features.map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-sm text-navy-700/80 dark:text-ivory-50/80">
-                    <svg className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+                  <li key={idx} className="flex items-start gap-3 text-sm t-muted">
+                    <i className="fa-solid fa-circle-check mt-0.5 shrink-0 t-success" aria-hidden="true" />
                     {feature}
                   </li>
                 ))}
               </ul>
 
-              <div className="grid gap-2 pt-2 border-t border-navy-900/10 dark:border-white/10">
-                <p className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">{t("noteQuotasTotal")}</p>
-                <p className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">{t("noteRenewable")}</p>
+              <div className="grid gap-2 pt-2">
+                <hr className="neu-divider" />
+                <p className="text-[11px] t-muted">{t("noteQuotasTotal")}</p>
+                <p className="text-[11px] t-muted">{t("noteRenewable")}</p>
               </div>
 
               <a
                 href={whatsappLink(plan)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`mt-2 grid w-full place-items-center rounded-xl py-4 text-sm font-bold transition ${
-                  plan.highlight
-                    ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg hover:shadow-xl"
-                    : "border-2 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
-                }`}
+                className={`neu-btn neu-btn--lg neu-btn--block mt-2 ${plan.highlight ? "neu-btn--success" : ""}`}
               >
-                <span className="inline-flex items-center gap-2">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
-                  </svg>
-                  {plan.cta}
-                </span>
+                <i className="fa-brands fa-whatsapp" aria-hidden="true" />
+                {plan.cta}
               </a>
             </article>
           ))}
         </div>
 
-
         {/* المميزات المشتركة */}
-        <div className="mt-16 max-w-4xl mx-auto">
-          <h2 className="font-display text-2xl font-extrabold text-center text-navy-900 dark:text-ivory-50">
+        <div className="mx-auto mt-16 max-w-4xl">
+          <h2 className="text-center text-2xl font-bold">
             مميزات متاحة في كل الباقات
           </h2>
           <div className="mt-8 grid gap-6 sm:grid-cols-3">
             {[
-              { icon: "📄", title: t("featureLandingPages"), desc: t("featureLandingPagesDesc") },
-              { icon: "🇩🇿", title: t("featureWilayas"), desc: t("featureWilayasDesc") },
-              { icon: "💰", title: t("featureCod"), desc: t("featureCodDesc") },
-              { icon: "🎨", title: t("featureColors"), desc: t("featureColorsDesc") },
-              { icon: "📋", title: t("featureOrderForm"), desc: t("featureOrderFormDesc") },
-              { icon: "📊", title: t("featureSheets"), desc: t("featureSheetsDesc") },
+              { icon: "fa-file-lines", title: t("featureLandingPages"), desc: t("featureLandingPagesDesc") },
+              { icon: "fa-flag", title: t("featureWilayas"), desc: t("featureWilayasDesc") },
+              { icon: "fa-sack-dollar", title: t("featureCod"), desc: t("featureCodDesc") },
+              { icon: "fa-palette", title: t("featureColors"), desc: t("featureColorsDesc") },
+              { icon: "fa-clipboard-list", title: t("featureOrderForm"), desc: t("featureOrderFormDesc") },
+              { icon: "fa-table", title: t("featureSheets"), desc: t("featureSheetsDesc") },
             ].map((item, idx) => (
-              <div
-                key={idx}
-                className="liquid-glass liquid-glass--rounded group grid gap-3 overflow-hidden rounded-2xl p-6 transition hover:-translate-y-1"
-              >
-                <span className="text-3xl transition group-hover:scale-110">{item.icon}</span>
-                <h3 className="font-display text-lg font-bold text-navy-900 dark:text-ivory-50">{item.title}</h3>
-                <p className="text-sm text-navy-700/70 dark:text-ivory-50/70">{item.desc}</p>
+              <div key={idx} className="neu-panel grid gap-3 p-6">
+                <span className="text-3xl t-primary"><i className={`fa-solid ${item.icon}`} aria-hidden="true" /></span>
+                <h3 className="text-lg font-bold">{item.title}</h3>
+                <p className="text-sm t-muted">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -220,7 +201,7 @@ export default function PricingPage() {
 
       <PageFooter />
 
-      {/* نافذة دخول الأدمن (modal) — AdminLoginModal الزجاجي */}
+      {/* نافذة دخول الأدمن (modal) */}
       <AdminLoginModal open={showAdmin} onClose={() => setShowAdmin(false)} />
     </main>
   );

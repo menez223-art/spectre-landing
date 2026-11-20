@@ -153,10 +153,10 @@ function demoToProduct(d: DemoDraft): Product {
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-1.5 text-xs font-semibold text-navy-700 dark:text-ivory-50/70">
+    <label className="grid gap-1.5 text-xs font-semibold">
       <span>{label}</span>
       {children}
-      {hint && <span className="text-[10px] font-normal text-navy-900/45 dark:text-ivory-50/45">{hint}</span>}
+      {hint && <span className="text-[10px] font-normal t-muted">{hint}</span>}
     </label>
   );
 }
@@ -171,9 +171,9 @@ function ColorField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid gap-1.5 text-xs font-semibold text-navy-700 dark:text-ivory-50/70">
+    <label className="grid gap-1.5 text-xs font-semibold">
       <span>{label}</span>
-      <div className="flex items-center gap-2 rounded-xl border border-navy-900/15 bg-white p-1.5 dark:border-white/15 dark:bg-[#0d1117]">
+      <div className="neu-inset flex items-center gap-2 p-1.5">
         <input
           type="color"
           value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "#3b82f6"}
@@ -183,7 +183,7 @@ function ColorField({
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-transparent text-xs text-navy-900 outline-none dark:text-ivory-50"
+          className="w-full bg-transparent text-xs outline-none"
         />
       </div>
     </label>
@@ -396,14 +396,12 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
 
   if (!open) return null;
 
-  const inputCls =
-    "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50 dark:placeholder:text-ivory-50/35";
-  const ghostBtn =
-    "rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400";
+  const inputCls = "neu-input !text-[16px] sm:!text-sm";
+  const ghostBtn = "neu-btn neu-btn--muted !px-4 !py-2 !text-xs";
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-navy-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+      className="neu-app fixed inset-0 z-50 flex items-stretch justify-center sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={t("demoTitle")}
@@ -411,14 +409,14 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="liquid-glass liquid-glass--rounded flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-3xl text-navy-900 sm:h-auto sm:max-h-[92vh] sm:shadow-2xl sm:shadow-navy-950/40 dark:text-ivory-50">
+      <div className="neu-card flex h-full w-full max-w-6xl flex-col overflow-hidden sm:h-auto sm:max-h-[92vh]">
         {/* الترويسة */}
-        <div className="flex items-center justify-between gap-2 border-b border-navy-900/10 bg-navy-900 px-4 py-3 text-ivory-50 sm:px-6 dark:border-white/10">
+        <div className="flex items-center justify-between gap-2 border-b border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-full bg-navy-400/30 text-sm">✨</span>
+            <span className="neu-circle neu-circle--sm neu-circle--primary"><i className="fa-solid fa-flask" aria-hidden="true" /></span>
             <div>
-              <p className="font-display text-base font-extrabold">{t("demoTitle")}</p>
-              <p className="text-[10px] text-ivory-50/70">{t("tryDemoSub")}</p>
+              <p className="text-base font-bold">{t("demoTitle")}</p>
+              <p className="neu-sub">{t("tryDemoSub")}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -426,10 +424,10 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
             <LangToggle />
             <button
               onClick={onClose}
-              className="grid h-9 w-9 place-items-center rounded-full border border-ivory-50/20 text-lg font-bold text-ivory-50 transition hover:border-ivory-50/50"
+              className="neu-circle neu-circle--sm"
               aria-label={t("demoClose")}
             >
-              ✕
+              <i className="fa-solid fa-xmark" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -437,17 +435,15 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
         {/* تبويبا الجوال: النموذج | المعاينة — يظهران على الجوال فقط.
             على الحاسوب يُخفى الشريط ويبقى العرض جنباً إلى جنب. */}
         {isMobile && (
-          <div className="flex shrink-0 gap-1 border-b border-navy-900/10 bg-navy-900/5 p-2 dark:border-white/10 dark:bg-white/5">
+          <div className="flex shrink-0 gap-2 px-4 py-3 sm:px-6">
             {(["form", "preview"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => switchMobileTab(tab)}
                 aria-pressed={mobileTab === tab}
-                className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
-                  mobileTab === tab
-                    ? "bg-navy-900 text-ivory-50 dark:bg-white dark:text-navy-900"
-                    : "text-navy-700 hover:bg-navy-900/5 dark:text-ivory-50/70 dark:hover:bg-white/10"
+                className={`neu-tab flex-1 ${
+                  mobileTab === tab ? "is-active" : ""
                 }`}
               >
                 {tab === "form" ? t("tabForm") : t("tabPreview")}
@@ -460,7 +456,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
         <div className="grid flex-1 gap-0 overflow-hidden lg:grid-cols-2">
           {/* النموذج */}
           <div className={`space-y-6 overflow-y-auto p-4 sm:p-6 ${isMobile && mobileTab !== "form" ? "hidden" : ""}`}>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-300/40 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-400/30 dark:bg-sky-900/30 dark:text-sky-100">
+            <div className="neu-inset flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm t-primary">
               <p className="text-[11px] font-medium leading-5">
                 {t("demoNoticeBody")}
               </p>
@@ -473,7 +469,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                 onClick={() => setShowTrial(true)}
                 disabled={missingFields.length > 0}
                 title={missingFields.length > 0 ? t("trialNeedsTitle") : ""}
-                className="w-full rounded-2xl bg-amber-500 px-5 py-4 text-sm font-bold text-white shadow-sm transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-navy-900/15 disabled:text-navy-900/40 disabled:shadow-none dark:disabled:bg-white/10 dark:disabled:text-ivory-50/35"
+                className="neu-btn neu-btn--lg neu-btn--block"
               >
                 {t("publishDirect")}
               </button>
@@ -481,7 +477,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                 {lang === "ar" ? "إدارة رابط تجربة سابق" : "Manage an existing trial"}
               </button>
               {missingFields.length > 0 && (
-                <div className="rounded-xl border border-amber-400/40 bg-amber-50 px-3 py-2 text-[11px] leading-6 text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
+                <div className="neu-inset px-3 py-2 text-[11px] leading-6 t-warning">
                   <p className="font-bold">{t("trialNeedsTitle")}</p>
                   <ul className="mt-0.5 list-inside list-disc opacity-90">
                     {missingFields.map((f) => (
@@ -494,14 +490,14 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
             </div>
 
             {error && (
-              <p className="whitespace-pre-line rounded-xl border border-red-400/30 bg-red-50 px-4 py-3 text-sm font-medium leading-6 text-red-700">
+              <p className="neu-inset whitespace-pre-line px-4 py-3 text-sm font-medium leading-6 t-danger">
                 {error}
               </p>
             )}
 
             {/* المعلومات الأساسية */}
-            <section className="grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
-              <h2 className="font-display text-base font-bold">{t("productInfo")}</h2>
+            <section className="neu-card grid gap-4 p-5">
+              <h2 className="text-base font-bold">{t("productInfo")}</h2>
               <Field label={t("productName")}>
                 <input className={inputCls} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder={t("productNamePh")} />
               </Field>
@@ -525,7 +521,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                 </Field>
                 <Field label={t("category")} hint={t("categoryHint")}>
                   <select
-                    className={inputCls}
+                    className={`${inputCls} !appearance-auto`}
                     value={draft.category}
                     onChange={(e) => setDraft({ ...draft, category: e.target.value as Category })}
                   >
@@ -562,29 +558,29 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
 
               {/* مبدّل وضع التوصيل */}
               <div className="grid gap-1.5">
-                <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("deliveryMode")}</span>
-                <div className="flex rounded-full border border-navy-900/15 bg-ivory-100 p-1 text-xs font-bold dark:border-white/15 dark:bg-[#161b22]">
+                <span className="text-xs font-semibold">{t("deliveryMode")}</span>
+                <div className="flex rounded-full bg-[color:var(--bg-color)] p-1 text-xs font-bold shadow-[var(--shadow-inner-sm)]">
                   {(["fixed", "wilaya"] as const).map((mode) => (
                     <button
                       key={mode}
                       type="button"
                       onClick={() => setDraft({ ...draft, deliveryMode: mode })}
-                      className={`flex-1 rounded-full px-4 py-1.5 transition ${
-                        draft.deliveryMode === mode ? "bg-navy-900 text-ivory-50" : "text-navy-700 hover:text-navy-900 dark:text-ivory-50/70"
+                      className={`neu-tab flex-1 !rounded-full !px-4 !py-1.5 !text-xs ${
+                        draft.deliveryMode === mode ? "is-active" : ""
                       }`}
                     >
                       {mode === "fixed" ? t("deliveryModeFixed") : t("deliveryModeWilaya")}
                     </button>
                   ))}
                 </div>
-                <span className="text-[10px] font-normal text-navy-900/45 dark:text-ivory-50/45">{t("deliveryModeHint")}</span>
+                <span className="text-[10px] font-normal t-muted">{t("deliveryModeHint")}</span>
               </div>
 
               {/* محرر أسعار الولايات */}
               {draft.deliveryMode === "wilaya" && (
-                <div className="grid gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 p-4 dark:border-white/10 dark:bg-[#161b22]">
+                <div className="neu-inset grid gap-3 p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("wilayaPricesTitle")}</span>
+                    <span className="text-xs font-semibold">{t("wilayaPricesTitle")}</span>
                     <button
                       type="button"
                       onClick={() =>
@@ -606,19 +602,19 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                       {t("wilayaPricesFill")}
                     </button>
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] font-semibold text-navy-900/55 dark:text-ivory-50/55">
+                  <div className="flex items-center gap-2 text-[10px] font-semibold t-muted">
                     <span className="flex-1">{t("wilayaColumnHome")}</span>
                     <span className="flex-1">{t("wilayaColumnOffice")}</span>
                   </div>
-                  <p className="text-[10px] font-normal text-navy-900/45 dark:text-ivory-50/45">{t("wilayaPricesHint")}</p>
+                  <p className="text-[10px] font-normal t-muted">{t("wilayaPricesHint")}</p>
                   <div className="grid max-h-80 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                     {WILAYAS.map((w) => (
                       <div key={w.code} className="flex items-center gap-2">
-                        <span className="w-28 shrink-0 truncate text-[11px] font-medium text-navy-700 dark:text-ivory-50/70">
+                        <span className="w-28 shrink-0 truncate text-[11px] font-medium">
                           {w.code} · {w.name}
                         </span>
                         <input
-                          className="w-full rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs text-navy-900 outline-none transition focus:border-navy-500 dark:border-white/15 dark:bg-[#0d1117] dark:text-ivory-50"
+                          className="neu-input !px-2 !py-1.5 !text-xs"
                           value={draft.wilayaPrices[w.code]?.home ?? ""}
                           onChange={(e) =>
                             setDraft((d) => ({
@@ -636,7 +632,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                           inputMode="numeric"
                         />
                         <input
-                          className="w-full rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs text-navy-900 outline-none transition focus:border-navy-500 dark:border-white/15 dark:bg-[#0d1117] dark:text-ivory-50"
+                          className="neu-input !px-2 !py-1.5 !text-xs"
                           value={draft.wilayaPrices[w.code]?.office ?? ""}
                           onChange={(e) =>
                             setDraft((d) => ({
@@ -673,8 +669,8 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
 
               {/* محرر ألوان المنتج */}
               <div className="grid gap-1.5">
-                <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("colorsTitle")}</span>
-                <span className="text-[10px] font-normal text-navy-900/45 dark:text-ivory-50/45">{t("colorsHint")}</span>
+                <span className="text-xs font-semibold">{t("colorsTitle")}</span>
+                <span className="text-[10px] font-normal t-muted">{t("colorsHint")}</span>
                 <div className="grid gap-2">
                   {draft.colors.map((c, i) => (
                     <div key={i} className="flex items-center gap-2">
@@ -686,7 +682,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                           colors[i] = { ...colors[i], hex: e.target.value };
                           setDraft({ ...draft, colors });
                         }}
-                        className="h-9 w-10 shrink-0 cursor-pointer rounded-md border border-navy-900/15 bg-transparent p-0 dark:border-white/15"
+                        className="h-9 w-10 shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0"
                       />
                       <input
                         className={inputCls}
@@ -701,10 +697,10 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                       <button
                         type="button"
                         onClick={() => setDraft({ ...draft, colors: draft.colors.filter((_, j) => j !== i) })}
-                        className={ghostBtn}
+                        className="neu-circle neu-circle--sm neu-circle--danger"
                         aria-label={t("remove")}
                       >
-                        ✕
+                        <i className="fa-solid fa-xmark" aria-hidden="true" />
                       </button>
                     </div>
                   ))}
@@ -712,7 +708,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                 <button
                   type="button"
                   onClick={() => setDraft({ ...draft, colors: [...draft.colors, { name: "", hex: "#3b82f6" }] })}
-                  className={ghostBtn}
+                  className={`${ghostBtn} neu-btn--block`}
                 >
                   + {t("addColor")}
                 </button>
@@ -720,9 +716,9 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
             </section>
 
             {/* الصورة */}
-            <section className="grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
+            <section className="neu-card grid gap-4 p-5">
               <div className="flex items-center justify-between">
-                <h2 className="font-display text-base font-bold">{t("productImage")}</h2>
+                <h2 className="text-base font-bold">{t("productImage")}</h2>
                 {draft.image && (
                   <button onClick={handleExtract} className={ghostBtn}>
                     {t("extractColors")}
@@ -730,14 +726,14 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                 )}
               </div>
 
-              <div className="flex rounded-full border border-navy-900/15 bg-ivory-100 p-1 text-xs font-bold dark:border-white/15 dark:bg-[#161b22]">
+              <div className="flex rounded-full bg-[color:var(--bg-color)] p-1 text-xs font-bold shadow-[var(--shadow-inner-sm)]">
                 {(["upload", "url"] as const).map((mode) => (
                   <button
                     key={mode}
                     type="button"
                     onClick={() => setImageTab(mode)}
-                    className={`flex-1 rounded-full px-4 py-1.5 transition ${
-                      imageTab === mode ? "bg-navy-900 text-ivory-50" : "text-navy-700 hover:text-navy-900 dark:text-ivory-50/70"
+                    className={`neu-tab flex-1 !rounded-full !px-4 !py-1.5 !text-xs ${
+                      imageTab === mode ? "is-active" : ""
                     }`}
                   >
                     {mode === "upload" ? t("uploadImage") : t("urlImage")}
@@ -746,7 +742,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
               </div>
 
               {paletteWarning && (
-                <p className="rounded-xl border border-amber-300/40 bg-amber-50 px-4 py-2.5 text-xs font-medium leading-5 text-amber-800">
+                <p className="neu-inset px-4 py-2.5 text-xs font-medium leading-5 t-warning">
                   {paletteWarning}
                 </p>
               )}
@@ -764,23 +760,23 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                     />
                     <button
                       onClick={handleUseUrl}
-                      className="shrink-0 rounded-xl bg-navy-900 px-4 py-2.5 text-xs font-bold text-ivory-50 transition hover:bg-navy-700"
+                      className="neu-btn shrink-0 !px-4 !py-2.5 !text-xs"
                     >
                       {t("useUrl")}
                     </button>
                   </div>
-                  <p className="text-[11px] leading-5 text-navy-900/45 dark:text-ivory-50/45">{t("demoImageHint")}</p>
+                  <p className="text-[11px] leading-5 t-muted">{t("demoImageHint")}</p>
                   {draft.image && (
-                    <div className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 p-2.5 dark:border-white/10 dark:bg-[#161b22]">
+                    <div className="neu-inset flex items-center gap-3 p-2.5">
                       {/* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */}
-                      <img src={draft.image} alt={t("currentImage")} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
-                      <span className="flex-1 truncate text-[11px] text-navy-900/50 dark:text-ivory-50/50">{t("currentImage")}</span>
+                      <img src={draft.image} alt={t("currentImage")} className="h-14 w-14 rounded-xl object-cover" />
+                      <span className="flex-1 truncate text-[11px] t-muted">{t("currentImage")}</span>
                       <button
                         onClick={() => {
                           setDraft({ ...draft, image: "" });
                           setPaletteWarning("");
                         }}
-                        className="shrink-0 text-xs font-bold text-red-600"
+                        className="shrink-0 text-xs font-bold t-danger"
                       >
                         {t("remove")}
                       </button>
@@ -791,7 +787,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                 <>
                   {draft.image ? (
                     <div className="flex items-center gap-4">
-                      <div className="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl bg-ivory-100 ring-1 ring-navy-900/10">
+                      <div className="neu-inset relative h-28 w-24 shrink-0 overflow-hidden">
                         {/* eslint-disable-next-line @next/next/no-img-element -- صورة معاينة data:URL محلية */}
                         <img src={draft.image} alt={t("productImage")} className="h-full w-full object-cover" />
                       </div>
@@ -800,16 +796,16 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                           {t("replaceImage")}
                           <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleMainImage(e.target.files[0])} />
                         </label>
-                        <button onClick={() => setDraft({ ...draft, image: "" })} className={ghostBtn}>
+                        <button onClick={() => setDraft({ ...draft, image: "" })} className="neu-btn neu-btn--danger !px-4 !py-2 !text-xs">
                           {t("remove")}
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <label className="grid cursor-pointer place-items-center gap-2 rounded-2xl border-2 border-dashed border-navy-900/15 bg-ivory-50 px-4 py-10 text-center transition hover:border-navy-500/40 dark:border-white/15 dark:bg-[#161b22]">
-                      <span className="text-2xl">🖼️</span>
-                      <span className="text-sm font-bold text-navy-700 dark:text-ivory-50/70">{t("uploadImagePh")}</span>
-                      <span className="text-xs text-navy-900/45 dark:text-ivory-50/45">{t("uploadImageHint")}</span>
+                    <label className="neu-inset grid cursor-pointer place-items-center gap-2 px-4 py-10 text-center">
+                      <span className="text-3xl t-muted"><i className="fa-solid fa-image" aria-hidden="true" /></span>
+                      <span className="text-sm font-bold">{t("uploadImagePh")}</span>
+                      <span className="text-xs t-muted">{t("uploadImageHint")}</span>
                       <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleMainImage(e.target.files[0])} />
                     </label>
                   )}
@@ -825,33 +821,33 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
             </section>
 
             {/* خيارات متقدمة */}
-            <section className="rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]">
+            <section className="neu-card p-5">
               <button
                 type="button"
                 onClick={() => setAdvancedOpen((v) => !v)}
                 className="flex w-full items-center justify-between gap-2 text-start"
               >
-                <span className="flex items-center gap-2 font-display text-base font-bold">
+                <span className="flex items-center gap-2 text-base font-bold">
                   {t("advanced")}
-                  <span className="rounded-full bg-ivory-100 px-2 py-0.5 text-[10px] font-bold text-navy-900/50 dark:bg-[#161b22] dark:text-ivory-50/50">
+                  <span className="neu-badge">
                     {t("elements", { n: draft.features.length + draft.stats.length + draft.testimonials.length })}
                   </span>
                 </span>
-                <span className="text-xs text-navy-900/50 dark:text-ivory-50/50">{advancedOpen ? t("hide") : t("show")}</span>
+                <span className="text-xs t-muted">{advancedOpen ? t("hide") : t("show")}</span>
               </button>
               {advancedOpen && (
                 <div className="mt-5 grid gap-5">
                   {/* الألوان */}
-                  <section className="grid gap-4 rounded-2xl border border-navy-900/10 bg-ivory-50 p-5 dark:border-white/10 dark:bg-[#161b22]">
+                  <section className="neu-inset grid gap-4 p-5">
                     <div className="flex items-center justify-between">
-                      <h2 className="font-display text-base font-bold">{t("colorPalette")}</h2>
-                      <div className="flex gap-1 rounded-full border border-navy-900/15 bg-ivory-100 p-1 text-xs font-bold dark:border-white/15 dark:bg-[#0d1117]">
+                      <h2 className="text-base font-bold">{t("colorPalette")}</h2>
+                      <div className="flex gap-1 rounded-full bg-[color:var(--bg-color)] p-1 text-xs font-bold shadow-[var(--shadow-inner-sm)]">
                         {(["dark", "light"] as const).map((m) => (
                           <button
                             key={m}
                             onClick={() => switchMode(m)}
-                            className={`rounded-full px-3 py-1 transition ${
-                              draft.theme.mode === m ? "bg-navy-900 text-ivory-50" : "text-navy-700 hover:text-navy-900 dark:text-ivory-50/70"
+                            className={`neu-tab !rounded-full !px-3 !py-1 !text-xs ${
+                              draft.theme.mode === m ? "is-active" : ""
                             }`}
                           >
                             {m === "dark" ? t("dark") : t("light")}
@@ -867,12 +863,12 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                     </div>
                     {draft.swatches.length > 0 && (
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-semibold text-navy-900/50 dark:text-ivory-50/50">{t("extractedColors")}</span>
+                        <span className="text-[10px] font-semibold t-muted">{t("extractedColors")}</span>
                         {draft.swatches.map((sw) => (
                           <button
                             key={sw}
                             onClick={() => setThemeField("primary", sw)}
-                            className="h-8 w-8 rounded-full ring-1 ring-navy-900/15 transition hover:scale-110"
+                            className="h-8 w-8 rounded-full shadow-[var(--shadow-outer-sm)] active:shadow-[var(--shadow-btn-active)]"
                             style={{ background: sw }}
                             aria-label={`${t("colorPrimary")} ${sw}`}
                           />
@@ -882,52 +878,52 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
                   </section>
 
                   {/* المميز (features) */}
-                  <section className="grid gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 p-5 dark:border-white/10 dark:bg-[#161b22]">
+                  <section className="neu-inset grid gap-3 p-5">
                     <div className="flex items-center justify-between">
-                      <h2 className="font-display text-base font-bold">{t("features")}</h2>
+                      <h2 className="text-base font-bold">{t("features")}</h2>
                       <button onClick={() => setDraft({ ...draft, features: [...draft.features, { title: "", copy: "" }] })} className={ghostBtn}>
                         {t("add")}
                       </button>
                     </div>
                     {draft.features.map((f, i) => (
-                      <div key={i} className="liquid-glass liquid-glass--rounded grid gap-2 overflow-hidden rounded-2xl p-3 sm:grid-cols-[1fr_1.4fr_auto] sm:items-center">
+                      <div key={i} className="neu-inset grid gap-2 overflow-hidden p-3 sm:grid-cols-[1fr_1.4fr_auto] sm:items-center">
                         <input className={inputCls} value={f.title} placeholder={t("featureTitle")} onChange={(e) => { const features = [...draft.features]; features[i] = { ...f, title: e.target.value }; setDraft({ ...draft, features }); }} />
                         <input className={inputCls} value={f.copy} placeholder={t("featureCopy")} onChange={(e) => { const features = [...draft.features]; features[i] = { ...f, copy: e.target.value }; setDraft({ ...draft, features }); }} />
-                        <button onClick={() => setDraft({ ...draft, features: draft.features.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">{t("deleteItem")}</button>
+                        <button onClick={() => setDraft({ ...draft, features: draft.features.filter((_, j) => j !== i) })} className="text-xs font-bold t-danger">{t("deleteItem")}</button>
                       </div>
                     ))}
-                    {draft.features.length === 0 && <p className="text-xs text-navy-900/45 dark:text-ivory-50/45">{t("noFeatures")}</p>}
+                    {draft.features.length === 0 && <p className="text-xs t-muted">{t("noFeatures")}</p>}
                   </section>
 
                   {/* الإحصائيات */}
-                  <section className="grid gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 p-5 dark:border-white/10 dark:bg-[#161b22]">
+                  <section className="neu-inset grid gap-3 p-5">
                     <div className="flex items-center justify-between">
-                      <h2 className="font-display text-base font-bold">{t("stats")}</h2>
+                      <h2 className="text-base font-bold">{t("stats")}</h2>
                       <button onClick={() => setDraft({ ...draft, stats: [...draft.stats, { value: "", label: "" }] })} className={ghostBtn}>{t("add")}</button>
                     </div>
                     {draft.stats.map((s, i) => (
-                      <div key={i} className="liquid-glass liquid-glass--rounded grid gap-2 overflow-hidden rounded-2xl p-3 sm:grid-cols-[0.8fr_1.4fr_auto] sm:items-center">
+                      <div key={i} className="neu-inset grid gap-2 overflow-hidden p-3 sm:grid-cols-[0.8fr_1.4fr_auto] sm:items-center">
                         <input className={inputCls} value={s.value} placeholder="20W" onChange={(e) => { const stats = [...draft.stats]; stats[i] = { ...s, value: e.target.value }; setDraft({ ...draft, stats }); }} />
                         <input className={inputCls} value={s.label} placeholder="قوة الشحن" onChange={(e) => { const stats = [...draft.stats]; stats[i] = { ...s, label: e.target.value }; setDraft({ ...draft, stats }); }} />
-                        <button onClick={() => setDraft({ ...draft, stats: draft.stats.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">{t("deleteItem")}</button>
+                        <button onClick={() => setDraft({ ...draft, stats: draft.stats.filter((_, j) => j !== i) })} className="text-xs font-bold t-danger">{t("deleteItem")}</button>
                       </div>
                     ))}
                   </section>
 
                   {/* الآراء */}
-                  <section className="grid gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 p-5 dark:border-white/10 dark:bg-[#161b22]">
+                  <section className="neu-inset grid gap-3 p-5">
                     <div className="flex items-center justify-between">
-                      <h2 className="font-display text-base font-bold">{t("testimonials")}</h2>
+                      <h2 className="text-base font-bold">{t("testimonials")}</h2>
                       <button onClick={() => setDraft({ ...draft, testimonials: [...draft.testimonials, { quote: "", name: "", city: "" }] })} className={ghostBtn}>{t("add")}</button>
                     </div>
                     {draft.testimonials.map((tm, i) => (
-                      <div key={i} className="liquid-glass liquid-glass--rounded grid gap-2 overflow-hidden rounded-2xl p-3">
+                      <div key={i} className="neu-inset grid gap-2 overflow-hidden p-3">
                         <textarea className={`${inputCls} min-h-20 resize-y`} value={tm.quote} placeholder={t("testimonialQuote")} onChange={(e) => { const testimonials = [...draft.testimonials]; testimonials[i] = { ...tm, quote: e.target.value }; setDraft({ ...draft, testimonials }); }} />
                         <div className="grid gap-2 sm:grid-cols-2">
                           <input className={inputCls} value={tm.name} placeholder={t("nameField")} onChange={(e) => { const testimonials = [...draft.testimonials]; testimonials[i] = { ...tm, name: e.target.value }; setDraft({ ...draft, testimonials }); }} />
                           <div className="flex gap-2">
                             <input className={inputCls} value={tm.city} placeholder={t("city")} onChange={(e) => { const testimonials = [...draft.testimonials]; testimonials[i] = { ...tm, city: e.target.value }; setDraft({ ...draft, testimonials }); }} />
-                            <button onClick={() => htmlDelete(draft.testimonials, i, setDraft)} className="shrink-0 text-xs font-bold text-red-600">{t("deleteItem")}</button>
+                            <button onClick={() => htmlDelete(draft.testimonials, i, setDraft)} className="shrink-0 text-xs font-bold t-danger">{t("deleteItem")}</button>
                           </div>
                         </div>
                       </div>
@@ -939,7 +935,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
 
             {/* أزرار العمليات — المحظورة تُعرض الرسالة التوجيهية */}
             <div className="grid gap-2">
-              <button onClick={handleGenerate} className="rounded-full bg-navy-500 px-4 py-3 text-xs font-bold text-white transition hover:bg-navy-400">
+              <button onClick={handleGenerate} className="neu-btn neu-btn--block">
                 {t("demoGenerate")}
               </button>
               <div className="flex flex-wrap gap-2">
@@ -953,7 +949,7 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
               <Link
                 href="/studio"
                 prefetch
-                className="rounded-full bg-navy-900 px-4 py-3 text-xs font-bold text-ivory-50 transition hover:bg-navy-700"
+                className="neu-btn neu-btn--block"
               >
                 {t("demoOpenStudio")} ←
               </Link>
@@ -961,15 +957,15 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
           </div>
 
           {/* المعاينة المباشرة */}
-          <div className={`flex min-h-0 flex-col border-t border-navy-900/10 dark:border-white/10 lg:border-s-t-0 lg:border-s lg:border-navy-900/10 ${isMobile && mobileTab !== "preview" ? "hidden" : ""}`}>
-            <div className="flex items-center justify-between border-b border-navy-900/10 px-5 py-2.5 text-xs font-bold text-navy-700 dark:border-white/10 dark:text-ivory-50">
+          <div className={`flex min-h-0 flex-col border-t border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] lg:border-s-t-0 lg:border-s lg:border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] ${isMobile && mobileTab !== "preview" ? "hidden" : ""}`}>
+            <div className="flex items-center justify-between border-b border-[color:color-mix(in_srgb,var(--text-muted)_20%,transparent)] px-5 py-2.5 text-xs font-bold">
               <span>{t("demoLivePreview")}</span>
-              <span className="text-navy-900/45 dark:text-ivory-50/45">{previewProduct.name || "—"}</span>
+              <span className="t-muted">{previewProduct.name || "—"}</span>
             </div>
             {/* على الجوال (وضع التبويب) تأخذ المعاينة الارتفاع كاملاً بلا سقف 60vh */}
             <div
               ref={previewScrollRef}
-              className={`flex-1 overflow-y-auto bg-slate-100 dark:bg-[#0a0d12] ${isMobile ? "" : "max-h-[60vh] lg:max-h-none"}`}
+              className={`flex-1 overflow-y-auto bg-[color:var(--bg-color)] ${isMobile ? "" : "max-h-[60vh] lg:max-h-none"}`}
             >
               <div className="mx-auto max-w-3xl">
                 <ProductLanding product={previewProduct} preview />
@@ -985,17 +981,17 @@ export function GuestStudio({ open, onClose }: { open: boolean; onClose: () => v
 
         {/* الرسالة التوجيهية عند محاولة التحميل/الحفظ/النشر */}
         {showNotice && (
-          <div className="absolute inset-0 z-10 grid place-items-center bg-navy-950/70 p-4" role="alertdialog" aria-modal="true">
-            <div className="w-full max-w-md overflow-hidden rounded-3xl border border-amber-400/40 bg-white shadow-2xl dark:bg-[#161b22]">
-              <div className="bg-amber-500 px-5 py-4 text-center text-white">
-                <p className="font-display text-lg font-extrabold">{t("demoNoticeTitle")}</p>
+          <div className="absolute inset-0 z-10 grid place-items-center bg-[color:color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4" role="alertdialog" aria-modal="true">
+            <div className="neu-card w-full max-w-md overflow-hidden">
+              <div className="px-5 py-4 text-center t-warning">
+                <p className="text-lg font-bold">{t("demoNoticeTitle")}</p>
               </div>
               <div className="grid gap-4 p-6">
-                <p className="text-sm leading-7 text-navy-800 dark:text-ivory-50/80">{t("demoNoticeBody")}</p>
+                <p className="text-sm leading-7">{t("demoNoticeBody")}</p>
                 <Link
                   href="/studio"
                   prefetch
-                  className="rounded-full bg-navy-900 px-5 py-3 text-sm font-bold text-ivory-50 transition hover:bg-navy-700"
+                  className="neu-btn neu-btn--block"
                 >
                   {t("demoOpenStudio")} ←
                 </Link>

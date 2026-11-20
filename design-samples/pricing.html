@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — عينة الهوية الجديدة</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  /* ── عام: مساحة أسفل الصفحة كي لا يغطي شريط المراجعة المحتوى ── */
+  body { padding-bottom: 140px; }
+  .hidden { display: none !important; }
+
+  /* ── شريط بسم الله ── */
+  .bismillah { text-align: center; padding: 7px 0; }
+  .bismillah p { font-size: 13px; font-weight: 700; color: var(--primary-color); }
+
+  /* ── الترويسة (بلا إخفاء عند التمرير — كما صفحة التسعير الحقيقية) ── */
+  .brand-mark .brand-name { font-size: 20px; font-weight: 700; }
+  .main-nav { display: flex; align-items: center; gap: 22px; }
+  .main-nav a { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 600; }
+  .main-nav a:hover { color: var(--primary-color); }
+  .header-actions .neu-btn { padding: 9px 16px; font-size: 13px; }
+  .admin-key { display: none; }
+  @media (max-width: 860px) { .main-nav { display: none; } }
+  @media (max-width: 639px) {
+    .admin-label { display: none; }
+    .admin-key { display: inline; }
+    .pricing-link { display: none; }
+  }
+
+  /* ── ترويسة قسم الأسعار ── */
+  .pricing-section { padding: 56px 0 48px; }
+  .pricing-head { max-width: 720px; margin: 0 auto; text-align: center; }
+  .pricing-title { margin-top: 12px; font-size: clamp(26px, 3.6vw, 38px); }
+  .pricing-sub { margin: 16px auto 0; max-width: 560px; font-size: 14px; line-height: 1.8; color: var(--text-muted); }
+
+  /* ── بطاقات الخطط ── */
+  .plans-grid { margin-top: 44px; }
+  .plan-card { position: relative; overflow: hidden; padding: 30px; display: flex; flex-direction: column; gap: 22px; }
+  .plan-card--featured { border: 2px solid var(--primary-color); }
+  .plan-ribbon { position: absolute; top: 24px; inset-inline-end: -42px; width: 160px; justify-content: center; transform: rotate(45deg); }
+  [dir="rtl"] .plan-ribbon { transform: rotate(-45deg); }
+  .plan-name { font-size: 22px; font-weight: 700; }
+  .plan-price-row { display: flex; align-items: baseline; justify-content: center; gap: 6px; }
+  .plan-price { font-size: 44px; font-weight: 700; line-height: 1.1; }
+  .plan-period { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  .plan-tagline { font-size: 13px; line-height: 1.7; color: var(--text-muted); }
+  .plan-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 14px; text-align: center; }
+  .plan-stat-value { font-size: 22px; font-weight: 700; }
+  .plan-stat-label { margin-top: 4px; font-size: 10px; font-weight: 600; color: var(--text-muted); line-height: 1.5; }
+  .plan-stat-label i { font-size: 14px; color: var(--primary-color); }
+  .plan-features { list-style: none; display: grid; gap: 12px; }
+  .plan-features li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.6; }
+  .plan-features li i { color: var(--success-color); margin-top: 3px; }
+  .plan-notes { display: grid; gap: 6px; }
+  .plan-notes p { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+  .plan-cta { margin-top: auto; }
+  .plan-cta--featured { box-shadow: var(--shadow-outer); }
+
+  /* ── المميزات المشتركة ── */
+  .common-head { text-align: center; font-size: 24px; font-weight: 700; margin: 56px 0 32px; }
+  .common-card { padding: 24px; display: grid; gap: 12px; align-content: start; }
+  .common-icon { color: var(--primary-color); font-size: 26px; }
+  .common-card h3 { font-size: 16px; font-weight: 700; }
+  .common-card p { font-size: 13px; line-height: 1.7; color: var(--text-muted); }
+
+  /* ── التذييل ── */
+  .page-footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 24px; padding-bottom: 8px; }
+  .page-footer p { font-size: 12px; color: var(--text-muted); }
+
+  /* ── صناديق الرسائل ── */
+  .msg-box { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; font-size: 11px; font-weight: 600; line-height: 1.8; text-align: start; }
+  .msg-box i { margin-top: 3px; }
+  .msg-box--danger { color: var(--danger-color); }
+
+  /* ── نافذة دخول المشرف ── */
+  .admin-title { margin-bottom: 20px; padding-inline-end: 48px; }
+  .admin-box { text-align: center; }
+  .admin-box-title { font-size: 17px; font-weight: 700; }
+  .admin-box .neu-sub { margin: 4px 0 20px; }
+  .admin-box form { text-align: start; }
+  .admin-box .msg-box { margin-bottom: 18px; }
+
+  /* ── أداة مراجعة: ليست من التصميم ── */
+  .review-bar {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 150; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 14px; border: 1.5px dashed var(--text-muted);
+    border-radius: 12px; background: var(--bg-color);
+    font-size: 11px; color: var(--text-muted); max-width: calc(100vw - 24px);
+  }
+  .review-bar button, .review-bar a {
+    border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm);
+    color: var(--text-muted); border-radius: 10px; padding: 5px 12px;
+    font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+    text-decoration: none; display: inline-block;
+  }
+  .review-bar button.is-active, .review-bar a.is-active { box-shadow: var(--shadow-inner-sm); color: var(--primary-color); }
+</style>
+</head>
+<body>
+
+  <!-- شريط «بسم الله» — نص عربي ثابت لا يتأثر بمبدّل اللغة -->
+  <div lang="ar" translate="no" class="bismillah"><p>بسم الله</p></div>
+  <hr class="neu-divider">
+
+  <!-- الترويسة (PageHeader) -->
+  <header class="page-header">
+    <div class="wrap">
+      <a href="home.html" class="brand-mark">
+        <div class="neu-circle neu-circle--sm">S</div>
+        <span class="brand-name"><span data-en="Studio" data-ar="استوديو">Studio</span><span class="t-primary">.</span></span>
+      </a>
+      <nav class="main-nav">
+        <a href="home.html#catalog" data-en="Products" data-ar="المنتجات">Products</a>
+        <a href="studio-login.html" data-en="Studio" data-ar="الاستوديو">Studio</a>
+      </nav>
+      <div class="header-actions">
+        <button type="button" class="neu-circle neu-circle--sm" id="themeBtn" data-en-title="Toggle dark mode" data-ar-title="تبديل الوضع الليلي" title="Toggle dark mode">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <button type="button" class="neu-circle neu-circle--sm" id="langBtn" data-en-title="Change language" data-ar-title="تغيير اللغة" title="Change language">AR</button>
+        <a href="pricing.html" class="neu-btn pricing-link"><span data-en="Plans &amp; pricing" data-ar="الخطط والأسعار">Plans &amp; pricing</span></a>
+        <button type="button" class="neu-btn" id="adminBtn" title="Admin login"
+                data-en-title="Admin login" data-ar-title="دخول المشرف"
+                aria-label="Admin login" data-en-aria="Admin login" data-ar-aria="دخول المشرف">
+          <i class="fa-solid fa-key admin-key" aria-hidden="true"></i>
+          <span class="admin-label" data-en="Admin login" data-ar="دخول المشرف">Admin login</span>
+        </button>
+        <a href="studio-login.html" class="neu-btn"><span data-en="Create new page" data-ar="إنشاء صفحة جديدة">Create new page</span></a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="pricing-section">
+      <div class="wrap">
+        <div class="pricing-head">
+          <p class="neu-eyebrow" data-en="Subscription plans" data-ar="خطط الاشتراك">Subscription plans</p>
+          <h1 class="neu-title pricing-title" data-en="Choose the right plan" data-ar="اختر الباقة المناسبة">Choose the right plan</h1>
+          <p class="pricing-sub" data-en="Subscribe and start creating professional landing pages with integrated order system." data-ar="اشترك وابدأ بإنشاء صفحات هبوط احترافية مع نظام طلبات متكامل.">Subscribe and start creating professional landing pages with integrated order system.</p>
+        </div>
+
+        <div class="grid grid-3 plans-grid">
+          <!-- الأساسية / Basic -->
+          <article class="neu-card plan-card">
+            <h2 class="plan-name"><span data-en="Basic" data-ar="الأساسية">Basic</span></h2>
+            <div class="plan-price-row">
+              <span class="plan-price">2000</span>
+              <span class="plan-period" data-en="/month" data-ar="/شهر">/month</span>
+            </div>
+            <p class="plan-tagline" data-en="1 page · 1 product · 2 images" data-ar="صفحة واحدة · منتج واحد · صورتان">1 page · 1 product · 2 images</p>
+            <div class="plan-stats neu-inset">
+              <div>
+                <div class="plan-stat-value">1</div>
+                <div class="plan-stat-label"><i class="fa-solid fa-infinity" aria-hidden="true"></i></div>
+              </div>
+              <div>
+                <div class="plan-stat-value">1</div>
+                <div class="plan-stat-label" data-en="products/page" data-ar="منتجات/صفحة">products/page</div>
+              </div>
+              <div>
+                <div class="plan-stat-value">2</div>
+                <div class="plan-stat-label" data-en="images/page" data-ar="صور/صفحة">images/page</div>
+              </div>
+            </div>
+            <ul class="plan-features">
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Unlimited landing pages" data-ar="صفحات هبوط غير محدودة">Unlimited landing pages</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Delivery to 58 wilayas" data-ar="توصيل لـ 58 ولاية">Delivery to 58 wilayas</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Cash on delivery" data-ar="الدفع عند الاستلام">Cash on delivery</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Colors extracted from product image" data-ar="استخراج الألوان من صورة المنتج">Colors extracted from product image</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Smart order form (wilaya + commune)" data-ar="نموذج طلب ذكي (الولاية والبلدية)">Smart order form (wilaya + commune)</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Auto Google Sheets linking" data-ar="ربط تلقائي مع Google Sheets">Auto Google Sheets linking</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Send order via WhatsApp button" data-ar="زر إرسال الطلب عبر واتساب">Send order via WhatsApp button</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Meta Pixel tracking enabled" data-ar="تتبع Meta Pixel مفعّل">Meta Pixel tracking enabled</span></li>
+            </ul>
+            <hr class="neu-divider">
+            <div class="plan-notes">
+              <p data-en="Images and products are per-page limits" data-ar="الصور والمنتجات حدود لكل صفحة">Images and products are per-page limits</p>
+              <p data-en="Links are renewable monthly" data-ar="الروابط قابلة للتجديد شهرياً">Links are renewable monthly</p>
+            </div>
+            <!-- الرابط الحقيقي wa.me مع رسالة اشتراك — عُطّل هنا لإبقاء العينة محلية 100% -->
+            <a href="#" class="neu-btn neu-btn--lg neu-btn--block plan-cta">
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+              <span data-en="Subscribe now" data-ar="اشترك الآن">Subscribe now</span>
+            </a>
+          </article>
+
+          <!-- المحترفة / Pro -->
+          <article class="neu-card plan-card">
+            <h2 class="plan-name"><span data-en="Pro" data-ar="المحترفة">Pro</span></h2>
+            <div class="plan-price-row">
+              <span class="plan-price">4000</span>
+              <span class="plan-period" data-en="/month" data-ar="/شهر">/month</span>
+            </div>
+            <p class="plan-tagline" data-en="2 pages · 2 products/page · 4 images/page" data-ar="صفحتين · منتجان/صفحة · 4 صور/صفحة">2 pages · 2 products/page · 4 images/page</p>
+            <div class="plan-stats neu-inset">
+              <div>
+                <div class="plan-stat-value">2</div>
+                <div class="plan-stat-label"><i class="fa-solid fa-infinity" aria-hidden="true"></i></div>
+              </div>
+              <div>
+                <div class="plan-stat-value">2</div>
+                <div class="plan-stat-label" data-en="products/page" data-ar="منتجات/صفحة">products/page</div>
+              </div>
+              <div>
+                <div class="plan-stat-value">4</div>
+                <div class="plan-stat-label" data-en="images/page" data-ar="صور/صفحة">images/page</div>
+              </div>
+            </div>
+            <ul class="plan-features">
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Unlimited landing pages" data-ar="صفحات هبوط غير محدودة">Unlimited landing pages</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Delivery to 58 wilayas" data-ar="توصيل لـ 58 ولاية">Delivery to 58 wilayas</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Cash on delivery" data-ar="الدفع عند الاستلام">Cash on delivery</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Colors extracted from product image" data-ar="استخراج الألوان من صورة المنتج">Colors extracted from product image</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Smart order form (wilaya + commune)" data-ar="نموذج طلب ذكي (الولاية والبلدية)">Smart order form (wilaya + commune)</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Auto Google Sheets linking" data-ar="ربط تلقائي مع Google Sheets">Auto Google Sheets linking</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Send order via WhatsApp button" data-ar="زر إرسال الطلب عبر واتساب">Send order via WhatsApp button</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Meta Pixel tracking enabled" data-ar="تتبع Meta Pixel مفعّل">Meta Pixel tracking enabled</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Store mode (multiple products)" data-ar="وضع المتجر (منتجات متعددة)">Store mode (multiple products)</span></li>
+            </ul>
+            <hr class="neu-divider">
+            <div class="plan-notes">
+              <p data-en="Images and products are per-page limits" data-ar="الصور والمنتجات حدود لكل صفحة">Images and products are per-page limits</p>
+              <p data-en="Links are renewable monthly" data-ar="الروابط قابلة للتجديد شهرياً">Links are renewable monthly</p>
+            </div>
+            <a href="#" class="neu-btn neu-btn--lg neu-btn--block plan-cta">
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+              <span data-en="Subscribe now" data-ar="اشترك الآن">Subscribe now</span>
+            </a>
+          </article>
+
+          <!-- الذهبية / Gold — مميزة + شريط الاسم المائل (كما الإنتاج) -->
+          <article class="neu-card plan-card plan-card--featured">
+            <div class="neu-badge neu-badge--warning plan-ribbon">
+              <i class="fa-solid fa-crown" aria-hidden="true"></i>
+              <span data-en="Gold" data-ar="الذهبية">Gold</span>
+            </div>
+            <h2 class="plan-name"><span data-en="Gold" data-ar="الذهبية">Gold</span></h2>
+            <div class="plan-price-row">
+              <span class="plan-price">6000</span>
+              <span class="plan-period" data-en="/month" data-ar="/شهر">/month</span>
+            </div>
+            <p class="plan-tagline" data-en="4 pages · 5 products/page · 8 images/page" data-ar="4 صفحات · 5 منتجات/صفحة · 8 صور/صفحة">4 pages · 5 products/page · 8 images/page</p>
+            <div class="plan-stats neu-inset">
+              <div>
+                <div class="plan-stat-value">4</div>
+                <div class="plan-stat-label"><i class="fa-solid fa-infinity" aria-hidden="true"></i></div>
+              </div>
+              <div>
+                <div class="plan-stat-value">5</div>
+                <div class="plan-stat-label" data-en="products/page" data-ar="منتجات/صفحة">products/page</div>
+              </div>
+              <div>
+                <div class="plan-stat-value">8</div>
+                <div class="plan-stat-label" data-en="images/page" data-ar="صور/صفحة">images/page</div>
+              </div>
+            </div>
+            <ul class="plan-features">
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Unlimited landing pages" data-ar="صفحات هبوط غير محدودة">Unlimited landing pages</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Delivery to 58 wilayas" data-ar="توصيل لـ 58 ولاية">Delivery to 58 wilayas</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Cash on delivery" data-ar="الدفع عند الاستلام">Cash on delivery</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Colors extracted from product image" data-ar="استخراج الألوان من صورة المنتج">Colors extracted from product image</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Smart order form (wilaya + commune)" data-ar="نموذج طلب ذكي (الولاية والبلدية)">Smart order form (wilaya + commune)</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Auto Google Sheets linking" data-ar="ربط تلقائي مع Google Sheets">Auto Google Sheets linking</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Send order via WhatsApp button" data-ar="زر إرسال الطلب عبر واتساب">Send order via WhatsApp button</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Meta Pixel tracking enabled" data-ar="تتبع Meta Pixel مفعّل">Meta Pixel tracking enabled</span></li>
+              <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span data-en="Store mode (multiple products)" data-ar="وضع المتجر (منتجات متعددة)">Store mode (multiple products)</span></li>
+            </ul>
+            <hr class="neu-divider">
+            <div class="plan-notes">
+              <p data-en="Images and products are per-page limits" data-ar="الصور والمنتجات حدود لكل صفحة">Images and products are per-page limits</p>
+              <p data-en="Links are renewable monthly" data-ar="الروابط قابلة للتجديد شهرياً">Links are renewable monthly</p>
+            </div>
+            <a href="#" class="neu-btn neu-btn--lg neu-btn--block neu-btn--success plan-cta plan-cta--featured">
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+              <span data-en="Subscribe now" data-ar="اشترك الآن">Subscribe now</span>
+            </a>
+          </article>
+        </div>
+
+        <!-- المميزات المشتركة (العنوان نص ثابت في المصدر — لا مفتاح i18n) -->
+        <h2 class="common-head" data-en="Features available in all plans" data-ar="مميزات متاحة في كل الباقات">Features available in all plans</h2>
+        <div class="grid grid-3">
+          <div class="neu-card common-card">
+            <i class="fa-solid fa-file-lines common-icon" aria-hidden="true"></i>
+            <h3 data-en="Unlimited landing pages" data-ar="صفحات هبوط غير محدودة">Unlimited landing pages</h3>
+            <p data-en="Create an unlimited number of landing pages" data-ar="أنشئ عدداً غير محدود من صفحات الهبوط">Create an unlimited number of landing pages</p>
+          </div>
+          <div class="neu-card common-card">
+            <i class="fa-solid fa-flag common-icon" aria-hidden="true"></i>
+            <h3 data-en="Delivery to 58 wilayas" data-ar="توصيل لـ 58 ولاية">Delivery to 58 wilayas</h3>
+            <p data-en="Delivery to all Algerian wilayas" data-ar="توصيل لكل الولايات الجزائرية">Delivery to all Algerian wilayas</p>
+          </div>
+          <div class="neu-card common-card">
+            <i class="fa-solid fa-sack-dollar common-icon" aria-hidden="true"></i>
+            <h3 data-en="Cash on delivery" data-ar="الدفع عند الاستلام">Cash on delivery</h3>
+            <p data-en="Cash on delivery for your customers" data-ar="الدفع عند الاستلام للزبائن">Cash on delivery for your customers</p>
+          </div>
+          <div class="neu-card common-card">
+            <i class="fa-solid fa-palette common-icon" aria-hidden="true"></i>
+            <h3 data-en="Colors extracted from product image" data-ar="استخراج الألوان من صورة المنتج">Colors extracted from product image</h3>
+            <p data-en="Colors extracted automatically from the product image" data-ar="استخراج الألوان من صورة المنتج تلقائياً">Colors extracted automatically from the product image</p>
+          </div>
+          <div class="neu-card common-card">
+            <i class="fa-solid fa-clipboard-list common-icon" aria-hidden="true"></i>
+            <h3 data-en="Smart order form (wilaya + commune)" data-ar="نموذج طلب ذكي (الولاية والبلدية)">Smart order form (wilaya + commune)</h3>
+            <p data-en="Smart order form with wilaya and commune selection" data-ar="نموذج طلب ذكي مع اختيار الولاية والبلدية">Smart order form with wilaya and commune selection</p>
+          </div>
+          <div class="neu-card common-card">
+            <i class="fa-solid fa-chart-line common-icon" aria-hidden="true"></i>
+            <h3 data-en="Auto Google Sheets linking" data-ar="ربط تلقائي مع Google Sheets">Auto Google Sheets linking</h3>
+            <p data-en="Automatic Google Sheets integration for orders" data-ar="ربط تلقائي مع Google Sheets للطلبات">Automatic Google Sheets integration for orders</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- التذييل (PageFooter) -->
+  <footer class="page-footer">
+    <hr class="neu-divider">
+    <div class="wrap">
+      <p data-en="© 2026 Landing Pages Studio — Algeria." data-ar="© 2026 استوديو صفحات الهبوط — الجزائر.">© 2026 Landing Pages Studio — Algeria.</p>
+      <p data-en="Delivery to 58 wilayas · Cash on delivery" data-ar="التوصيل لـ 58 ولاية · الدفع عند الاستلام">Delivery to 58 wilayas · Cash on delivery</p>
+    </div>
+  </footer>
+
+  <!-- نافذة دخول المشرف (AdminLoginModal + AdminLoginBox) -->
+  <div class="neu-overlay hidden" id="adminOverlay" role="dialog" aria-modal="true"
+       aria-label="Admin login" data-en-aria="Admin login" data-ar-aria="دخول المشرف">
+    <div class="neu-card">
+      <button type="button" class="neu-circle neu-circle--sm neu-modal-close" id="adminClose"
+              aria-label="Close" data-en-aria="Close" data-ar-aria="إغلاق">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <h3 class="neu-title admin-title"><span data-en="Admin login" data-ar="دخول المشرف">Admin login</span></h3>
+      <div class="admin-box">
+        <p class="admin-box-title"><span data-en="Admin login" data-ar="دخول المشرف">Admin login</span></p>
+        <p class="neu-sub"><span data-en="For admin only" data-ar="للمشرف فقط">For admin only</span></p>
+        <form id="adminForm" novalidate>
+          <div class="input-group">
+            <input type="email" class="neu-input" dir="ltr" placeholder="Email"
+                   data-en-ph="Email" data-ar-ph="البريد الإلكتروني" autocomplete="username" required>
+          </div>
+          <div class="input-group">
+            <input type="password" class="neu-input" dir="ltr" placeholder="Password"
+                   data-en-ph="Password" data-ar-ph="كلمة المرور" autocomplete="current-password" required>
+          </div>
+          <div class="msg-box msg-box--danger neu-inset hidden" id="adminErr">
+            <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+            <span data-en="Invalid credentials." data-ar="بيانات الدخول غير صحيحة.">Invalid credentials.</span>
+          </div>
+          <button type="submit" class="neu-btn neu-btn--lg neu-btn--block"><span data-en="Enter" data-ar="دخول">Enter</span></button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- أداة مراجعة للتنقل بين الصفحات والنوافذ — ليست من التصميم -->
+  <div class="review-bar">
+    <span data-en="Review tool (not part of the design):" data-ar="أداة مراجعة (ليست من التصميم):">Review tool (not part of the design):</span>
+    <a href="home.html" data-en="Home" data-ar="الرئيسية">Home</a>
+    <a href="pricing.html" class="is-active" data-en="Pricing" data-ar="التسعير">Pricing</a>
+    <a href="store.html" data-en="Store" data-ar="المتجر">Store</a>
+    <button type="button" id="rvAdmin" data-en="Admin login" data-ar="دخول المشرف">Admin login</button>
+  </div>
+
+<script>
+  var adminOverlay = document.getElementById("adminOverlay");
+  var adminErr = document.getElementById("adminErr");
+
+  function syncScroll() {
+    document.body.style.overflow = adminOverlay.classList.contains("hidden") ? "" : "hidden";
+  }
+  function openAdmin() { adminOverlay.classList.remove("hidden"); syncScroll(); }
+  function closeAdmin() { adminOverlay.classList.add("hidden"); syncScroll(); }
+
+  document.getElementById("adminBtn").addEventListener("click", openAdmin);
+  document.getElementById("rvAdmin").addEventListener("click", openAdmin);
+  document.getElementById("adminClose").addEventListener("click", closeAdmin);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAdmin(); });
+  adminOverlay.addEventListener("mousedown", function (e) { if (e.target === adminOverlay) closeAdmin(); });
+
+  /* عرض تجريبي: الإرسال يُظهر حالة الخطأ كما في التدفق الحقيقي */
+  document.getElementById("adminForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    adminErr.classList.remove("hidden");
+  });
+</script>
+</body>
+</html>

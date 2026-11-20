@@ -28,7 +28,7 @@ const ProductLanding = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="mx-auto h-64 w-full max-w-md animate-pulse rounded-2xl bg-navy-900/10 dark:bg-white/10" />
+      <div className="neu-inset mx-auto h-64 w-full max-w-md" />
     ),
   }
 );
@@ -54,11 +54,11 @@ export interface PublishedItem {
 
 // ينسّق مدة الصلاحية للعرض في الستوديو (عربية RTL).
 const stInput =
-  "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50 dark:placeholder:text-ivory-50/35";
+  "neu-input";
 const stBtnGhost =
-  "rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400";
+  "neu-btn neu-btn--muted";
 const stBtnIcon =
-  "grid h-9 w-9 place-items-center rounded-full border border-navy-900/15 text-sm font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400";
+  "neu-circle";
 
 // مسودة صفحة هبوط = «متجر» يحوي عنصراً واحداً على الأقل.
 // المنتج المفرد = items بعنصر واحد (توافق عكسي كامل مع المنشورات القديمة).
@@ -300,10 +300,10 @@ function productToDraft(p: Product): Draft {
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-1.5 text-xs font-semibold text-navy-700">
+    <label className="grid gap-1.5 text-xs font-semibold">
       <span>{label}</span>
       {children}
-      {hint && <span className="text-[10px] font-normal text-navy-900/45">{hint}</span>}
+      {hint && <span className="text-[10px] font-normal t-muted">{hint}</span>}
     </label>
   );
 }
@@ -329,16 +329,16 @@ function ColorField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid gap-1.5 text-xs font-semibold text-navy-700">
+    <label className="grid gap-1.5 text-xs font-semibold">
       <span>{label}</span>
-      <div className="flex items-center gap-2 rounded-xl border border-navy-900/15 bg-white p-1.5">
+      <div className="neu-inset flex items-center gap-2 p-1.5">
         <input
           type="color"
           value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "#3b82f6"}
           onChange={(e) => onChange(e.target.value)}
           className="h-7 w-9 cursor-pointer rounded-md border-0 bg-transparent p-0"
         />
-        <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-transparent text-xs text-navy-900 outline-none" />
+        <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-transparent text-xs outline-none" />
       </div>
     </label>
   );
@@ -366,6 +366,8 @@ function StudioInner() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedInfo, setPublishedInfo] = useState<{ url: string; slug: string } | null>(null);
+  // سلاغ مخصص يختاره المالك للرابط الجديد (خانة تسمية السلاغ — طلب المالك).
+  const [slugDraft, setSlugDraft] = useState("");
   const [publishedList, setPublishedList] = useState<PublishedItem[]>([]);
   const [copiedPublished, setCopiedPublished] = useState(false);
   // تحميل الصفحة المنشورة إلى المحرّر («تعديل السعر والصور»): السلاغ قيد
@@ -827,6 +829,8 @@ function StudioInner() {
       const qs = new URLSearchParams({ fingerprint });
       if (editingId) qs.set("editingId", editingId);
       if (opts?.newLink) qs.set("newLink", "1");
+      // سلاغ مخصص للرابط الجديد فقط (التحديث يبقى على نفس السلاغ).
+      if (!editingId && slugDraft.trim()) qs.set("slug", slugDraft.trim());
       // إدراج المتجر العام (Pro/Gold فقط) — الخادم يفرض الحصرية أيضاً.
       if (canListPublic && listPublic) qs.set("listPublic", "1");
       const res = await fetch(`/api/publish?${qs.toString()}`, {
@@ -849,6 +853,7 @@ function StudioInner() {
       } else {
         setPublishedInfo({ url: data.url, slug: data.slug ?? "" });
         setEditNotice(false);
+        setSlugDraft("");
         loadPublishedList();
       }
     } catch {
@@ -937,28 +942,28 @@ function StudioInner() {
   if (subBlocked) {
     const isExpiry = !subscription?.reason || subscription.reason.includes("انتهت صلاحية");
     return (
-      <div className="grid min-h-screen place-items-center bg-ivory-50 px-6 text-navy-900 dark:bg-[#0d1117] dark:text-ivory-50">
-        <div className="w-full max-w-md rounded-3xl border border-red-300/40 bg-white p-8 text-center shadow-2xl dark:border-red-500/30 dark:bg-[#161b22]">
-          <span className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-red-100 text-3xl dark:bg-red-900/40">⏳</span>
+      <div className="neu-app grid min-h-screen place-items-center px-6">
+        <div className="neu-card w-full max-w-md p-8 text-center">
+          <span className="neu-circle neu-circle--lg t-warning mb-4"><i className="fa-solid fa-hourglass-half" aria-hidden="true" /></span>
           <h1 className="mb-2 text-xl font-extrabold">{t("subBlockTitle")}</h1>
-          <p className="text-sm leading-7 text-navy-900/75 dark:text-ivory-50/75" dir="auto">
+          <p className="text-sm leading-7 t-muted" dir="auto">
             {isExpiry ? t("subExpiredBlock") : t("subSuspendedBlock")}
           </p>
           {!isExpiry && subscription?.reason ? (
-            <p className="mt-2 text-xs text-navy-900/50 dark:text-ivory-50/50" dir="auto">
+            <p className="mt-2 text-xs t-muted" dir="auto">
               {subscription.reason}
             </p>
           ) : null}
           <div className="mt-6 flex justify-center gap-3">
             <button
               onClick={openSettings}
-              className="rounded-full border border-navy-900/15 px-5 py-2.5 text-sm font-bold text-navy-700 transition hover:bg-navy-900/5 dark:border-white/15 dark:text-ivory-50"
+              className="neu-btn"
             >
               {t("settings")}
             </button>
             <button
               onClick={logout}
-              className="rounded-full bg-navy-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-navy-400"
+              className="neu-btn neu-btn--danger"
             >
               {t("logout")}
             </button>
@@ -969,14 +974,14 @@ function StudioInner() {
   }
 
   return (
-    <div className="min-h-screen bg-ivory-50 text-navy-900 dark:bg-[#0d1117] dark:text-ivory-50">
+    <div className="neu-app min-h-screen">
       {/* شريط علوي للحظر — يظهر فوراً في أعلى الصفحة عند حظر الأدمن للحساب */}
       {subscription?.status === "banned" && (
         <div
           role="alert"
-          className="sticky top-0 z-50 w-full bg-red-600 px-4 py-3 text-center text-sm font-extrabold text-white shadow-lg shadow-red-900/30"
+          className="neu-inset sticky top-0 z-50 w-full px-4 py-3 text-center text-sm font-extrabold t-danger"
         >
-          🚫 {t("subBanned")}
+          <i className="fa-solid fa-ban" aria-hidden="true" /> {t("subBanned")}
           {subscription.reason ? (
             <span className="ms-2 font-bold opacity-90">({subscription.reason})</span>
           ) : null}
@@ -987,32 +992,32 @@ function StudioInner() {
       {!account?.email && subscription?.status !== "banned" && (
         <div
           role="alert"
-          className="sticky top-0 z-50 w-full bg-amber-500 px-4 py-2.5 text-center text-[13px] font-bold text-navy-950 shadow-lg shadow-amber-900/20"
+          className="neu-inset sticky top-0 z-50 w-full px-4 py-2.5 text-center text-[13px] font-bold t-warning"
         >
-          🔒 {t("lockNoEmail")}
+          <i className="fa-solid fa-lock" aria-hidden="true" /> {t("lockNoEmail")}
         </div>
       )}
       {/* نافذة تأكيد حذف المنتج — «الرابط يحترق ولن يعمل» */}
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-navy-950/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4"
           role="dialog"
           aria-modal="true"
           onClick={() => !deleting && setDeleteTarget(null)}
         >
           <div
-            className="w-full max-w-md rounded-3xl border border-red-300/40 bg-white p-6 shadow-2xl dark:border-red-500/30 dark:bg-[#161b22]"
+            className="neu-card w-full max-w-md p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-red-100 text-xl dark:bg-red-900/40">🔥</span>
-              <h2 className="text-lg font-extrabold text-navy-900 dark:text-ivory-50">{t("deleteProductTitle")}</h2>
+              <span className="neu-circle neu-circle--sm neu-circle--danger"><i className="fa-solid fa-fire" aria-hidden="true" /></span>
+              <h2 className="text-lg font-extrabold">{t("deleteProductTitle")}</h2>
             </div>
-            <p className="text-sm leading-6 text-navy-900/75 dark:text-ivory-50/75">
+            <p className="text-sm leading-6 t-muted">
               {t("deleteProductWarn")}
             </p>
             {deleteTarget.name && (
-              <p className="mt-2 truncate rounded-xl bg-navy-900/5 px-3 py-2 text-xs font-bold text-navy-900 dark:bg-white/5 dark:text-ivory-50" dir="auto">
+              <p className="neu-inset mt-2 truncate px-3 py-2 text-xs font-bold" dir="auto">
                 {deleteTarget.name}
               </p>
             )}
@@ -1021,7 +1026,7 @@ function StudioInner() {
                 type="button"
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleting}
-                className="rounded-full border border-navy-900/15 px-5 py-2.5 text-sm font-bold text-navy-700 transition hover:bg-navy-900/5 disabled:opacity-50 dark:border-white/15 dark:text-ivory-50"
+                className="neu-btn neu-btn--muted"
               >
                 {t("cancel")}
               </button>
@@ -1029,7 +1034,7 @@ function StudioInner() {
                 type="button"
                 onClick={confirmDeleteProduct}
                 disabled={deleting}
-                className="rounded-full bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-600/30 transition hover:bg-red-700 disabled:opacity-60"
+                className="neu-btn neu-btn--danger"
               >
                 {deleting ? t("deleting") : t("confirmOk")}
               </button>
@@ -1038,38 +1043,38 @@ function StudioInner() {
         </div>
       )}
       {/* شريط علوي — زجاج سائل pill لاصقة. على الجوال: صفّان (العلوي: هوية/رجوع، السفلي: أدوات+نشر أفقي قابل للتمرير). */}
-      <header className="sticky top-0 z-30 border-b border-navy-900/10 dark:border-white/10">
+      <header className="neu-panel sticky top-0 z-30">
         <div className="container-landing flex flex-col gap-2 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:py-3">
           {/* اليمين: رجوع + العلامة + عنوان الصفحة */}
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/"
-              className="flex items-center gap-1.5 rounded-full border border-navy-900/15 px-2.5 py-1.5 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 sm:gap-2 sm:px-3.5 sm:py-2"
+              className="neu-btn neu-btn--muted !px-3 !py-1.5 !text-[11px] sm:!px-4 sm:!py-2 sm:!text-xs"
               title={t("backToDashboard")}
             >
-              <span aria-hidden className="text-sm leading-none">→</span>
+              <i className="fa-solid fa-arrow-left neu-arrow" aria-hidden="true" />
               <span className="hidden sm:inline">{t("backToDashboard")}</span>
             </Link>
-            <Link href="/" className="hidden font-display text-xl font-extrabold text-navy-900 sm:block">
+            <Link href="/" className="hidden text-xl font-extrabold sm:block">
               {t("brandField")}
             </Link>
-            <span className="hidden max-w-[12rem] truncate text-xs text-navy-900/50 md:block">
+            <span className="hidden max-w-[12rem] truncate text-xs t-muted md:block">
               {editingId ? t("editing", { id: editingId }) : t("studioTitle")}
             </span>
             {/* لفتة الخطة والأيام المتبقية — تُظهر للمستخدم خطته والمدة المتبقية.
                 على الجوال: أيقونة الخطة فقط (شارة لون). على الديسكتوب: نص كامل. */}
             {subscription && planName ? (
               <span
-                className="flex items-center gap-1 rounded-full border border-navy-900/10 bg-white/60 px-2 py-0.5 text-[10px] font-bold sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[11px] dark:border-white/10 dark:bg-white/5"
+                className="neu-badge neu-badge--primary"
                 title={
                   subscription.remainingDays == null
                     ? t("subPermanent")
                     : t("subRemaining", { n: subscription.remainingDays })
                 }
               >
-                <span className="text-navy-900/90 dark:text-ivory-50">{planName}</span>
-                <span className="hidden text-navy-900/25 sm:inline dark:text-white/20">·</span>
-                <span className="hidden text-navy-900/55 sm:inline dark:text-ivory-50/60">
+                <span>{planName}</span>
+                <span className="hidden t-muted sm:inline">·</span>
+                <span className="hidden t-muted sm:inline">
                   {subscription.remainingDays == null
                     ? t("subPermanent")
                     : t("subRemaining", { n: subscription.remainingDays })}
@@ -1081,28 +1086,28 @@ function StudioInner() {
           {/* اليسار: الإجراءات مرتّبة. على الجوال: صفّ أفقي قابل للتمرير لإبقاء الأزرار على سطر واحد. */}
           <div className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:px-0 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {/* مجموعة الأيقونات: ثيم / لغة / إعدادات / خروج — تبقى في مكانها على الجوال */}
-            <div className="flex shrink-0 items-center gap-1 rounded-xl border border-navy-900/10 bg-white/50 p-1 dark:border-white/10 dark:bg-white/5">
+            <div className="neu-inset flex shrink-0 items-center gap-1 p-1">
               <ThemeToggle />
               <LangToggle />
               {user && (
                 <button onClick={openSettings} className={`${stBtnIcon} shrink-0`} title={t("settings")} aria-label={t("settings")}>
-                  ⚙
+                  <i className="fa-solid fa-gear" aria-hidden="true" />
                 </button>
               )}
               {user && (
-                <button onClick={logout} className={`${stBtnIcon} shrink-0`} title={`${t("logout")} · ${user}`} aria-label={t("logout")}>
-                  ⎋
+                <button onClick={logout} className={`${stBtnIcon} neu-circle--danger shrink-0`} title={`${t("logout")} · ${user}`} aria-label={t("logout")}>
+                  <i className="fa-solid fa-right-from-bracket" aria-hidden="true" />
                 </button>
               )}
             </div>
-            <div className="mx-0.5 hidden h-6 w-px shrink-0 bg-navy-900/10 sm:block" />
+            <div className="mx-0.5 hidden h-6 w-0.5 shrink-0 rounded-sm bg-[var(--bg-color)] [box-shadow:var(--shadow-inner-sm)] sm:block" />
             {/* مجموعة الإجراءات: توليد المحتوى · تحميل HTML · توليد الصفحة · نشر · رابط جديد
                 على الجوال: scroll-snap للحماية من التراكم العمودي. */}
             <button
               onClick={handleAutoGenerate}
               disabled={locked}
               title={locked ? t("lockedHint") : t("generateContent")}
-              className={`shrink-0 scroll-mx-1 rounded-xl bg-navy-500 px-3 py-1.5 text-[11px] font-bold whitespace-nowrap text-white transition hover:bg-navy-400 sm:px-4 sm:py-2 sm:text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+              className={`neu-btn shrink-0 scroll-mx-1 !px-3 !py-1.5 !text-[11px] whitespace-nowrap sm:!px-4 sm:!py-2 sm:!text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
             >
               {t("generateContent")}
             </button>
@@ -1126,7 +1131,7 @@ function StudioInner() {
               onClick={() => handlePublish()}
               disabled={locked || publishing}
               title={locked ? t("lockedHint") : t("publishReplace")}
-              className={`shrink-0 scroll-mx-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-3 py-1.5 text-[11px] font-bold whitespace-nowrap text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl hover:shadow-blue-500/50 disabled:opacity-60 sm:px-4 sm:py-2 sm:text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+              className={`neu-btn shrink-0 scroll-mx-1 !px-3 !py-1.5 !text-[11px] whitespace-nowrap sm:!px-4 sm:!py-2 sm:!text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
             >
               {publishing ? t("publishing") : t("publishReplace")}
             </button>
@@ -1134,9 +1139,9 @@ function StudioInner() {
               onClick={() => handlePublish({ newLink: true })}
               disabled={locked || publishing}
               title={t("newLinkHint")}
-              className={`shrink-0 scroll-mx-1 rounded-full border border-red-500/40 px-3 py-1.5 text-[11px] font-bold whitespace-nowrap text-red-600 transition hover:bg-red-50 disabled:opacity-60 sm:px-4 sm:py-2 sm:text-xs dark:hover:bg-red-500/10 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+              className={`neu-btn neu-btn--danger shrink-0 scroll-mx-1 !px-3 !py-1.5 !text-[11px] whitespace-nowrap sm:!px-4 sm:!py-2 sm:!text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
             >
-              ♻ {t("newLink")}
+              <i className="fa-solid fa-rotate" aria-hidden="true" /> {t("newLink")}
             </button>
           </div>
         </div>
@@ -1147,36 +1152,36 @@ function StudioInner() {
         <div className="space-y-6 pb-10">
           {/* بانر تأكيد تحميل الصفحة المنشورة إلى المحرّر — يختفي عند النشر أو الإغلاق */}
           {editNotice && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-400/40 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-500/30 dark:bg-emerald-500/10">
-              <p className="text-emerald-800 dark:text-emerald-300">{t("editLoadedHint")}</p>
+            <div className="neu-inset flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm t-success">
+              <p>{t("editLoadedHint")}</p>
               <button
                 onClick={() => setEditNotice(false)}
                 aria-label={t("close")}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-emerald-700 transition hover:bg-emerald-500/10 dark:text-emerald-300"
+                className="neu-circle neu-circle--sm shrink-0"
               >
-                ✕
+                <i className="fa-solid fa-xmark" aria-hidden="true" />
               </button>
             </div>
           )}
           {!account?.sheetUrl && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/40 bg-amber-50 px-4 py-3 text-sm">
-              <p className="text-amber-900">
+            <div className="neu-inset flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm t-warning">
+              <p>
                 {t("warningNoSheet")}
               </p>
-              <button onClick={openSettings} className="rounded-full bg-amber-500 px-4 py-1.5 text-xs font-bold text-white transition hover:bg-amber-600">
+              <button onClick={openSettings} className="neu-btn neu-btn--warning !px-4 !py-1.5 !text-xs">
                 {t("linkSheetNow")}
               </button>
             </div>
           )}
           {error && (
-            <p className="whitespace-pre-line rounded-xl border border-red-400/30 bg-red-50 px-4 py-3 text-sm font-medium leading-6 text-red-700">
+            <p className="neu-inset whitespace-pre-line px-4 py-3 text-sm font-medium leading-6 t-danger">
               {error}
             </p>
           )}
 
           {/* المعلومات الأساسية */}
-          <section className="liquid-glass liquid-glass--rounded grid gap-4 overflow-hidden rounded-3xl p-5">
-            <h2 className="font-display text-base font-bold">{t("productInfo")}</h2>
+          <section className="neu-card grid gap-4 p-5">
+            <h2 className="text-base font-bold">{t("productInfo")}</h2>
             {/* عنوان المتجر: يظهر فقط في وضع المتجر (منتجات متعددة).
                 في منتج واحد نعتمد اسم المنتج كترويسة تلقائياً لتفادي التكرار. */}
             {draft.items.length > 1 && (
@@ -1230,29 +1235,29 @@ function StudioInner() {
 
             {/* مبدّل وضع التوصيل */}
             <div className="grid gap-1.5">
-              <span className="text-xs font-semibold text-navy-700">{t("deliveryMode")}</span>
-              <div className="flex rounded-full border border-navy-900/15 bg-ivory-100 p-1 text-xs font-bold">
+              <span className="text-xs font-semibold">{t("deliveryMode")}</span>
+              <div className="neu-inset flex gap-1 !rounded-full p-1 text-xs font-bold">
                 {(["fixed", "wilaya"] as const).map((mode) => (
                   <button
                     key={mode}
                     type="button"
                     onClick={() => setDraft({ ...draft, deliveryMode: mode })}
-                    className={`flex-1 rounded-full px-4 py-1.5 transition ${
-                      draft.deliveryMode === mode ? "bg-navy-900 text-ivory-50" : "text-navy-700 hover:text-navy-900"
+                    className={`neu-tab flex-1 !rounded-full ${
+                      draft.deliveryMode === mode ? "is-active" : ""
                     }`}
                   >
                     {mode === "fixed" ? t("deliveryModeFixed") : t("deliveryModeWilaya")}
                   </button>
                 ))}
               </div>
-              <span className="text-[10px] font-normal text-navy-900/45">{t("deliveryModeHint")}</span>
+              <span className="text-[10px] font-normal t-muted">{t("deliveryModeHint")}</span>
             </div>
 
             {/* محرر أسعار الولايات — سعران لكل ولاية (للمنزل + للمكتب) */}
             {draft.deliveryMode === "wilaya" && (
-              <div className="grid gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-4">
+              <div className="neu-inset grid gap-3 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-navy-700">{t("wilayaPricesTitle")}</span>
+                  <span className="text-xs font-semibold">{t("wilayaPricesTitle")}</span>
                   <button
                     type="button"
                     onClick={() =>
@@ -1274,19 +1279,19 @@ function StudioInner() {
                     {t("wilayaPricesFill")}
                   </button>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] font-semibold text-navy-900/55">
+                <div className="flex items-center gap-2 text-[10px] font-semibold t-muted">
                   <span className="flex-1">{t("wilayaColumnHome")}</span>
                   <span className="flex-1">{t("wilayaColumnOffice")}</span>
                 </div>
-                <p className="text-[10px] font-normal text-navy-900/45">{t("wilayaPricesHint")}</p>
+                <p className="text-[10px] font-normal t-muted">{t("wilayaPricesHint")}</p>
                 <div className="grid max-h-80 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                   {WILAYAS.map((w) => (
                     <div key={w.code} className="flex items-center gap-2">
-                      <span className="w-28 shrink-0 truncate text-[11px] font-medium text-navy-700">
+                      <span className="w-28 shrink-0 truncate text-[11px] font-medium">
                         {w.code} · {w.name}
                       </span>
                       <input
-                        className="w-full rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs text-navy-900 outline-none transition focus:border-navy-500"
+                        className="neu-input !px-2 !py-1.5 !text-xs"
                         value={draft.wilayaPrices[w.code]?.home ?? ""}
                         onChange={(e) =>
                           setDraft((d) => ({
@@ -1304,7 +1309,7 @@ function StudioInner() {
                         inputMode="numeric"
                       />
                       <input
-                        className="w-full rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs text-navy-900 outline-none transition focus:border-navy-500"
+                        className="neu-input !px-2 !py-1.5 !text-xs"
                         value={draft.wilayaPrices[w.code]?.office ?? ""}
                         onChange={(e) =>
                           setDraft((d) => ({
@@ -1341,7 +1346,7 @@ function StudioInner() {
           </section>
 
           {/* لوحة المنتجات الموحّدة: البطاقات + الحقول + الصورة + الألوان */}
-          <section className="liquid-glass liquid-glass--rounded grid gap-5 overflow-hidden rounded-3xl p-5">
+          <section className="neu-card grid gap-5 p-5">
           <ProductItemsEditor
             bare
             items={draft.items}
@@ -1377,9 +1382,9 @@ function StudioInner() {
           />
 
           {/* صورة وألوان العنصر النشط (مدمجة داخل لوحة المنتجات) */}
-          <div className="mt-2 grid gap-4 border-t border-navy-900/10 pt-5 dark:border-white/10">
+          <div className="mt-2 grid gap-4 pt-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-base font-bold">
+              <h2 className="text-base font-bold">
                 {t("productImage")}
                 {draft.items.length > 1 ? ` · ${draft.items[activeItem]?.name || `#${activeItem + 1}`}` : ""}
               </h2>
@@ -1391,14 +1396,14 @@ function StudioInner() {
             </div>
 
             {/* مبدّل طريقة الإدخال: رفع / رابط */}
-            <div className="flex rounded-full border border-navy-900/15 bg-ivory-100 p-1 text-xs font-bold">
+            <div className="neu-inset flex gap-1 !rounded-full p-1 text-xs font-bold">
               {(["upload", "url"] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
                   onClick={() => setImageTab(mode)}
-                  className={`flex-1 rounded-full px-4 py-1.5 transition ${
-                    imageTab === mode ? "bg-navy-900 text-ivory-50" : "text-navy-700 hover:text-navy-900"
+                  className={`neu-tab flex-1 !rounded-full ${
+                    imageTab === mode ? "is-active" : ""
                   }`}
                 >
                   {mode === "upload" ? t("uploadImage") : t("urlImage")}
@@ -1407,7 +1412,7 @@ function StudioInner() {
             </div>
 
             {paletteWarning && (
-              <p className="rounded-xl border border-amber-300/40 bg-amber-50 px-4 py-2.5 text-xs font-medium leading-5 text-amber-800">
+              <p className="neu-inset px-4 py-2.5 text-xs font-medium leading-5 t-warning">
                 {paletteWarning}
               </p>
             )}
@@ -1424,25 +1429,25 @@ function StudioInner() {
                   />
                   <button
                     onClick={handleUseUrl}
-                    className="shrink-0 rounded-xl bg-navy-900 px-4 py-2.5 text-xs font-bold text-ivory-50 transition hover:bg-navy-700"
+                    className="neu-btn shrink-0 !px-4 !py-2.5 !text-xs"
                   >
                     {t("useUrl")}
                   </button>
                 </div>
-                <p className="text-[11px] leading-5 text-navy-900/45">
+                <p className="text-[11px] leading-5 t-muted">
                   رابط مباشر لصورة المنتج — يُستخدم كما هو على الصفحة، مع محاولة استخراج الألوان منه.
                 </p>
                 {draft.items[activeItem]?.image && (
-                  <div className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-2.5">
+                  <div className="neu-inset flex items-center gap-3 p-2.5">
                     {/* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */}
-                    <img src={draft.items[activeItem].image} alt={t("currentImage")} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
-                    <span className="flex-1 truncate text-[11px] text-navy-900/50">{t("currentImage")}</span>
+                    <img src={draft.items[activeItem].image} alt={t("currentImage")} className="h-14 w-14 rounded-xl object-cover" />
+                    <span className="flex-1 truncate text-[11px] t-muted">{t("currentImage")}</span>
                     <button
                       onClick={() => {
                         setDraft((d) => ({ ...d, items: updateItem(d.items, activeItem, { image: "" }) }));
                         setPaletteWarning("");
                       }}
-                      className="shrink-0 text-xs font-bold text-red-600"
+                      className="shrink-0 text-xs font-bold t-danger"
                     >
                       {t("remove")}
                     </button>
@@ -1453,7 +1458,7 @@ function StudioInner() {
               <>
                 {draft.items[activeItem]?.image ? (
                   <div className="flex items-center gap-4">
-                    <div className="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl bg-ivory-100 ring-1 ring-navy-900/10">
+                    <div className="neu-inset relative h-28 w-24 shrink-0 overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element -- صورة معاينة data:URL محلية */}
                       <img src={draft.items[activeItem].image} alt={t("productImage")} className="h-full w-full object-cover" />
                     </div>
@@ -1468,10 +1473,10 @@ function StudioInner() {
                     </div>
                   </div>
                 ) : (
-                  <label className="grid cursor-pointer place-items-center gap-2 rounded-2xl border-2 border-dashed border-navy-900/15 bg-ivory-50 px-4 py-10 text-center transition hover:border-navy-500/40">
-                    <span className="text-2xl">🖼️</span>
-                    <span className="text-sm font-bold text-navy-700">{t("uploadImagePh")}</span>
-                    <span className="text-xs text-navy-900/45">{t("uploadImageHint")}</span>
+                  <label className="neu-inset grid cursor-pointer place-items-center gap-2 px-4 py-10 text-center">
+                    <i className="fa-solid fa-image text-2xl t-muted" aria-hidden="true" />
+                    <span className="text-sm font-bold">{t("uploadImagePh")}</span>
+                    <span className="text-xs t-muted">{t("uploadImageHint")}</span>
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleMainImage(e.target.files[0])} />
                   </label>
                 )}
@@ -1480,15 +1485,15 @@ function StudioInner() {
 
             {/* صور إضافية للعنصر النشط */}
             <div className="grid gap-3">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-navy-700">
+              <div className="flex items-center justify-between text-[11px] font-semibold">
                 <span>{t("galleryTitle")}</span>
-                <span className="text-navy-900/45">{t("imagesRemaining", { n: remainingImages })}</span>
+                <span className="t-muted">{t("imagesRemaining", { n: remainingImages })}</span>
               </div>
               {draft.items[activeItem]?.images.map((img, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-2">
+                <div key={i} className="neu-inset flex items-center gap-3 p-2">
                   {/* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */}
-                  <img src={img} alt={t("extraImage", { n: i + 1 })} className="h-14 w-14 rounded-xl object-cover ring-1 ring-navy-900/10" />
-                  <span className="flex-1 text-xs text-navy-900/50">{t("extraImage", { n: i + 1 })}</span>
+                  <img src={img} alt={t("extraImage", { n: i + 1 })} className="h-14 w-14 rounded-xl object-cover" />
+                  <span className="flex-1 text-xs t-muted">{t("extraImage", { n: i + 1 })}</span>
                   <button
                     onClick={() =>
                       setDraft((d) => {
@@ -1496,7 +1501,7 @@ function StudioInner() {
                         return { ...d, items: updateItem(d.items, activeItem, { images: it.images.filter((_, j) => j !== i) }) };
                       })
                     }
-                    className="text-xs font-bold text-red-600"
+                    className="text-xs font-bold t-danger"
                   >
                     {t("deleteItem")}
                   </button>
@@ -1509,7 +1514,7 @@ function StudioInner() {
                 </label>
               ) : (
                 <p
-                  className="rounded-xl border border-amber-400/30 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+                  className="neu-inset px-3 py-2 text-[11px] font-semibold t-warning"
                   dir="auto"
                 >
                   {t("planLimitImages", { plan: planCode, max: effectiveMaxImages })}
@@ -1517,9 +1522,9 @@ function StudioInner() {
               )}
 
               {/* ألوان العنصر النشط — يختارها الزبون للعرض فقط */}
-              <div className="mt-2 grid gap-1.5 border-t border-navy-900/10 pt-3 dark:border-white/10">
-                <span className="text-xs font-semibold text-navy-700">{t("colorsTitle")}</span>
-                <span className="text-[10px] font-normal text-navy-900/45">{t("colorsHint")}</span>
+              <div className="mt-2 grid gap-1.5 pt-3">
+                <span className="text-xs font-semibold">{t("colorsTitle")}</span>
+                <span className="text-[10px] font-normal t-muted">{t("colorsHint")}</span>
                 <div className="grid gap-2">
                   {(draft.items[activeItem]?.colors ?? []).map((c, i) => (
                     <div key={i} className="flex items-center gap-2">
@@ -1534,7 +1539,7 @@ function StudioInner() {
                             return { ...d, items: updateItem(d.items, activeItem, { colors }) };
                           });
                         }}
-                        className="h-9 w-10 shrink-0 cursor-pointer rounded-md border border-navy-900/15 bg-transparent p-0"
+                        className="h-9 w-10 shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0"
                       />
                       <input
                         className={stInput}
@@ -1560,7 +1565,7 @@ function StudioInner() {
                         className={stBtnGhost}
                         aria-label={t("remove")}
                       >
-                        ✕
+                        <i className="fa-solid fa-xmark" aria-hidden="true" />
                       </button>
                     </div>
                   ))}
@@ -1575,7 +1580,7 @@ function StudioInner() {
                   }
                   className={stBtnGhost}
                 >
-                  + {t("addColor")}
+                  <i className="fa-solid fa-plus" aria-hidden="true" /> {t("addColor")}
                 </button>
               </div>
             </div>
@@ -1583,33 +1588,33 @@ function StudioInner() {
           </section>
 
           {/* خيارات متقدمة — الألوان / المميزات / الإحصائيات / الآراء */}
-          <section className="liquid-glass liquid-glass--rounded overflow-hidden rounded-3xl p-5">
+          <section className="neu-card p-5">
             <button
               type="button"
               onClick={() => setAdvancedOpen((v) => !v)}
               className="flex w-full items-center justify-between gap-2 text-start"
             >
-              <span className="flex items-center gap-2 font-display text-base font-bold">
+              <span className="flex items-center gap-2 text-base font-bold">
                 {t("advanced")}
-                <span className="rounded-full bg-ivory-100 px-2 py-0.5 text-[10px] font-bold text-navy-900/50">
+                <span className="neu-badge">
                   {t("elements", { n: draft.features.length + draft.stats.length + draft.testimonials.length })}
                 </span>
               </span>
-              <span className="text-xs text-navy-900/50">{advancedOpen ? t("hide") : t("show")}</span>
+              <span className="text-xs t-muted">{advancedOpen ? t("hide") : t("show")}</span>
             </button>
             {advancedOpen && (
               <div className="mt-5 grid gap-5">
                 {/* الألوان */}
-                <section className="grid gap-4 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-5">
+                <section className="neu-inset grid gap-4 p-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-base font-bold">{t("colorPalette")}</h2>
-              <div className="flex gap-1 rounded-full border border-navy-900/15 bg-ivory-100 p-1 text-xs font-bold">
+              <h2 className="text-base font-bold">{t("colorPalette")}</h2>
+              <div className="neu-inset flex gap-1 !rounded-full p-1 text-xs font-bold">
                 {(["dark", "light"] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => switchMode(m)}
-                    className={`rounded-full px-3 py-1 transition ${
-                      draft.theme.mode === m ? "bg-navy-900 text-ivory-50" : "text-navy-700 hover:text-navy-900"
+                    className={`neu-tab !rounded-full ${
+                      draft.theme.mode === m ? "is-active" : ""
                     }`}
                   >
                     {m === "dark" ? t("dark") : t("light")}
@@ -1625,12 +1630,12 @@ function StudioInner() {
             </div>
             {draft.swatches.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-semibold text-navy-900/50">{t("extractedColors")}</span>
+                <span className="text-[10px] font-semibold t-muted">{t("extractedColors")}</span>
                 {draft.swatches.map((sw) => (
                   <button
                     key={sw}
                     onClick={() => setThemeField("primary", sw)}
-                    className="h-8 w-8 rounded-full ring-1 ring-navy-900/15 transition hover:scale-110"
+                    className="h-8 w-8 rounded-full [box-shadow:var(--shadow-outer-sm)] transition active:[box-shadow:var(--shadow-btn-active)]"
                     style={{ background: sw }}
                     aria-label={`اختيار اللون ${sw}`}
                   />
@@ -1640,52 +1645,52 @@ function StudioInner() {
           </section>
 
                 {/* المميزات */}
-                <section className="grid gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-5">
+                <section className="neu-inset grid gap-3 p-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-base font-bold">{t("features")}</h2>
+              <h2 className="text-base font-bold">{t("features")}</h2>
               <button onClick={() => setDraft({ ...draft, features: [...draft.features, { title: "", copy: "" }] })} className={stBtnGhost}>
                 {t("add")}
               </button>
             </div>
             {draft.features.map((f, i) => (
-              <div key={i} className="grid gap-2 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-3 sm:grid-cols-[1fr_1.4fr_auto] sm:items-center">
+              <div key={i} className="neu-inset grid gap-2 p-3 sm:grid-cols-[1fr_1.4fr_auto] sm:items-center">
                 <input className={stInput} value={f.title} placeholder={t("featureTitle")} onChange={(e) => { const features = [...draft.features]; features[i] = { ...f, title: e.target.value }; setDraft({ ...draft, features }); }} />
                 <input className={stInput} value={f.copy} placeholder={t("featureCopy")} onChange={(e) => { const features = [...draft.features]; features[i] = { ...f, copy: e.target.value }; setDraft({ ...draft, features }); }} />
-                <button onClick={() => setDraft({ ...draft, features: draft.features.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">{t("deleteItem")}</button>
+                <button onClick={() => setDraft({ ...draft, features: draft.features.filter((_, j) => j !== i) })} className="text-xs font-bold t-danger">{t("deleteItem")}</button>
               </div>
             ))}
-            {draft.features.length === 0 && <p className="text-xs text-navy-900/45">{t("noFeatures")}</p>}
+            {draft.features.length === 0 && <p className="text-xs t-muted">{t("noFeatures")}</p>}
           </section>
 
                 {/* الإحصائيات */}
-                <section className="grid gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-5">
+                <section className="neu-inset grid gap-3 p-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-base font-bold">{t("stats")}</h2>
+              <h2 className="text-base font-bold">{t("stats")}</h2>
               <button onClick={() => setDraft({ ...draft, stats: [...draft.stats, { value: "", label: "" }] })} className={stBtnGhost}>{t("add")}</button>
             </div>
             {draft.stats.map((s, i) => (
-              <div key={i} className="grid gap-2 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-3 sm:grid-cols-[0.8fr_1.4fr_auto] sm:items-center">
+              <div key={i} className="neu-inset grid gap-2 p-3 sm:grid-cols-[0.8fr_1.4fr_auto] sm:items-center">
                 <input className={stInput} value={s.value} placeholder="20W" onChange={(e) => { const stats = [...draft.stats]; stats[i] = { ...s, value: e.target.value }; setDraft({ ...draft, stats }); }} />
                 <input className={stInput} value={s.label} placeholder="قوة الشحن" onChange={(e) => { const stats = [...draft.stats]; stats[i] = { ...s, label: e.target.value }; setDraft({ ...draft, stats }); }} />
-                <button onClick={() => setDraft({ ...draft, stats: draft.stats.filter((_, j) => j !== i) })} className="text-xs font-bold text-red-600">{t("deleteItem")}</button>
+                <button onClick={() => setDraft({ ...draft, stats: draft.stats.filter((_, j) => j !== i) })} className="text-xs font-bold t-danger">{t("deleteItem")}</button>
               </div>
             ))}
           </section>
 
                 {/* الآراء */}
-                <section className="grid gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-5">
+                <section className="neu-inset grid gap-3 p-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-base font-bold">{t("testimonials")}</h2>
+              <h2 className="text-base font-bold">{t("testimonials")}</h2>
               <button onClick={() => setDraft({ ...draft, testimonials: [...draft.testimonials, { quote: "", name: "", city: "" }] })} className={stBtnGhost}>{t("add")}</button>
             </div>
             {draft.testimonials.map((tm, i) => (
-              <div key={i} className="grid gap-2 rounded-2xl border border-navy-900/10 bg-ivory-50 dark:border-white/10 dark:bg-[#161b22] p-3">
+              <div key={i} className="neu-inset grid gap-2 p-3">
                 <textarea className={`${stInput} min-h-20 resize-y`} value={tm.quote} placeholder={t("testimonialQuote")} onChange={(e) => { const testimonials = [...draft.testimonials]; testimonials[i] = { ...tm, quote: e.target.value }; setDraft({ ...draft, testimonials }); }} />
                 <div className="grid gap-2 sm:grid-cols-2">
                   <input className={stInput} value={tm.name} placeholder={t("nameField")} onChange={(e) => { const testimonials = [...draft.testimonials]; testimonials[i] = { ...tm, name: e.target.value }; setDraft({ ...draft, testimonials }); }} />
                   <div className="flex gap-2">
                     <input className={stInput} value={tm.city} placeholder={t("city")} onChange={(e) => { const testimonials = [...draft.testimonials]; testimonials[i] = { ...tm, city: e.target.value }; setDraft({ ...draft, testimonials }); }} />
-                    <button onClick={() => setDraft({ ...draft, testimonials: draft.testimonials.filter((_, j) => j !== i) })} className="shrink-0 text-xs font-bold text-red-600">{t("deleteItem")}</button>
+                    <button onClick={() => setDraft({ ...draft, testimonials: draft.testimonials.filter((_, j) => j !== i) })} className="shrink-0 text-xs font-bold t-danger">{t("deleteItem")}</button>
                   </div>
                 </div>
               </div>
@@ -1696,14 +1701,14 @@ function StudioInner() {
           </section>
 
           {/* النشر المباشر */}
-          <section className="liquid-glass liquid-glass--rounded grid gap-4 overflow-hidden rounded-3xl p-5">
+          <section className="neu-card grid gap-4 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-display text-base font-bold">{t("publishSection")}</h2>
+              <h2 className="text-base font-bold">{t("publishSection")}</h2>
               <button
                 onClick={() => handlePublish()}
                 disabled={locked || publishing}
                 title={locked ? t("lockedHint") : t("publishBtn")}
-                className={`rounded-full bg-navy-900 px-5 py-2.5 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-60 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+                className={`neu-btn !px-5 !py-2.5 !text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
               >
                 {publishing ? t("publishingBtn") : t("publishBtn")}
               </button>
@@ -1711,40 +1716,62 @@ function StudioInner() {
                 onClick={() => handlePublish({ newLink: true })}
                 disabled={locked || publishing}
                 title={t("newLinkHint")}
-                className={`rounded-full border border-red-500/40 px-4 py-2.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-500/10 ${locked ? "cursor-not-allowed opacity-50" : ""}`}
+                className={`neu-btn neu-btn--danger !px-4 !py-2.5 !text-xs ${locked ? "cursor-not-allowed opacity-50" : ""}`}
               >
-                ♻ {t("newLink")}
+                <i className="fa-solid fa-rotate" aria-hidden="true" /> {t("newLink")}
               </button>
             </div>
 
+            {/* خانة تسمية السلاغ — للرابط الجديد فقط (طلب المالك) */}
+            {!editingId && (
+              <div className="grid gap-2">
+                <label className="t-muted text-xs font-bold" htmlFor="slug-draft">{t("slugFieldLabel")}</label>
+                <div className="flex items-center gap-2">
+                  <span className="t-muted shrink-0 text-sm font-semibold" dir="ltr">/p/</span>
+                  <input
+                    id="slug-draft"
+                    dir="ltr"
+                    className="neu-input flex-1"
+                    value={slugDraft}
+                    onChange={(e) => setSlugDraft(e.target.value)}
+                    placeholder={t("slugFieldPlaceholder")}
+                    maxLength={40}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+                <p className="t-muted text-xs leading-5">{t("slugFieldHint")}</p>
+              </div>
+            )}
+
             {/* مبدّل المتجر العام — حصري لخطتَي Pro/Gold (يُطبَّق عند النشر) */}
             {canListPublic && (
-              <label className="flex items-center justify-between gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 px-4 py-3 dark:border-white/10 dark:bg-[#161b22]">
+              <label className="neu-inset flex items-center justify-between gap-3 px-4 py-3">
                 <span className="grid gap-0.5">
-                  <span className="text-xs font-bold text-navy-900 dark:text-ivory-50">{t("listPublicLabel")}</span>
-                  <span className="text-[11px] leading-5 text-navy-900/55 dark:text-ivory-50/55">{t("listPublicHint")}</span>
+                  <span className="text-xs font-bold">{t("listPublicLabel")}</span>
+                  <span className="text-[11px] leading-5 t-muted">{t("listPublicHint")}</span>
                 </span>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={listPublic}
                   onClick={() => setListPublic((v) => !v)}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition ${listPublic ? "bg-emerald-500" : "bg-navy-900/20 dark:bg-white/20"}`}
+                  className={`relative h-6 w-11 shrink-0 rounded-full [box-shadow:var(--shadow-inner-sm)] transition ${listPublic ? "bg-[color-mix(in_srgb,var(--success-color)_30%,var(--bg-color))]" : "bg-[var(--bg-color)]"}`}
                 >
                   <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${listPublic ? "start-0.5" : "end-0.5"}`}
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-[var(--bg-color)] [box-shadow:var(--shadow-outer-sm)] transition-all ${listPublic ? "start-0.5" : "end-0.5"}`}
                   />
                 </button>
               </label>
             )}
 
             {publishedInfo ? (
-              <div className="grid gap-3 rounded-2xl border border-emerald-300/40 bg-emerald-50 p-4">
-                <p className="text-xs font-bold text-emerald-800">{t("publishedOk")}</p>
+              <div className="neu-inset grid gap-3 p-4">
+                <p className="text-xs font-bold t-success">{t("publishedOk")}</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <code
                     dir="ltr"
-                    className="min-w-0 flex-1 truncate rounded-lg bg-white px-3 py-2 text-[11px] font-semibold text-navy-900 ring-1 ring-emerald-200 dark:bg-[#161b22] dark:text-ivory-50"
+                    className="neu-inset min-w-0 flex-1 truncate px-3 py-2 text-[11px] font-semibold"
                   >
                     {publishedInfo.url}
                   </code>
@@ -1760,20 +1787,20 @@ function StudioInner() {
                     title={t("editProductsHint")}
                     className={`${stBtnGhost} ${editLoadingSlug === publishedInfo.slug ? "opacity-60" : ""}`}
                   >
-                    ✏️ {editLoadingSlug === publishedInfo.slug ? t("editLoadingBtn") : t("editProductsBtn")}
+                    <i className="fa-solid fa-pen" aria-hidden="true" /> {editLoadingSlug === publishedInfo.slug ? t("editLoadingBtn") : t("editProductsBtn")}
                   </button>
                 </div>
-                <p className="text-[11px] leading-5 text-emerald-800/80">
+                <p className="text-[11px] leading-5 t-muted">
                   {t("publishNote")}
                 </p>
                 <div>
-                  <button onClick={handleUnpublish} className="text-xs font-bold text-red-600 hover:underline">
+                  <button onClick={handleUnpublish} className="text-xs font-bold t-danger hover:underline">
                     {t("unpublish")}
                   </button>
                 </div>
               </div>
             ) : (
-              <p className="text-xs leading-5 text-navy-900/55">
+              <p className="text-xs leading-5 t-muted">
                 {t("publishSub")}
               </p>
             )}
@@ -1781,35 +1808,35 @@ function StudioInner() {
             {/* مدير المنشورات */}
             {publishedList.length > 0 && (
               <div className="grid gap-2">
-                <p className="text-[11px] font-bold text-navy-900/50">{t("publishedPages", { n: publishedList.length })}</p>
+                <p className="text-[11px] font-bold t-muted">{t("publishedPages", { n: publishedList.length })}</p>
                 {publishedList.map((p) => (
                   <div
                     key={p.id}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-navy-900/10 bg-ivory-50 p-2.5 dark:border-white/10 dark:bg-[#161b22]"
+                    className="neu-row flex flex-wrap items-center gap-x-3 gap-y-2"
                   >
                     {p.image && (
                       /* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */
-                      <img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-navy-900/10" />
+                      <img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
                     )}
                     <div className="min-w-0 flex-1 basis-40">
-                      <p className="truncate text-xs font-bold text-navy-900">{p.name}</p>
+                      <p className="truncate text-xs font-bold">{p.name}</p>
                       <a
                         href={p.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         dir="ltr"
-                        className="block truncate text-[10px] text-navy-500 hover:underline"
+                        className="block truncate text-[10px] t-primary hover:underline"
                       >
                         {p.url}
                       </a>
                     </div>
                     {/* إحصائيات الزيارات بجانب كل رابط (هذا الشهر) */}
                     <div
-                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 dark:border-sky-500/30 dark:bg-sky-500/10"
+                      className="neu-badge neu-badge--primary shrink-0"
                       title={t("myVisitsLabel") || "زيارات هذا الشهر"}
                     >
-                      <span className="text-[11px]">📊</span>
-                      <span className="text-[11px] font-extrabold text-sky-700 dark:text-sky-300 tabular-nums">
+                      <i className="fa-solid fa-chart-line text-[11px]" aria-hidden="true" />
+                      <span className="text-[11px] font-extrabold tabular-nums">
                         {(p.visits ?? 0).toLocaleString()}
                       </span>
                     </div>
@@ -1819,22 +1846,22 @@ function StudioInner() {
                         onClick={() => handleEditPublished(p.id)}
                         disabled={Boolean(editLoadingSlug)}
                         title={t("editProductsHint")}
-                        className={`rounded-full border border-navy-900/15 bg-white px-3 py-1.5 text-[11px] font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 disabled:opacity-50 dark:border-white/15 dark:bg-[#11161d] dark:text-ivory-50 dark:hover:border-navy-400 ${
+                        className={`neu-btn neu-btn--muted !px-3 !py-1.5 !text-[11px] ${
                           editLoadingSlug === p.id ? "opacity-60" : ""
                         }`}
                       >
-                        ✏️ {editLoadingSlug === p.id ? t("editLoadingBtn") : t("editBtn")}
+                        <i className="fa-solid fa-pen" aria-hidden="true" /> {editLoadingSlug === p.id ? t("editLoadingBtn") : t("editBtn")}
                       </button>
                       <button
                         onClick={() => copyPageUrl(p.id)}
                         title={t("copy")}
-                        className="rounded-full border border-navy-900/15 px-3 py-1.5 text-[11px] font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400"
+                        className="neu-btn neu-btn--muted !px-3 !py-1.5 !text-[11px]"
                       >
-                        {copiedSlug === p.id ? `✓ ${t("copiedShort")}` : t("copy")}
+                        {copiedSlug === p.id ? (<><i className="fa-solid fa-check" aria-hidden="true" /> {t("copiedShort")}</>) : t("copy")}
                       </button>
                       <button
                         onClick={() => setDeleteTarget({ slug: p.id, name: p.name })}
-                        className="shrink-0 px-1 text-[11px] font-bold text-red-600 hover:underline"
+                        className="shrink-0 px-1 text-[11px] font-bold t-danger hover:underline"
                       >
                         {t("cancel")}
                       </button>
@@ -1845,19 +1872,19 @@ function StudioInner() {
             )}
           </section>
 
-          <p className="rounded-2xl border border-navy-900/10 bg-white px-4 py-3 text-[11px] leading-5 text-navy-900/55 dark:border-white/10 dark:bg-[#11161d] dark:text-ivory-50/55">
+          <p className="neu-inset px-4 py-3 text-[11px] leading-5 t-muted">
             {t("fourWays")}
           </p>
         </div>
 
         {/* المعاينة المباشرة */}
         <div className="self-start lg:sticky lg:top-24">
-          <div className="liquid-glass liquid-glass--rounded overflow-hidden rounded-3xl">
-            <div className="flex items-center justify-between border-b border-navy-900/10 px-5 py-3 text-xs font-bold text-navy-700 dark:border-white/10 dark:text-ivory-50">
+          <div className="neu-card overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 text-xs font-bold">
               <span>{t("preview")}</span>
-              <span dir="ltr" className="text-navy-900/45">/p/{previewProduct.id}</span>
+              <span dir="ltr" className="t-muted">/p/{previewProduct.id}</span>
             </div>
-            <div className="max-h-[78vh] overflow-y-auto bg-slate-100">
+            <div className="max-h-[78vh] overflow-y-auto">
               <div className="mx-auto max-w-3xl">
                 <ProductLanding product={previewProduct} preview />
               </div>

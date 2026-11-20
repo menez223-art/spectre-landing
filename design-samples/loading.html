@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loading — عينة الهوية الجديدة</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  /* ── هياكل التحميل: ثابتة بلا أنيميشن نابض (قاعدة الجهاز الضعيف) ──
+     الأبعاد من المصدر حرفياً (app/loading.tsx + app/pricing/loading.tsx + app/studio/loading.tsx).
+     الأسطح: neu-inset بدل bg-navy-900/10، وneu-inset-sm بدل /5 الأخف.
+     أنصاف الأقطار: pill 999 / عناصر 15 (r-control) / لوحات 20 (r-panel) / بطاقات 30 (r-card). */
+  body { padding-top: 84px; padding-bottom: 150px; }
+  .hidden { display: none !important; }
+
+  .sk-main { padding: 64px 0; }
+  .sk { background: var(--bg-color); box-shadow: var(--shadow-inner); }
+  .sk--soft { box-shadow: var(--shadow-inner-sm); }
+  .sk-pill { border-radius: 999px; }
+  .sk-block { border-radius: var(--r-control); }
+  .sk-panel { background: var(--bg-color); box-shadow: var(--shadow-outer-sm); border-radius: var(--r-panel); padding: 20px; }
+  .sk-card { background: var(--bg-color); box-shadow: var(--shadow-outer-sm); border-radius: var(--r-card); }
+
+  /* الرئيسية: max-w-2xl = 672px · space-y-4 = 16px */
+  .sk-home-head { max-width: 672px; margin-inline: auto; display: grid; gap: 16px; }
+  .sk-home-stats { max-width: 576px; margin-top: 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  /* التسعير: max-w-xl = 576px · max-w-md = 448px · lg:grid-cols-3 */
+  .sk-pricing-head { max-width: 576px; margin-inline: auto; display: grid; gap: 16px; justify-items: center; }
+  .sk-pricing-cards { margin-top: 48px; display: grid; gap: 24px; }
+  @media (min-width: 1024px) { .sk-pricing-cards { grid-template-columns: repeat(3, 1fr); } }
+
+  /* الاستوديو: max-w-3xl = 768px · lg:grid-cols-[1fr_0.9fr] */
+  .sk-studio-wrap { max-width: 768px; margin-inline: auto; }
+  .sk-studio-grid { margin-top: 40px; display: grid; gap: 24px; }
+  @media (min-width: 1024px) { .sk-studio-grid { grid-template-columns: 1fr 0.9fr; } }
+  .sk-studio-editor { display: grid; gap: 16px; }
+
+  /* شريط التقدم العلوي (NavigationProgress): 2px، يومض 100% ثم يختفي.
+     الهوية الجديدة: لون primary صلب — لا تدرّج ولا توهّج (كان emerald-to-teal-to-cyan). */
+  .nav-progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 60; pointer-events: none; overflow: hidden; }
+  .nav-progress > span { display: block; height: 100%; width: 100%; background: var(--primary-color); }
+
+  /* ملاحظة عينة (ليست من التصميم) */
+  .sample-note { border: 1.5px dashed var(--text-muted); border-radius: 12px; padding: 10px 14px; font-size: 11px; line-height: 1.8; color: var(--text-muted); text-align: start; }
+  .notes { display: grid; gap: 10px; padding-top: 24px; }
+  .view-note { margin-bottom: 20px; }
+
+  /* ── أداة مراجعة: ليست من التصميم (تُزال عند التطبيق) ── */
+  .review-bar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 14px; border: 1.5px dashed var(--text-muted); border-radius: 12px; background: var(--bg-color); font-size: 11px; color: var(--text-muted); max-width: calc(100vw - 24px); box-shadow: var(--shadow-outer-sm); }
+  .review-bar button { border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm); color: var(--text-muted); border-radius: 10px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .review-bar button.is-active { box-shadow: var(--shadow-inner-sm); color: var(--primary-color); }
+  .review-bar .rb-sep { width: 2px; height: 20px; border-radius: 2px; background: var(--bg-color); box-shadow: var(--shadow-inner-sm); }
+</style>
+</head>
+<body>
+
+  <!-- شريط التقدم العلوي — حالة الوميض 100% (ثابت في العينة) -->
+  <div class="nav-progress" id="navProgress" aria-hidden="true"><span></span></div>
+
+  <!-- أزرار التحكم (اللغة + الثيم) — شاشات التحميل بلا ترويسة في المصدر، فالأزرار عائمة كما كود الهوية -->
+  <div class="top-controls">
+    <button class="neu-circle" id="langBtn" data-en-title="Change language" data-ar-title="تغيير اللغة" title="Change language">AR</button>
+    <button class="neu-circle" id="themeBtn" data-en-title="Toggle dark mode" data-ar-title="تبديل الوضع الليلي" title="Toggle dark mode">
+      <i class="fa-solid fa-moon"></i>
+    </button>
+  </div>
+
+  <main class="wrap">
+    <div class="notes">
+      <div class="sample-note">
+        <span data-en="Sample note (not part of the design): loading skeletons are STATIC — the source's continuous pulse animation (animate-pulse) is removed per the weak-device rule. Skeleton blocks become inset surfaces (depth by shadow, no colored backgrounds)."
+              data-ar="ملاحظة عينة (ليست من التصميم): هياكل التحميل ثابتة — أُزيل الأنيميشن النابض المستمر (animate-pulse) من المصدر تطبيقاً لقاعدة الجهاز الضعيف. كتل الهيكل أصبحت أسطحاً غائرة (العمق بالظلال، بلا خلفيات ملونة).">Sample note (not part of the design): loading skeletons are STATIC — the source's continuous pulse animation (animate-pulse) is removed per the weak-device rule. Skeleton blocks become inset surfaces (depth by shadow, no colored backgrounds).</span>
+      </div>
+      <div class="sample-note">
+        <span data-en="Sample note (not part of the design): NavigationProgress is a 2px top bar that flashes at 100% for 240ms after each navigation completes, then hides. Shown statically here; its emerald-to-cyan gradient became solid primary (no gradients in the new identity)."
+              data-ar="ملاحظة عينة (ليست من التصميم): شريط التقدم العلوي بسماكة 2px يومض عند 100% لمدة 240ms بعد اكتمال كل تنقّل ثم يختفي. يُعرض ثابتاً هنا؛ تدرّجه Emerald-to-cyan أصبح لون primary صلباً (لا تدرّجات في الهوية الجديدة).">Sample note (not part of the design): NavigationProgress is a 2px top bar that flashes at 100% for 240ms after each navigation completes, then hides. Shown statically here; its emerald-to-cyan gradient became solid primary (no gradients in the new identity).</span>
+      </div>
+    </div>
+
+    <!-- ══════════ هيكل تحميل الرئيسية (app/loading.tsx) ══════════ -->
+    <section class="sk-main" id="viewHome">
+      <div class="sample-note view-note">
+        <span data-en="Home loading skeleton — app/loading.tsx (badge pill, two title lines, subtitle, then 3 stat cards)." data-ar="هيكل تحميل الرئيسية — app/loading.tsx (شارة، سطرا عنوان، سطر فرعي، ثم 3 بطاقات إحصائيات).">Home loading skeleton — app/loading.tsx (badge pill, two title lines, subtitle, then 3 stat cards).</span>
+      </div>
+      <div class="sk-home-head">
+        <div class="sk sk-pill" style="height:32px;width:160px"></div>
+        <div class="sk sk-block" style="height:56px;width:100%"></div>
+        <div class="sk sk-block" style="height:56px;width:75%"></div>
+        <div class="sk sk--soft sk-block" style="height:24px;width:66.67%"></div>
+      </div>
+      <div class="sk-home-stats">
+        <div class="sk sk-block" style="height:112px"></div>
+        <div class="sk sk-block" style="height:112px"></div>
+        <div class="sk sk-block" style="height:112px"></div>
+      </div>
+    </section>
+
+    <!-- ══════════ هيكل تحميل التسعير (app/pricing/loading.tsx) ══════════ -->
+    <section class="sk-main hidden" id="viewPricing">
+      <div class="sample-note view-note">
+        <span data-en="Pricing loading skeleton — app/pricing/loading.tsx (centered badge pill + title, then 3 plan cards)." data-ar="هيكل تحميل التسعير — app/pricing/loading.tsx (شارة وعنوان في الوسط، ثم 3 بطاقات خطط).">Pricing loading skeleton — app/pricing/loading.tsx (centered badge pill + title, then 3 plan cards).</span>
+      </div>
+      <div class="sk-pricing-head">
+        <div class="sk sk-pill" style="height:32px;width:192px"></div>
+        <div class="sk sk-block" style="height:48px;width:100%;max-width:448px"></div>
+      </div>
+      <div class="sk-pricing-cards">
+        <div class="sk-card" style="height:320px"></div>
+        <div class="sk-card" style="height:320px"></div>
+        <div class="sk-card" style="height:320px"></div>
+      </div>
+    </section>
+
+    <!-- ══════════ هيكل تحميل الاستوديو (app/studio/loading.tsx) ══════════ -->
+    <section class="sk-main hidden" id="viewStudio">
+      <div class="sample-note view-note">
+        <span data-en="Studio loading skeleton — app/studio/loading.tsx (header pill, then editor panel + preview panel side by side)." data-ar="هيكل تحميل الاستوديو — app/studio/loading.tsx (شارة الترويسة، ثم لوحة المحرّر ولوحة المعاينة جنباً إلى جنب).">Studio loading skeleton — app/studio/loading.tsx (header pill, then editor panel + preview panel side by side).</span>
+      </div>
+      <div class="sk-studio-wrap">
+        <div class="sk sk-pill" style="height:36px;width:192px"></div>
+        <div class="sk-studio-grid">
+          <div class="sk-panel sk-studio-editor">
+            <div class="sk sk-block" style="height:32px;width:50%"></div>
+            <div class="sk sk-block" style="height:96px;width:100%"></div>
+            <div class="sk sk-block" style="height:96px;width:100%"></div>
+            <div class="sk sk-block" style="height:48px;width:100%"></div>
+          </div>
+          <div class="sk-panel">
+            <div class="sk sk-block" style="height:256px;width:100%;max-width:448px;margin-inline:auto"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ══════════ أداة مراجعة للتنقل بين الهياكل وحالة الشريط — ليست من التصميم ══════════ -->
+  <div class="review-bar">
+    <span data-en="Review tool (not part of the design):" data-ar="أداة مراجعة (ليست من التصميم):">Review tool (not part of the design):</span>
+    <button type="button" data-view="home" class="is-active" data-en="Home" data-ar="الرئيسية">Home</button>
+    <button type="button" data-view="pricing" data-en="Pricing" data-ar="التسعير">Pricing</button>
+    <button type="button" data-view="studio" data-en="Studio" data-ar="الاستوديو">Studio</button>
+    <span class="rb-sep" aria-hidden="true"></span>
+    <span data-en="Top bar:" data-ar="الشريط العلوي:">Top bar:</span>
+    <button type="button" data-bar="on" class="is-active" data-en="100% flash" data-ar="وميض 100%">100% flash</button>
+    <button type="button" data-bar="off" data-en="Hidden" data-ar="مخفي">Hidden</button>
+  </div>
+
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var views = { home: $("viewHome"), pricing: $("viewPricing"), studio: $("viewStudio") };
+  var current = "home", barOn = true;
+
+  function render() {
+    Object.keys(views).forEach(function (k) { views[k].classList.toggle("hidden", k !== current); });
+    $("navProgress").classList.toggle("hidden", !barOn);
+    document.querySelectorAll(".review-bar button[data-view]").forEach(function (b) {
+      b.classList.toggle("is-active", b.getAttribute("data-view") === current);
+    });
+    document.querySelectorAll(".review-bar button[data-bar]").forEach(function (b) {
+      b.classList.toggle("is-active", (b.getAttribute("data-bar") === "on") === barOn);
+    });
+  }
+  document.querySelectorAll(".review-bar button[data-view]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      current = b.getAttribute("data-view");
+      render();
+      window.scrollTo({ top: 0 });
+    });
+  });
+  document.querySelectorAll(".review-bar button[data-bar]").forEach(function (b) {
+    b.addEventListener("click", function () { barOn = b.getAttribute("data-bar") === "on"; render(); });
+  });
+  render();
+</script>
+</body>
+</html>

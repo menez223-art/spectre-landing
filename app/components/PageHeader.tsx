@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useLocale } from "@/app/components/LocaleProvider";
 import { LangToggle } from "@/app/components/LangToggle";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
-import { ThemeSelector } from "@/app/components/ThemeSelector";
 import { StudioLink } from "@/app/components/StudioLink";
 
 type Props = {
@@ -37,72 +36,52 @@ export function PageHeader({ showAdminButton = true, onAdminClick, hideOnScroll 
   return (
     <>
       {/* شريط «بسم الله» — نص عربي ثابت لا يتأثر بمبدّل اللغة */}
-      <div
-        lang="ar"
-        translate="no"
-        className="border-b border-navy-900/10 bg-navy-900 py-1.5 text-center dark:border-white/10"
-      >
-        <p className="font-display text-sm font-bold tracking-wide text-ivory-50/90">
-          بسم الله
-        </p>
+      <div lang="ar" translate="no" className="neu-bismillah">
+        بسم الله
       </div>
 
-      {/* الترويسة — زجاج سائل pill لاصقة */}
+      {/* الترويسة — neumorphic لاصقة */}
       <header
-        className={`sticky top-0 z-50 border-b border-navy-900/10 transition-transform duration-300 will-change-transform dark:border-white/10 ${
+        className={`page-header-neu transition-transform duration-300 will-change-transform ${
           hideOnScroll ? (hdrHidden ? "-translate-y-full" : "translate-y-0") : ""
         }`}
       >
-        <div className="container-landing py-3 sm:py-4">
-          <div className="liquid-glass liquid-glass--pill flex flex-wrap items-center justify-between gap-x-3 gap-y-2 overflow-hidden rounded-full px-3 py-2 sm:px-4">
-            {/* الشعار */}
-            <Link href="/" prefetch className="group flex items-center gap-2 sm:gap-3">
-              <div className="grid h-9 w-9 place-items-center rounded-xl theme-gradient font-display text-lg font-bold text-white theme-shadow transition group-hover:theme-shadow-lg sm:h-10 sm:w-10">
-                S
-              </div>
-              <span className="font-display text-lg font-extrabold tracking-tight text-navy-900 dark:text-ivory-50 sm:text-2xl">
-                {t("brand")}
-              </span>
+        <div className="neu-wrap">
+          {/* الشعار */}
+          <Link href="/" prefetch className="brand-mark">
+            <div className="neu-circle neu-circle--sm">S</div>
+            <span>{t("brand")}</span>
+          </Link>
+
+          <nav className="hidden items-center gap-6 text-sm font-semibold md:flex" aria-label={t("products")}>
+            <Link href="/#catalog" prefetch={false} className="neu-link t-muted">
+              {t("products")}
             </Link>
+            <Link href="/studio" prefetch className="neu-link t-muted">
+              {t("studio")}
+            </Link>
+          </nav>
 
-            <nav
-              className="hidden items-center gap-8 text-sm font-semibold text-navy-700 dark:text-ivory-200 md:flex"
-              aria-label={t("products")}
-            >
-              <Link href="/#catalog" prefetch={false} className="transition hover:text-navy-400 dark:hover:text-blue-400">
-                {t("products")}
-              </Link>
-              <Link href="/studio" prefetch className="transition hover:text-navy-400 dark:hover:text-blue-400">
-                {t("studio")}
-              </Link>
-            </nav>
-
-            <div className="flex items-center gap-1.5">
-              <ThemeSelector />
-              <ThemeToggle />
-              <LangToggle />
-              <Link
-                href="/pricing"
-                prefetch
-                className="hidden rounded-xl border border-navy-900/10 bg-white/50 px-4 py-2 text-sm font-semibold text-navy-700 backdrop-blur transition hover:border-navy-900/20 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-ivory-50 sm:block"
+          <div className="header-actions">
+            <ThemeToggle />
+            <LangToggle />
+            <Link href="/pricing" prefetch className="neu-btn hidden sm:inline-flex">
+              الخطط والأسعار
+            </Link>
+            {showAdminButton && (
+              <button
+                onClick={onAdminClick}
+                title={t("adminLoginTitle")}
+                aria-label={t("adminLoginTitle")}
+                className="neu-btn"
               >
-                الخطط والأسعار
-              </Link>
-              {showAdminButton && (
-                <button
-                  onClick={onAdminClick}
-                  title={t("adminLoginTitle")}
-                  aria-label={t("adminLoginTitle")}
-                  className="rounded-xl border border-navy-900/10 bg-white/50 px-3 py-2 text-sm font-semibold text-navy-700 backdrop-blur transition hover:border-navy-900/20 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-ivory-50 sm:px-4"
-                >
-                  <span aria-hidden className="sm:hidden">🔑</span>
-                  <span className="hidden sm:inline">{t("adminLoginTitle")}</span>
-                </button>
-              )}
-              <StudioLink className="rounded-xl theme-gradient px-3.5 py-2 text-xs font-bold text-white theme-shadow transition hover:theme-shadow-lg sm:px-6 sm:text-sm">
-                {t("newPage")}
-              </StudioLink>
-            </div>
+                <i className="fa-solid fa-key sm:hidden" aria-hidden="true" />
+                <span className="hidden sm:inline">{t("adminLoginTitle")}</span>
+              </button>
+            )}
+            <StudioLink className="neu-btn neu-btn--lg">
+              {t("newPage")}
+            </StudioLink>
           </div>
         </div>
       </header>

@@ -67,14 +67,14 @@ export function ProductItemsEditor({
   const canAdd = items.length < maxProducts;
 
   return (
-    <section className={bare ? "grid gap-4" : "grid gap-4 rounded-3xl border border-navy-900/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#11161d]"}>
+    <section className={bare ? "grid gap-4" : "neu-card grid gap-4 p-5"}>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-base font-bold">{t("productsTitle")}</h2>
-        <span className="text-[11px] font-semibold text-navy-900/45">
+        <h2 className="text-base font-bold">{t("productsTitle")}</h2>
+        <span className="text-[11px] font-semibold t-muted">
           {t("productsCount", { n: items.length, max: maxProducts })}
         </span>
       </div>
-      <p className="text-[11px] leading-5 text-navy-900/45">
+      <p className="text-[11px] leading-5 t-muted">
         {t("productsHint")} {t("imagesRemaining", { n: remainingImages })}
       </p>
 
@@ -86,10 +86,10 @@ export function ProductItemsEditor({
             <div
               key={i}
               dir={dir}
-              className={`flex items-center gap-3 rounded-2xl border p-2.5 transition ${
+              className={`neu-row flex items-center gap-3 !p-2.5 transition ${
                 isActive
-                  ? "border-navy-500 bg-ivory-50 dark:border-navy-400 dark:bg-[#161b22]"
-                  : "border-navy-900/10 bg-transparent hover:border-navy-500/40 dark:border-white/10"
+                  ? "![box-shadow:var(--shadow-inner-sm)]"
+                  : ""
               }`}
             >
               <button
@@ -97,19 +97,19 @@ export function ProductItemsEditor({
                 onClick={() => onSelect(i)}
                 className="flex flex-1 items-center gap-3 text-start"
               >
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-ivory-100 ring-1 ring-navy-900/10">
+                <div className="neu-inset relative h-12 w-12 shrink-0 overflow-hidden">
                   {it.image ? (
                     /* eslint-disable-next-line @next/next/no-img-element -- صورة مصغّرة data:URL محلية */
                     <img src={it.image} alt={it.name} className="h-full w-full object-cover" />
                   ) : (
-                    <span className="grid h-full w-full place-items-center text-base">📦</span>
+                    <span className="grid h-full w-full place-items-center text-base"><i className="fa-solid fa-box t-muted" aria-hidden="true" /></span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-bold text-navy-900 dark:text-ivory-50">
+                  <div className="truncate text-sm font-bold">
                     {it.name?.trim() || `#${i + 1}`}
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-navy-900/50">
+                  <div className="flex items-center gap-2 text-[11px] t-muted">
                     <span>{fmtPrice(it.price)}</span>
                     {(it.images.length > 0 || it.image) && (
                       <span>
@@ -122,7 +122,7 @@ export function ProductItemsEditor({
                         {it.colors.slice(0, 4).map((c, k) => (
                           <span
                             key={k}
-                            className="inline-block h-2.5 w-2.5 rounded-full ring-1 ring-black/10"
+                            className="inline-block h-2.5 w-2.5 rounded-full [box-shadow:var(--shadow-inner-sm)]"
                             style={{ background: /^#[0-9a-fA-F]{6}$/.test(c.hex) ? c.hex : "#888" }}
                           />
                         ))}
@@ -135,10 +135,10 @@ export function ProductItemsEditor({
                 <button
                   type="button"
                   onClick={() => onRemove(i)}
-                  className="shrink-0 rounded-full border border-red-400/30 px-2.5 py-1 text-xs font-bold text-red-600 transition hover:bg-red-50 dark:hover:bg-red-500/10"
+                  className="neu-btn neu-btn--danger shrink-0 !px-2.5 !py-1 !text-xs"
                   aria-label={t("remove")}
                 >
-                  ✕
+                  <i className="fa-solid fa-xmark" aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -151,13 +151,13 @@ export function ProductItemsEditor({
         type="button"
         onClick={onAdd}
         disabled={!canAdd}
-        className="rounded-full border border-dashed border-navy-900/25 px-4 py-2.5 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/20 dark:text-ivory-50"
+        className="w-full rounded-[var(--r-control)] border-[1.5px] border-dashed border-[var(--text-muted)] bg-[var(--bg-color)] px-4 py-2.5 text-xs font-bold t-muted transition disabled:cursor-not-allowed disabled:opacity-40"
       >
-        + {t("addProduct")}
+        <i className="fa-solid fa-plus" aria-hidden="true" /> {t("addProduct")}
       </button>
       {!canAdd && atLimitNote ? (
         <p
-          className="rounded-xl border border-amber-400/30 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+          className="neu-inset px-3 py-2 text-[11px] font-semibold t-warning"
           dir="auto"
         >
           {atLimitNote}
@@ -165,22 +165,22 @@ export function ProductItemsEditor({
       ) : null}
 
       {/* حقول العنصر النشط */}
-      <div className="grid gap-3 border-t border-navy-900/10 pt-4 dark:border-white/10">
+      <div className="grid gap-3 pt-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1.5 text-xs font-semibold text-navy-700">
+          <label className="grid gap-1.5 text-xs font-semibold">
             <span>{t("productName")}</span>
             <input
-              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+              className="neu-input"
               value={items[activeIndex]?.name ?? ""}
               onChange={(e) => update(activeIndex, { name: e.target.value })}
               placeholder={t("productNamePh")}
             />
           </label>
-          <label className="grid gap-1.5 text-xs font-semibold text-navy-700">
+          <label className="grid gap-1.5 text-xs font-semibold">
             <span>{t("nameEn")}</span>
             <input
               dir="ltr"
-              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+              className="neu-input"
               value={items[activeIndex]?.nameEn ?? ""}
               onChange={(e) => update(activeIndex, { nameEn: e.target.value })}
               placeholder="Pro Wireless Earbuds"
@@ -188,20 +188,20 @@ export function ProductItemsEditor({
           </label>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1.5 text-xs font-semibold text-navy-700">
+          <label className="grid gap-1.5 text-xs font-semibold">
             <span>{t("price")}</span>
             <input
-              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+              className="neu-input"
               value={items[activeIndex]?.price ?? ""}
               onChange={(e) => update(activeIndex, { price: e.target.value })}
               placeholder="4500"
               inputMode="numeric"
             />
           </label>
-          <label className="grid gap-1.5 text-xs font-semibold text-navy-700">
+          <label className="grid gap-1.5 text-xs font-semibold">
             <span>{t("oldPrice")}</span>
             <input
-              className="w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+              className="neu-input"
               value={items[activeIndex]?.oldPrice ?? ""}
               onChange={(e) => update(activeIndex, { oldPrice: e.target.value })}
               placeholder="5000"

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login — عينة الهوية الجديدة</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  /* ── تخطيط صفحة الدخول: من نمط studio-login المرجعي ── */
+  body {
+    display: flex; justify-content: center; align-items: center;
+    position: relative; overflow: hidden; padding: 24px 24px 96px;
+  }
+  .bg1 { width: 150px; height: 150px; top: 8%; left: 10%; }
+  .bg2 { width: 50px; height: 50px; top: 20%; right: 20%; }
+  .bg3 { width: 100px; height: 100px; bottom: 10%; right: 12%; }
+
+  .login-card {
+    width: 380px; max-width: 100%;
+    padding: 40px 30px;
+    border-radius: var(--r-card);
+    background: var(--bg-color);
+    box-shadow: var(--shadow-outer);
+    z-index: 1; text-align: center; position: relative;
+  }
+  .logo-circle {
+    width: 70px; height: 70px; margin: 0 auto 20px;
+    border-radius: 50%; background: var(--bg-color);
+    box-shadow: var(--shadow-outer);
+    display: flex; justify-content: center; align-items: center;
+    color: var(--primary-color); font-size: 26px;
+  }
+  .brand { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
+  .subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 30px; }
+
+  /* صندوق الخطأ: سطح غائر + أيقونة حالة + نص ورقي منفصل (قاعدة الموجز) */
+  .err-box {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; margin-bottom: 18px;
+    font-size: 11px; font-weight: 600; line-height: 1.7;
+    color: var(--danger-color); text-align: start;
+  }
+  .err-box i { flex-shrink: 0; }
+  .hidden { display: none !important; }
+
+  /* غلاف النافذة (AdminLoginModal): عنوان + إغلاق حول نفس البطاقة */
+  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .modal-head h2 { font-size: 18px; font-weight: 700; }
+  .login-modal-card { max-width: 460px; }
+  .login-modal-card .login-inner { text-align: center; }
+  .login-modal-card .logo-circle { width: 56px; height: 56px; font-size: 20px; margin-bottom: 14px; }
+  .login-modal-card .subtitle { margin-bottom: 22px; }
+
+  /* ── أداة مراجعة: ليست من التصميم (تُزال عند التطبيق) ── */
+  .review-bar {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 300; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 14px; border: 1.5px dashed var(--text-muted);
+    border-radius: 12px; background: var(--bg-color);
+    box-shadow: var(--shadow-outer-sm);
+    font-size: 11px; color: var(--text-muted); max-width: calc(100vw - 24px);
+  }
+  .review-bar button {
+    border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm);
+    color: var(--text-muted); border-radius: 10px; padding: 5px 12px;
+    font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .review-bar button.is-active { box-shadow: var(--shadow-inner-sm); color: var(--primary-color); }
+</style>
+</head>
+<body>
+
+  <!-- أزرار التحكم (اللغة + المود الليلي) — من كود الهوية -->
+  <div class="top-controls">
+    <button class="neu-circle" id="langBtn" data-en-title="Change language" data-ar-title="تغيير اللغة" title="Change language">AR</button>
+    <button class="neu-circle" id="themeBtn" data-en-title="Toggle dark mode" data-ar-title="تبديل الوضع الليلي" title="Toggle dark mode">
+      <i class="fa-solid fa-moon"></i>
+    </button>
+  </div>
+
+  <!-- الدوائر الخلفية — من كود الهوية -->
+  <div class="bg-circle bg1"></div>
+  <div class="bg-circle bg2"></div>
+  <div class="bg-circle bg3"></div>
+
+  <!-- بطاقة دخول المشرف (بنية AdminLoginBox الحقيقية: عنوان، بريد، كلمة مرور، خطأ، دخول) -->
+  <div class="login-card" id="loginCard">
+    <div class="logo-circle"><i class="fa-solid fa-key"></i></div>
+    <p class="brand" data-en="Admin login" data-ar="دخول المشرف">Admin login</p>
+    <p class="subtitle" data-en="For admin only" data-ar="للمشرف فقط">For admin only</p>
+
+    <form id="formMain" novalidate>
+      <div class="input-group">
+        <input type="email" class="neu-input" id="email" dir="ltr" placeholder="Email"
+               data-en-ph="Email" data-ar-ph="البريد الإلكتروني" autocomplete="username" required>
+        <span class="floating-label" data-en="Email" data-ar="البريد الإلكتروني">Email</span>
+      </div>
+      <div class="input-group">
+        <input type="password" class="neu-input" id="password" dir="ltr" placeholder="Password"
+               data-en-ph="Password" data-ar-ph="كلمة المرور" autocomplete="current-password" required>
+        <span class="floating-label" data-en="Password" data-ar="كلمة المرور">Password</span>
+        <i class="fa-solid fa-eye toggle-password"></i>
+      </div>
+      <div class="err-box neu-inset hidden" id="errMain" role="alert">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span data-en="Invalid credentials." data-ar="بيانات الدخول غير صحيحة.">Invalid credentials.</span>
+      </div>
+      <button type="submit" class="neu-btn neu-btn--lg neu-btn--block" id="submitMain" data-en="Enter" data-ar="دخول">Enter</button>
+    </form>
+  </div>
+
+  <!-- غلاف AdminLoginModal: نفس البطاقة داخل نافذة بعنوان وزر إغلاق -->
+  <div class="neu-overlay hidden" id="modalOverlay">
+    <div class="neu-card login-modal-card">
+      <div class="modal-head">
+        <h2 data-en="Admin login" data-ar="دخول المشرف">Admin login</h2>
+        <button type="button" class="neu-circle neu-circle--sm" id="modalClose" data-en-title="Close" data-ar-title="إغلاق" title="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="login-inner">
+        <div class="logo-circle"><i class="fa-solid fa-key"></i></div>
+        <p class="subtitle" data-en="For admin only" data-ar="للمشرف فقط">For admin only</p>
+        <form id="formModal" novalidate>
+          <div class="input-group">
+            <input type="email" class="neu-input" id="mEmail" dir="ltr" placeholder="Email"
+                   data-en-ph="Email" data-ar-ph="البريد الإلكتروني" autocomplete="username" required>
+            <span class="floating-label" data-en="Email" data-ar="البريد الإلكتروني">Email</span>
+          </div>
+          <div class="input-group">
+            <input type="password" class="neu-input" id="mPassword" dir="ltr" placeholder="Password"
+                   data-en-ph="Password" data-ar-ph="كلمة المرور" autocomplete="current-password" required>
+            <span class="floating-label" data-en="Password" data-ar="كلمة المرور">Password</span>
+            <i class="fa-solid fa-eye toggle-password"></i>
+          </div>
+          <div class="err-box neu-inset hidden" id="errModal" role="alert">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span data-en="Invalid credentials." data-ar="بيانات الدخول غير صحيحة.">Invalid credentials.</span>
+          </div>
+          <button type="submit" class="neu-btn neu-btn--lg neu-btn--block" id="submitModal" data-en="Enter" data-ar="دخول">Enter</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- أداة مراجعة للتنقل بين حالات الصفحة — ليست من التصميم -->
+  <div class="review-bar">
+    <span data-en="Review tool (not part of the design):" data-ar="أداة مراجعة (ليست من التصميم):">Review tool (not part of the design):</span>
+    <button type="button" data-stage="card" class="is-active" data-en="Card" data-ar="البطاقة">Card</button>
+    <button type="button" data-stage="error" data-en="Error" data-ar="الخطأ">Error</button>
+    <button type="button" data-stage="busy" data-en="Loading" data-ar="التحميل">Loading</button>
+    <button type="button" data-stage="modal" data-en="Modal" data-ar="النافذة">Modal</button>
+  </div>
+
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var modalOverlay = $("modalOverlay");
+  var errMain = $("errMain"), errModal = $("errModal");
+  var submitMain = $("submitMain"), submitModal = $("submitModal");
+  var stage = "card";
+
+  function setStage(s) {
+    stage = s;
+    var modal = s === "modal";
+    modalOverlay.classList.toggle("hidden", !modal);
+    errMain.classList.toggle("hidden", s !== "error");
+    errModal.classList.toggle("hidden", s !== "error");
+    var busy = s === "busy";
+    submitMain.disabled = busy;
+    submitModal.disabled = busy;
+    SampleUI.setText(submitMain, busy ? "…" : "Enter", busy ? "…" : "دخول");
+    SampleUI.setText(submitModal, busy ? "…" : "Enter", busy ? "…" : "دخول");
+    document.querySelectorAll(".review-bar button[data-stage]").forEach(function (b) {
+      b.classList.toggle("is-active", b.getAttribute("data-stage") === s);
+    });
+  }
+
+  /* عرض تجريبي: الإرسال يحاكي الدخول الناجح ثم ينتقل إلى عينة لوحة الأدمن */
+  function demoLogin(btn) {
+    btn.disabled = true;
+    SampleUI.setText(btn, "…", "…");
+    setTimeout(function () { window.location.href = "admin.html"; }, 900);
+  }
+  $("formMain").addEventListener("submit", function (e) { e.preventDefault(); demoLogin(submitMain); });
+  $("formModal").addEventListener("submit", function (e) { e.preventDefault(); demoLogin(submitModal); });
+
+  /* إغلاق النافذة: زر الإغلاق + Escape + نقرة الخلفية (كما AdminLoginModal) */
+  $("modalClose").addEventListener("click", function () { setStage("card"); });
+  modalOverlay.addEventListener("mousedown", function (e) { if (e.target === modalOverlay) setStage("card"); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && stage === "modal") setStage("card"); });
+
+  document.querySelectorAll(".review-bar button[data-stage]").forEach(function (b) {
+    b.addEventListener("click", function () { setStage(b.getAttribute("data-stage")); });
+  });
+</script>
+</body>
+</html>

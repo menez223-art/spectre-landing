@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Store — عينة الهوية الجديدة</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  /* ── عام: مساحة أسفل الصفحة كي لا يغطي شريط المراجعة المحتوى ── */
+  body { padding-bottom: 150px; }
+  .hidden { display: none !important; }
+
+  /* ── شريط بسم الله ── */
+  .bismillah { text-align: center; padding: 7px 0; }
+  .bismillah p { font-size: 13px; font-weight: 700; color: var(--primary-color); }
+
+  /* ── الترويسة ── */
+  .brand-mark .brand-name { font-size: 20px; font-weight: 700; }
+  .main-nav { display: flex; align-items: center; gap: 22px; }
+  .main-nav a { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 600; }
+  .main-nav a:hover { color: var(--primary-color); }
+  .header-actions .neu-btn { padding: 9px 16px; font-size: 13px; }
+  .admin-key { display: none; }
+  @media (max-width: 860px) { .main-nav { display: none; } }
+  @media (max-width: 639px) {
+    .admin-label { display: none; }
+    .admin-key { display: inline; }
+    .pricing-link { display: none; }
+  }
+
+  /* ── ترويسة المتجر (catalogEyebrow/Title/Sub + زر صفحة جديدة) ── */
+  .store-section { padding: 48px 0; }
+  .store-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .store-head-copy { max-width: 520px; }
+  .store-title { margin-top: 10px; font-size: clamp(26px, 3.6vw, 38px); }
+  .store-sub { margin-top: 12px; font-size: 13px; line-height: 1.8; color: var(--text-muted); }
+
+  /* ── ملاحظة عينة (ليست من التصميم) ── */
+  .sample-note { border: 1.5px dashed var(--text-muted); border-radius: 12px; padding: 10px 14px; font-size: 11px; line-height: 1.8; color: var(--text-muted); text-align: start; margin-bottom: 24px; }
+
+  /* ── شرائح التصفية (FilterChip: neu-tab + عدّاد) ── */
+  .store-tabs { margin-bottom: 32px; }
+  .chip-count { background: var(--bg-color); box-shadow: var(--shadow-inner-sm); border-radius: 999px; padding: 1px 8px; font-size: 10px; font-weight: 700; }
+
+  /* ── أقسام التصنيفات ── */
+  .cat-section { margin-bottom: 40px; }
+  .cat-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .cat-title { font-size: 22px; font-weight: 700; }
+  .cat-count { font-size: 11px; font-weight: 700; color: var(--text-muted); }
+
+  /* ── بطاقة المنتج (ProductCard) ── */
+  .product-card { overflow: hidden; display: flex; flex-direction: column; }
+  .product-media { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; margin: 14px; border-radius: var(--r-panel); text-decoration: none; }
+  .product-ph { font-size: 40px; color: var(--text-muted); }
+  .product-badge { position: absolute; top: 12px; inset-inline-start: 12px; }
+  .product-disc { position: absolute; top: 12px; inset-inline-end: 12px; }
+  .product-body { display: flex; flex-direction: column; gap: 14px; flex: 1; padding: 4px 18px 18px; }
+  .product-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .product-info { min-width: 0; }
+  .product-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .product-name a { color: var(--text-main); text-decoration: none; }
+  .product-name a:hover { color: var(--primary-color); }
+  .product-eyebrow { margin-top: 4px; font-size: 11px; font-weight: 600; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .product-owner { margin-top: 4px; display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--success-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .product-price { flex-shrink: 0; text-align: end; }
+  .price-now { font-size: 16px; font-weight: 700; white-space: nowrap; }
+  .price-old { margin-top: 2px; font-size: 11px; color: var(--text-muted); text-decoration: line-through; white-space: nowrap; }
+  .product-open { margin-top: auto; padding: 10px 16px; font-size: 12px; }
+
+  /* ── حالة التحميل: هياكل ثابتة (بلا أنيميشن مستمر — جهاز ضعيف) ── */
+  .skeleton { height: 288px; }
+
+  /* ── الحالة الفارغة ── */
+  .store-empty { padding: 64px 24px; text-align: center; }
+  .store-empty-icon { font-size: 40px; color: var(--text-muted); }
+  .store-empty h2 { margin-top: 16px; font-size: 18px; font-weight: 700; }
+  .store-empty p { margin: 8px auto 0; max-width: 360px; font-size: 13px; line-height: 1.8; color: var(--text-muted); }
+
+  /* ── التذييل ── */
+  .page-footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 24px; padding-bottom: 8px; }
+  .page-footer p { font-size: 12px; color: var(--text-muted); }
+
+  /* ── صناديق الرسائل ── */
+  .msg-box { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; font-size: 11px; font-weight: 600; line-height: 1.8; text-align: start; }
+  .msg-box i { margin-top: 3px; }
+  .msg-box--danger { color: var(--danger-color); }
+
+  /* ── نافذة دخول المشرف ── */
+  .admin-title { margin-bottom: 20px; padding-inline-end: 48px; }
+  .admin-box { text-align: center; }
+  .admin-box-title { font-size: 17px; font-weight: 700; }
+  .admin-box .neu-sub { margin: 4px 0 20px; }
+  .admin-box form { text-align: start; }
+  .admin-box .msg-box { margin-bottom: 18px; }
+
+  /* ── أداة مراجعة: ليست من التصميم ── */
+  .review-bar {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 150; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 14px; border: 1.5px dashed var(--text-muted);
+    border-radius: 12px; background: var(--bg-color);
+    font-size: 11px; color: var(--text-muted); max-width: calc(100vw - 24px);
+  }
+  .review-bar button, .review-bar a {
+    border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm);
+    color: var(--text-muted); border-radius: 10px; padding: 5px 12px;
+    font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+    text-decoration: none; display: inline-block;
+  }
+  .review-bar button.is-active, .review-bar a.is-active { box-shadow: var(--shadow-inner-sm); color: var(--primary-color); }
+</style>
+</head>
+<body>
+
+  <!-- شريط «بسم الله» — نص عربي ثابت لا يتأثر بمبدّل اللغة -->
+  <div lang="ar" translate="no" class="bismillah"><p>بسم الله</p></div>
+  <hr class="neu-divider">
+
+  <!-- الترويسة (PageHeader) -->
+  <header class="page-header">
+    <div class="wrap">
+      <a href="home.html" class="brand-mark">
+        <div class="neu-circle neu-circle--sm">S</div>
+        <span class="brand-name"><span data-en="Studio" data-ar="استوديو">Studio</span><span class="t-primary">.</span></span>
+      </a>
+      <nav class="main-nav">
+        <a href="home.html#catalog" data-en="Products" data-ar="المنتجات">Products</a>
+        <a href="studio-login.html" data-en="Studio" data-ar="الاستوديو">Studio</a>
+      </nav>
+      <div class="header-actions">
+        <button type="button" class="neu-circle neu-circle--sm" id="themeBtn" data-en-title="Toggle dark mode" data-ar-title="تبديل الوضع الليلي" title="Toggle dark mode">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <button type="button" class="neu-circle neu-circle--sm" id="langBtn" data-en-title="Change language" data-ar-title="تغيير اللغة" title="Change language">AR</button>
+        <a href="pricing.html" class="neu-btn pricing-link"><span data-en="Plans &amp; pricing" data-ar="الخطط والأسعار">Plans &amp; pricing</span></a>
+        <button type="button" class="neu-btn" id="adminBtn" title="Admin login"
+                data-en-title="Admin login" data-ar-title="دخول المشرف"
+                aria-label="Admin login" data-en-aria="Admin login" data-ar-aria="دخول المشرف">
+          <i class="fa-solid fa-key admin-key" aria-hidden="true"></i>
+          <span class="admin-label" data-en="Admin login" data-ar="دخول المشرف">Admin login</span>
+        </button>
+        <a href="studio-login.html" class="neu-btn"><span data-en="Create new page" data-ar="إنشاء صفحة جديدة">Create new page</span></a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="store-section">
+      <div class="wrap">
+        <div class="store-head">
+          <div class="store-head-copy">
+            <p class="neu-eyebrow" data-en="All products" data-ar="كل المنتجات">All products</p>
+            <h1 class="neu-title store-title" data-en="Product catalog" data-ar="فهرس المنتجات">Product catalog</h1>
+            <p class="store-sub" data-en="Static and generated pages — click any product to open its full landing page with the order form." data-ar="صفحات ثابتة ومولّدة — اضغط على أي منتج لعرض صفحة الهبوط الكاملة مع نموذج الطلب.">Static and generated pages — click any product to open its full landing page with the order form.</p>
+          </div>
+          <a href="studio-login.html" class="neu-btn">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span data-en="Create new page" data-ar="إنشاء صفحة جديدة">Create new page</span>
+          </a>
+        </div>
+
+        <div class="sample-note">
+          <span data-en="Sample note (not part of the design): demo product data for review — the live store loads published products from the catalog API. Product links normally open landing pages, which are out of scope here."
+                data-ar="ملاحظة عينة (ليست من التصميم): بيانات منتجات تجريبية للمراجعة — المتجر الحقيقي يجلب المنتجات المنشورة من واجهة الكتالوج. روابط المنتجات تفتح عادة صفحات هبوط وهي خارج النطاق هنا.">Sample note (not part of the design): demo product data for review — the live store loads published products from the catalog API. Product links normally open landing pages, which are out of scope here.</span>
+        </div>
+
+        <!-- حالة التحميل (StorefrontClient): هياكل ثابتة بلا أنيميشن -->
+        <div class="grid grid-3 hidden" id="storeLoading">
+          <div class="neu-inset skeleton"></div>
+          <div class="neu-inset skeleton"></div>
+          <div class="neu-inset skeleton"></div>
+        </div>
+
+        <!-- الحالة الفارغة: أيقونة fa-store بدل رمز المشروع -->
+        <div class="neu-card store-empty hidden" id="storeEmpty">
+          <i class="fa-solid fa-store store-empty-icon" aria-hidden="true"></i>
+          <h2 data-en="The store is empty for now" data-ar="المتجر فارغ حالياً">The store is empty for now</h2>
+          <p data-en="No products are listed publicly yet — check back soon for new pages." data-ar="لا توجد منتجات معروضة للعموم بعد — عُد قريباً لاكتشاف صفحات جديدة.">No products are listed publicly yet — check back soon for new pages.</p>
+        </div>
+
+        <!-- المتجر: شرائح التصنيفات + أقسام مجمّعة (وضع «الكل») -->
+        <div id="storeContent">
+          <div class="neu-tabs store-tabs" id="storeTabs">
+            <button type="button" class="neu-tab is-active" data-cat="__all__" aria-pressed="true">
+              <span data-en="All" data-ar="الكل">All</span>
+              <span class="chip-count">6</span>
+            </button>
+            <button type="button" class="neu-tab" data-cat="electronics" aria-pressed="false">
+              <span data-en="Electronics" data-ar="إلكترونيات">Electronics</span>
+              <span class="chip-count">2</span>
+            </button>
+            <button type="button" class="neu-tab" data-cat="clothing" aria-pressed="false">
+              <span data-en="Clothing" data-ar="ملابس">Clothing</span>
+              <span class="chip-count">1</span>
+            </button>
+            <button type="button" class="neu-tab" data-cat="home" aria-pressed="false">
+              <span data-en="Home &amp; Kitchen" data-ar="منزل ومطبخ">Home &amp; Kitchen</span>
+              <span class="chip-count">1</span>
+            </button>
+            <button type="button" class="neu-tab" data-cat="beauty" aria-pressed="false">
+              <span data-en="Care &amp; Beauty" data-ar="عناية وجمال">Care &amp; Beauty</span>
+              <span class="chip-count">1</span>
+            </button>
+            <button type="button" class="neu-tab" data-cat="general" aria-pressed="false">
+              <span data-en="General" data-ar="عام">General</span>
+              <span class="chip-count">1</span>
+            </button>
+          </div>
+
+          <div id="storeGrouped">
+            <!-- إلكترونيات -->
+            <section class="cat-section" data-cat="electronics">
+              <div class="cat-head">
+                <h2 class="cat-title"><span data-en="Electronics" data-ar="إلكترونيات">Electronics</span></h2>
+                <span class="cat-count" data-en="products" data-ar="منتجات">products</span>
+              </div>
+              <div class="grid grid-3">
+                <article class="neu-card product-card">
+                  <a href="#" class="product-media neu-inset">
+                    <i class="fa-solid fa-store product-ph" aria-hidden="true"></i>
+                    <span class="neu-badge neu-badge--primary product-badge"><span data-en="New" data-ar="جديد">New</span></span>
+                    <span class="neu-badge neu-badge--danger product-disc">-22%</span>
+                  </a>
+                  <div class="product-body">
+                    <div class="product-top">
+                      <div class="product-info">
+                        <h4 class="product-name"><a href="#"><span data-en="Wireless earbuds" data-ar="سماعات لاسلكية">Wireless earbuds</span></a></h4>
+                        <p class="product-eyebrow"><span data-en="Clear sound and long-lasting battery" data-ar="صوت نقي وبطارية تدوم طويلاً">Clear sound and long-lasting battery</span></p>
+                        <p class="product-owner">
+                          <i class="fa-solid fa-store" aria-hidden="true"></i>
+                          <span data-en="By:" data-ar="بواسطة:">By:</span>
+                          <span data-en="Tech Store" data-ar="متجر التقنية">Tech Store</span>
+                        </p>
+                      </div>
+                      <div class="product-price">
+                        <p class="price-now"><span data-en="3 500 دج" data-ar="3 500 دج">3 500 دج</span></p>
+                        <p class="price-old"><span data-en="4 500 دج" data-ar="4 500 دج">4 500 دج</span></p>
+                      </div>
+                    </div>
+                    <a href="#" class="neu-btn neu-btn--block product-open"><span data-en="Open" data-ar="فتح الصفحة">Open</span></a>
+                  </div>
+                </article>
+                <article class="neu-card product-card">
+                  <a href="#" class="product-media neu-inset">
+                    <i class="fa-solid fa-store product-ph" aria-hidden="true"></i>
+                  </a>
+                  <div class="product-body">
+                    <div class="product-top">
+                      <div class="product-info">
+                        <h4 class="product-name"><a href="#"><span data-en="Smart watch" data-ar="ساعة ذكية">Smart watch</span></a></h4>
+                        <p class="product-eyebrow"><span data-en="Fitness tracking and notifications" data-ar="تتبع اللياقة والإشعارات">Fitness tracking and notifications</span></p>
+                        <p class="product-owner">
+                          <i class="fa-solid fa-store" aria-hidden="true"></i>
+                          <span data-en="By:" data-ar="بواسطة:">By:</span>
+                          <span data-en="Tech Store" data-ar="متجر التقنية">Tech Store</span>
+                        </p>
+                      </div>
+                      <div class="product-price">
+                        <p class="price-now"><span data-en="5 200 دج" data-ar="5 200 دج">5 200 دج</span></p>
+                      </div>
+                    </div>
+                    <a href="#" class="neu-btn neu-btn--block product-open"><span data-en="Open" data-ar="فتح الصفحة">Open</span></a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <!-- ملابس -->
+            <section class="cat-section" data-cat="clothing">
+              <div class="cat-head">
+                <h2 class="cat-title"><span data-en="Clothing" data-ar="ملابس">Clothing</span></h2>
+                <span class="cat-count" data-en="products" data-ar="منتجات">products</span>
+              </div>
+              <div class="grid grid-3">
+                <article class="neu-card product-card">
+                  <a href="#" class="product-media neu-inset">
+                    <i class="fa-solid fa-store product-ph" aria-hidden="true"></i>
+                    <span class="neu-badge neu-badge--danger product-disc">-20%</span>
+                  </a>
+                  <div class="product-body">
+                    <div class="product-top">
+                      <div class="product-info">
+                        <h4 class="product-name"><a href="#"><span data-en="Men's shirt" data-ar="قميص رجالي">Men's shirt</span></a></h4>
+                        <p class="product-eyebrow"><span data-en="Comfortable cotton, modern cut" data-ar="قطن مريح بقصة عصرية">Comfortable cotton, modern cut</span></p>
+                        <p class="product-owner">
+                          <i class="fa-solid fa-store" aria-hidden="true"></i>
+                          <span data-en="By:" data-ar="بواسطة:">By:</span>
+                          <span data-en="Elegance for men" data-ar="أناقة للرجال">Elegance for men</span>
+                        </p>
+                      </div>
+                      <div class="product-price">
+                        <p class="price-now"><span data-en="2 800 دج" data-ar="2 800 دج">2 800 دج</span></p>
+                        <p class="price-old"><span data-en="3 500 دج" data-ar="3 500 دج">3 500 دج</span></p>
+                      </div>
+                    </div>
+                    <a href="#" class="neu-btn neu-btn--block product-open"><span data-en="Open" data-ar="فتح الصفحة">Open</span></a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <!-- منزل ومطبخ -->
+            <section class="cat-section" data-cat="home">
+              <div class="cat-head">
+                <h2 class="cat-title"><span data-en="Home &amp; Kitchen" data-ar="منزل ومطبخ">Home &amp; Kitchen</span></h2>
+                <span class="cat-count" data-en="products" data-ar="منتجات">products</span>
+              </div>
+              <div class="grid grid-3">
+                <article class="neu-card product-card">
+                  <a href="#" class="product-media neu-inset">
+                    <i class="fa-solid fa-store product-ph" aria-hidden="true"></i>
+                    <span class="neu-badge neu-badge--primary product-badge"><span data-en="Best seller" data-ar="الأكثر طلباً">Best seller</span></span>
+                  </a>
+                  <div class="product-body">
+                    <div class="product-top">
+                      <div class="product-info">
+                        <h4 class="product-name"><a href="#"><span data-en="Portable blender" data-ar="خلاط محمول">Portable blender</span></a></h4>
+                        <p class="product-eyebrow"><span data-en="Make your juice anywhere" data-ar="حضّر عصيرك في أي مكان">Make your juice anywhere</span></p>
+                        <p class="product-owner">
+                          <i class="fa-solid fa-store" aria-hidden="true"></i>
+                          <span data-en="By:" data-ar="بواسطة:">By:</span>
+                          <span data-en="Kitchen Home" data-ar="بيت المطبخ">Kitchen Home</span>
+                        </p>
+                      </div>
+                      <div class="product-price">
+                        <p class="price-now"><span data-en="4 100 دج" data-ar="4 100 دج">4 100 دج</span></p>
+                      </div>
+                    </div>
+                    <a href="#" class="neu-btn neu-btn--block product-open"><span data-en="Open" data-ar="فتح الصفحة">Open</span></a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <!-- عناية وجمال -->
+            <section class="cat-section" data-cat="beauty">
+              <div class="cat-head">
+                <h2 class="cat-title"><span data-en="Care &amp; Beauty" data-ar="عناية وجمال">Care &amp; Beauty</span></h2>
+                <span class="cat-count" data-en="products" data-ar="منتجات">products</span>
+              </div>
+              <div class="grid grid-3">
+                <article class="neu-card product-card">
+                  <a href="#" class="product-media neu-inset">
+                    <i class="fa-solid fa-store product-ph" aria-hidden="true"></i>
+                    <span class="neu-badge neu-badge--primary product-badge"><span data-en="Special offer" data-ar="عرض خاص">Special offer</span></span>
+                    <span class="neu-badge neu-badge--danger product-disc">-20%</span>
+                  </a>
+                  <div class="product-body">
+                    <div class="product-top">
+                      <div class="product-info">
+                        <h4 class="product-name"><a href="#"><span data-en="Skincare set" data-ar="مجموعة عناية بالبشرة">Skincare set</span></a></h4>
+                        <p class="product-eyebrow"><span data-en="Daily routine for healthy skin" data-ar="روتين يومي لبشرة صحية">Daily routine for healthy skin</span></p>
+                        <p class="product-owner">
+                          <i class="fa-solid fa-store" aria-hidden="true"></i>
+                          <span data-en="By:" data-ar="بواسطة:">By:</span>
+                          <span data-en="Beauty Touch" data-ar="لمسة جمال">Beauty Touch</span>
+                        </p>
+                      </div>
+                      <div class="product-price">
+                        <p class="price-now"><span data-en="3 900 دج" data-ar="3 900 دج">3 900 دج</span></p>
+                        <p class="price-old"><span data-en="4 900 دج" data-ar="4 900 دج">4 900 دج</span></p>
+                      </div>
+                    </div>
+                    <a href="#" class="neu-btn neu-btn--block product-open"><span data-en="Open" data-ar="فتح الصفحة">Open</span></a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <!-- عام -->
+            <section class="cat-section" data-cat="general">
+              <div class="cat-head">
+                <h2 class="cat-title"><span data-en="General" data-ar="عام">General</span></h2>
+                <span class="cat-count" data-en="products" data-ar="منتجات">products</span>
+              </div>
+              <div class="grid grid-3">
+                <article class="neu-card product-card">
+                  <a href="#" class="product-media neu-inset">
+                    <i class="fa-solid fa-store product-ph" aria-hidden="true"></i>
+                  </a>
+                  <div class="product-body">
+                    <div class="product-top">
+                      <div class="product-info">
+                        <h4 class="product-name"><a href="#"><span data-en="Backpack" data-ar="حقيبة ظهر">Backpack</span></a></h4>
+                        <p class="product-eyebrow"><span data-en="Spacious and practical design" data-ar="مساحة واسعة وتصميم عملي">Spacious and practical design</span></p>
+                        <p class="product-owner">
+                          <i class="fa-solid fa-store" aria-hidden="true"></i>
+                          <span data-en="By:" data-ar="بواسطة:">By:</span>
+                          <span data-en="Traveler Store" data-ar="متجر الرحالة">Traveler Store</span>
+                        </p>
+                      </div>
+                      <div class="product-price">
+                        <p class="price-now"><span data-en="2 500 دج" data-ar="2 500 دج">2 500 دج</span></p>
+                      </div>
+                    </div>
+                    <a href="#" class="neu-btn neu-btn--block product-open"><span data-en="Open" data-ar="فتح الصفحة">Open</span></a>
+                  </div>
+                </article>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- التذييل (PageFooter) -->
+  <footer class="page-footer">
+    <hr class="neu-divider">
+    <div class="wrap">
+      <p data-en="© 2026 Landing Pages Studio — Algeria." data-ar="© 2026 استوديو صفحات الهبوط — الجزائر.">© 2026 Landing Pages Studio — Algeria.</p>
+      <p data-en="Delivery to 58 wilayas · Cash on delivery" data-ar="التوصيل لـ 58 ولاية · الدفع عند الاستلام">Delivery to 58 wilayas · Cash on delivery</p>
+    </div>
+  </footer>
+
+  <!-- نافذة دخول المشرف (AdminLoginModal + AdminLoginBox) -->
+  <div class="neu-overlay hidden" id="adminOverlay" role="dialog" aria-modal="true"
+       aria-label="Admin login" data-en-aria="Admin login" data-ar-aria="دخول المشرف">
+    <div class="neu-card">
+      <button type="button" class="neu-circle neu-circle--sm neu-modal-close" id="adminClose"
+              aria-label="Close" data-en-aria="Close" data-ar-aria="إغلاق">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <h3 class="neu-title admin-title"><span data-en="Admin login" data-ar="دخول المشرف">Admin login</span></h3>
+      <div class="admin-box">
+        <p class="admin-box-title"><span data-en="Admin login" data-ar="دخول المشرف">Admin login</span></p>
+        <p class="neu-sub"><span data-en="For admin only" data-ar="للمشرف فقط">For admin only</span></p>
+        <form id="adminForm" novalidate>
+          <div class="input-group">
+            <input type="email" class="neu-input" dir="ltr" placeholder="Email"
+                   data-en-ph="Email" data-ar-ph="البريد الإلكتروني" autocomplete="username" required>
+          </div>
+          <div class="input-group">
+            <input type="password" class="neu-input" dir="ltr" placeholder="Password"
+                   data-en-ph="Password" data-ar-ph="كلمة المرور" autocomplete="current-password" required>
+          </div>
+          <div class="msg-box msg-box--danger neu-inset hidden" id="adminErr">
+            <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+            <span data-en="Invalid credentials." data-ar="بيانات الدخول غير صحيحة.">Invalid credentials.</span>
+          </div>
+          <button type="submit" class="neu-btn neu-btn--lg neu-btn--block"><span data-en="Enter" data-ar="دخول">Enter</span></button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- أداة مراجعة للتنقل بين الصفحات وحالات المتجر والنوافذ — ليست من التصميم -->
+  <div class="review-bar">
+    <span data-en="Review tool (not part of the design):" data-ar="أداة مراجعة (ليست من التصميم):">Review tool (not part of the design):</span>
+    <a href="home.html" data-en="Home" data-ar="الرئيسية">Home</a>
+    <a href="pricing.html" data-en="Pricing" data-ar="التسعير">Pricing</a>
+    <a href="store.html" class="is-active" data-en="Store" data-ar="المتجر">Store</a>
+    <button type="button" data-state="all" class="is-active" data-en="All" data-ar="الكل">All</button>
+    <button type="button" data-state="category" data-en="Category" data-ar="تصنيف">Category</button>
+    <button type="button" data-state="loading" data-en="Loading" data-ar="تحميل">Loading</button>
+    <button type="button" data-state="empty" data-en="Empty" data-ar="فارغ">Empty</button>
+    <button type="button" id="rvAdmin" data-en="Admin login" data-ar="دخول المشرف">Admin login</button>
+  </div>
+
+<script>
+  var storeLoading = document.getElementById("storeLoading");
+  var storeEmpty = document.getElementById("storeEmpty");
+  var storeContent = document.getElementById("storeContent");
+  var tabs = document.querySelectorAll("#storeTabs .neu-tab");
+  var sections = document.querySelectorAll("#storeGrouped .cat-section");
+  var adminOverlay = document.getElementById("adminOverlay");
+  var adminErr = document.getElementById("adminErr");
+
+  /* تصفية التصنيف: «الكل» يُظهر الأقسام بعناوينها، وتصنيف واحد يُظهر شبكته وحدها */
+  function setFilter(cat) {
+    tabs.forEach(function (b) {
+      var on = b.getAttribute("data-cat") === cat;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    sections.forEach(function (s) {
+      var match = s.getAttribute("data-cat") === cat;
+      var show = cat === "__all__" || match;
+      s.classList.toggle("hidden", !show);
+      s.querySelector(".cat-head").classList.toggle("hidden", cat !== "__all__");
+    });
+  }
+  tabs.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var cat = b.getAttribute("data-cat");
+      setFilter(cat);
+      markState(cat === "__all__" ? "all" : "category");
+    });
+  });
+
+  /* حالات الصفحة عبر شريط المراجعة */
+  function markState(s) {
+    document.querySelectorAll(".review-bar button[data-state]").forEach(function (b) {
+      b.classList.toggle("is-active", b.getAttribute("data-state") === s);
+    });
+  }
+  function showState(s) {
+    storeLoading.classList.toggle("hidden", s !== "loading");
+    storeEmpty.classList.toggle("hidden", s !== "empty");
+    storeContent.classList.toggle("hidden", s === "loading" || s === "empty");
+    if (s === "all") setFilter("__all__");
+    if (s === "category") setFilter("electronics");
+    markState(s);
+  }
+  document.querySelectorAll(".review-bar button[data-state]").forEach(function (b) {
+    b.addEventListener("click", function () { showState(b.getAttribute("data-state")); });
+  });
+
+  /* نافذة دخول المشرف */
+  function syncScroll() {
+    document.body.style.overflow = adminOverlay.classList.contains("hidden") ? "" : "hidden";
+  }
+  function openAdmin() { adminOverlay.classList.remove("hidden"); syncScroll(); }
+  function closeAdmin() { adminOverlay.classList.add("hidden"); syncScroll(); }
+  document.getElementById("adminBtn").addEventListener("click", openAdmin);
+  document.getElementById("rvAdmin").addEventListener("click", openAdmin);
+  document.getElementById("adminClose").addEventListener("click", closeAdmin);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAdmin(); });
+  adminOverlay.addEventListener("mousedown", function (e) { if (e.target === adminOverlay) closeAdmin(); });
+  document.getElementById("adminForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    adminErr.classList.remove("hidden");
+  });
+</script>
+</body>
+</html>

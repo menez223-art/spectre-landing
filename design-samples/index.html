@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sample Index — فهرس عينات الهوية</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  body { padding: 40px 0 60px; position: relative; }
+  .idx-head { text-align: center; margin-bottom: 34px; }
+  .idx-head .logo-circle {
+    width: 70px; height: 70px; margin: 0 auto 18px; border-radius: 50%;
+    background: var(--bg-color); box-shadow: var(--shadow-outer);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary-color); font-size: 26px;
+  }
+  .idx-head h1 { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+  .idx-head p { font-size: 13px; color: var(--text-muted); max-width: 620px; margin: 0 auto; line-height: 1.8; }
+  .sec-title { display: flex; align-items: center; gap: 12px; margin: 34px 0 18px; flex-wrap: wrap; }
+  .sec-title h2 { font-size: 18px; font-weight: 600; }
+  .sample-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .sample-grid--2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 860px) { .sample-grid, .sample-grid--2 { grid-template-columns: 1fr; } }
+  .sample-card {
+    display: flex; flex-direction: column; gap: 12px; padding: 22px;
+    text-decoration: none; color: var(--text-main);
+    background: var(--bg-color); border-radius: var(--r-panel);
+    box-shadow: var(--shadow-outer-sm);
+    transition: box-shadow 0.3s ease, color 0.3s ease;
+  }
+  .sample-card:hover { box-shadow: var(--shadow-outer); }
+  .sample-card:active { box-shadow: var(--shadow-btn-active); }
+  .sample-card .sc-top { display: flex; align-items: center; gap: 12px; }
+  .sample-card .sc-icon {
+    width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+    background: var(--bg-color); box-shadow: var(--shadow-inner-sm);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary-color); font-size: 18px;
+  }
+  .sample-card .sc-name { font-size: 15px; font-weight: 600; }
+  .sample-card .sc-file { font-size: 11px; color: var(--text-muted); font-family: monospace; }
+  .sample-card .sc-open { margin-top: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--primary-color); }
+  .info-card { padding: 26px; margin-top: 34px; }
+  .info-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .info-card ul { list-style: none; display: grid; gap: 10px; }
+  .info-card li { display: flex; gap: 10px; font-size: 12.5px; line-height: 1.7; color: var(--text-muted); align-items: flex-start; }
+  .info-card li i { color: var(--primary-color); margin-top: 3px; flex-shrink: 0; }
+  .note-box { padding: 16px 18px; margin-top: 20px; font-size: 12px; line-height: 1.8; color: var(--text-muted); display: flex; gap: 10px; align-items: flex-start; }
+  .note-box i { color: var(--warning-color); margin-top: 3px; }
+  .idx-foot { text-align: center; margin-top: 36px; font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="top-controls">
+    <button class="neu-circle" id="langBtn" title="Change language">AR</button>
+    <button class="neu-circle" id="themeBtn" title="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+  </div>
+
+  <div class="wrap">
+    <div class="idx-head">
+      <div class="logo-circle"><i class="fa-solid fa-palette"></i></div>
+      <h1><span data-en="New Visual Identity — Samples" data-ar="الهوية البصرية الجديدة — العينات">New Visual Identity — Samples</span></h1>
+      <p><span data-en="Neumorphism identity applied to every project page except published landing pages. Click any card to open its sample. Toggle theme (moon/sun) and language (AR/EN) from the top controls." data-ar="هوية Neumorphism مطبّقة على كل صفحات المشروع عدا صفحات الهبوط المنشورة. اضغط أي بطاقة لفتح عينتها. بدّل الثيم (قمر/شمس) واللغة (AR/EN) من أزرار التحكم أعلى الصفحة.">Neumorphism identity applied to every project page except published landing pages. Click any card to open its sample. Toggle theme (moon/sun) and language (AR/EN) from the top controls.</span></p>
+    </div>
+
+    <!-- الدفعة الأولى — مقبولة -->
+    <div class="sec-title">
+      <h2><span data-en="Batch 1" data-ar="الدفعة الأولى">Batch 1</span></h2>
+      <span class="neu-badge neu-badge--success"><i class="fa-solid fa-circle-check"></i><span data-en="Accepted 9/10" data-ar="مقبولة 9/10">Accepted 9/10</span></span>
+    </div>
+    <div class="sample-grid">
+      <a class="sample-card" href="studio-login.html">
+        <div class="sc-top"><div class="sc-icon"><i class="fa-solid fa-lock"></i></div><div><div class="sc-name" data-en="Studio login" data-ar="دخول الاستوديو">Studio login</div><div class="sc-file">studio-login.html</div></div></div>
+        <div class="sc-open"><span data-en="Open sample" data-ar="افتح العينة">Open sample</span><i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+      <a class="sample-card" href="home.html">
+        <div class="sc-top"><div class="sc-icon"><i class="fa-solid fa-house"></i></div><div><div class="sc-name" data-en="Home" data-ar="الرئيسية">Home</div><div class="sc-file">home.html</div></div></div>
+        <div class="sc-open"><span data-en="Open sample" data-ar="افتح العينة">Open sample</span><i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+      <a class="sample-card" href="pricing.html">
+        <div class="sc-top"><div class="sc-icon"><i class="fa-solid fa-tags"></i></div><div><div class="sc-name" data-en="Pricing" data-ar="التسعير">Pricing</div><div class="sc-file">pricing.html</div></div></div>
+        <div class="sc-open"><span data-en="Open sample" data-ar="افتح العينة">Open sample</span><i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+      <a class="sample-card" href="store.html">
+        <div class="sc-top"><div class="sc-icon"><i class="fa-solid fa-store"></i></div><div><div class="sc-name" data-en="Public store" data-ar="المتجر العام">Public store</div><div class="sc-file">store.html</div></div></div>
+        <div class="sc-open"><span data-en="Open sample" data-ar="افتح العينة">Open sample</span><i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+      <a class="sample-card" href="studio.html">
+        <div class="sc-top"><div class="sc-icon"><i class="fa-solid fa-pen-ruler"></i></div><div><div class="sc-name" data-en="Studio" data-ar="الاستوديو">Studio</div><div class="sc-file">studio.html</div></div></div>
+        <div class="sc-open"><span data-en="Open sample" data-ar="افتح العينة">Open sample</span><i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+    </div>
+
+    <!-- الدفعة الثانية — بانتظار الحكم -->
+    <div class="sec-title">
+      <h2><span data-en="Batch 2" data-ar="الدفعة الثانية">Batch 2</span></h2>
+      <span class="neu-badge neu-badge--warning"><i class="fa-solid fa-clock"></i><span data-en="Awaiting your score" data-ar="بانتظار درجتك">Awaiting your score</span></span>
+    </div>
+    <div class="sample-grid sample-grid--2">
+      <a class="sample-card" href="guest.html">
+        <div class="sc-top"><div class="sc-icon"><i class="fa-solid fa-flask"></i></div><div><div class="sc-name" data-en="Guest & trial" data-ar="الزائر والتجربة">Guest & trial</div><div class="sc-file">guest.html</div></div></div>
+        <div class="sc-open"><span data-en="Open sample" data-ar="افتح العينة">Open sample</span><i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+      <a class="sample-card" href="loading.html">
+        <div class="sc-top"><div class="sc-icon"><i class="fa-solid fa-bars-staggered"></i></div><div><div class="sc-name" data-en="Loading skeletons" data-ar="هياكل التحميل">Loading skeletons</div><div class="sc-file">loading.html</div></div></div>
+        <div class="sc-open"><span data-en="Open sample" data-ar="افتح العينة">Open sample</span><i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+      <a class="sample-card" href="admin-login.html">
+        <div class="sc-top"><div class="sc-icon"><i class="fa-solid fa-key"></i></div><div><div class="sc-name" data-en="Admin login" data-ar="دخول المشرف">Admin login</div><div class="sc-file">admin-login.html</div></div></div>
+        <div class="sc-open"><span data-en="Open sample" data-ar="افتح العينة">Open sample</span><i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+      <a class="sample-card" href="admin.html">
+        <div class="sc-top"><div class="sc-icon"><i class="fa-solid fa-shield-halved"></i></div><div><div class="sc-name" data-en="Admin panel" data-ar="لوحة الأدمن">Admin panel</div><div class="sc-file">admin.html</div></div></div>
+        <div class="sc-open"><span data-en="Open sample" data-ar="افتح العينة">Open sample</span><i class="fa-solid fa-arrow-right"></i></div>
+      </a>
+    </div>
+
+    <!-- تعليمات المراجعة -->
+    <div class="neu-card info-card">
+      <h3><i class="fa-solid fa-circle-info t-primary"></i><span data-en="How to review" data-ar="كيف تراجع">How to review</span></h3>
+      <ul>
+        <li><i class="fa-solid fa-moon"></i><span data-en="Theme: moon/sun button (top corner) switches light/dark instantly." data-ar="الثيم: زر القمر/الشمس (أعلى الصفحة) يبدّل النهاري/الليلي فوراً.">Theme: moon/sun button (top corner) switches light/dark instantly.</span></li>
+        <li><i class="fa-solid fa-language"></i><span data-en="Language: AR/EN button swaps every text and flips direction RTL/LTR." data-ar="اللغة: زر AR/EN يبدّل كل النصوص ويقلب الاتجاه RTL/LTR.">Language: AR/EN button swaps every text and flips direction RTL/LTR.</span></li>
+        <li><i class="fa-solid fa-minus"></i><span data-en="Review bar (bottom, dashed): switches page states and opens modals. Press − to collapse it so it never covers content." data-ar="شريط المراجعة (أسفل، متقطع): ينقل بين حالات الصفحة ويفتح النوافذ. اضغط − لتصغيره كي لا يغطي المحتوى.">Review bar (bottom, dashed): switches page states and opens modals. Press − to collapse it so it never covers content.</span></li>
+        <li><i class="fa-solid fa-star"></i><span data-en="Score each page (out of 10) and add notes; real-code application waits for your explicit acceptance." data-ar="قيّم كل صفحة (من 10) وأضف ملاحظاتك؛ التطبيق على الكود الحقيقي ينتظر قبولك الصريح.">Score each page (out of 10) and add notes; real-code application waits for your explicit acceptance.</span></li>
+      </ul>
+      <div class="note-box neu-inset">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span data-en="Samples are local-only (offline). External links are inert (#), store/admin data is labeled demo data, and the studio live-preview is a labeled placeholder — published landing pages are out of scope by agreement. The accent-color picker (ThemeSelector) was dropped because the new identity has a fixed palette." data-ar="العينات محلية فقط (تعمل دون إنترنت). الروابط الخارجية خاملة (#)، بيانات المتجر/الأدمن تجريبية موسومة، ومعاينة الاستوديو الحية لوحة نائبة موسومة — صفحات الهبوط المنشورة خارج النطاق بالاتفاق. منتقي الألوان (ThemeSelector) حُذف لأن الهوية الجديدة ذات لوحة ثابتة.">Samples are local-only (offline). External links are inert (#), store/admin data is labeled demo data, and the studio live-preview is a labeled placeholder — published landing pages are out of scope by agreement. The accent-color picker (ThemeSelector) was dropped because the new identity has a fixed palette.</span>
+      </div>
+    </div>
+
+    <p class="idx-foot"><span data-en="Spectre — visual identity rebrand · samples stage · no production code touched" data-ar="Spectre — إعادة الهوية البصرية · مرحلة العينات · لا كود إنتاج مُسّ">Spectre — visual identity rebrand · samples stage · no production code touched</span></p>
+  </div>
+</body>
+</html>

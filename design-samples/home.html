@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home — عينة الهوية الجديدة</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  /* ── عام: مساحة أسفل الصفحة كي لا يغطي شريط المراجعة المحتوى ── */
+  body { padding-bottom: 140px; }
+  .hidden { display: none !important; }
+
+  /* ── شريط بسم الله: سطح bg-color + نص primary + فاصل (لا خلفية ملونة) ── */
+  .bismillah { text-align: center; padding: 7px 0; }
+  .bismillah p { font-size: 13px; font-weight: 700; color: var(--primary-color); }
+
+  /* ── الترويسة: لاصقة، إخفاء عند التمرير للأسفل (كما HomeClient) ── */
+  .page-header { transition: transform 0.3s ease; }
+  .page-header.is-hidden { transform: translateY(-100%); }
+  .brand-mark .brand-name { font-size: 20px; font-weight: 700; }
+  .main-nav { display: flex; align-items: center; gap: 22px; }
+  .main-nav a { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 600; }
+  .main-nav a:hover { color: var(--primary-color); }
+  .header-actions .neu-btn { padding: 9px 16px; font-size: 13px; }
+  .admin-key { display: none; }
+  @media (max-width: 860px) { .main-nav { display: none; } }
+  @media (max-width: 639px) {
+    .admin-label { display: none; }
+    .admin-key { display: inline; }
+    .pricing-link { display: none; }
+  }
+
+  /* ── البطل ── */
+  .hero { padding: 56px 0 48px; }
+  .hero-copy { max-width: 640px; }
+  .hero-badge { margin-bottom: 22px; }
+  .hero-dot { font-size: 6px; }
+  .hero-title { font-size: clamp(30px, 5vw, 48px); font-weight: 700; line-height: 1.2; }
+  .hero-title-2 { display: block; color: var(--primary-color); margin-top: 6px; }
+  .hero-sub { margin-top: 20px; max-width: 520px; font-size: 15px; line-height: 1.8; color: var(--text-muted); }
+  .hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .hero-demo-sub { margin-top: 12px; font-size: 11px; color: var(--text-muted); }
+  .hero-stats { max-width: 560px; margin-top: 40px; }
+  .stat-card { padding: 20px 14px; text-align: center; }
+  .stat-icon { color: var(--text-muted); font-size: 18px; margin-bottom: 8px; }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--text-main); line-height: 1.2; }
+  .stat-value i { color: var(--primary-color); font-size: 30px; }
+  .stat-label { margin-top: 6px; font-size: 11px; font-weight: 600; color: var(--text-muted); line-height: 1.5; }
+
+  /* ── أقسام عامة ── */
+  .section { padding: 48px 0; }
+  .section-head { text-align: center; max-width: 560px; margin: 0 auto 36px; }
+  .section-head .neu-badge { margin-bottom: 16px; }
+  .section-title { font-size: clamp(24px, 3.4vw, 34px); }
+  .section-sub { margin-top: 12px; font-size: 13px; line-height: 1.8; color: var(--text-muted); }
+
+  /* ── كيف يعمل ── */
+  .step-card { padding: 28px; }
+  .step-num { margin-bottom: 20px; }
+  .step-card h3 { font-size: 18px; font-weight: 700; }
+  .step-card p { margin-top: 10px; font-size: 13px; line-height: 1.8; color: var(--text-muted); }
+
+  /* ── بطاقة الكتالوج CTA ── */
+  .catalog-card { padding: 36px; display: grid; gap: 28px; grid-template-columns: 1fr auto; align-items: center; }
+  .catalog-copy { max-width: 520px; }
+  .catalog-copy .neu-title { margin-top: 10px; font-size: clamp(24px, 3.4vw, 34px); }
+  .catalog-sub { margin-top: 12px; font-size: 13px; line-height: 1.8; color: var(--text-muted); }
+  .catalog-actions { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+  @media (max-width: 860px) {
+    .catalog-card { grid-template-columns: 1fr; }
+    .catalog-actions { flex-direction: row; flex-wrap: wrap; }
+  }
+
+  /* ── قسم الاشتراكات ── */
+  .subs-card { padding: 32px; display: grid; gap: 30px; grid-template-columns: 1fr 0.9fr; align-items: center; }
+  .subs-title { margin-top: 10px; font-size: clamp(26px, 3.6vw, 38px); }
+  .subs-sub { margin-top: 14px; max-width: 440px; font-size: 15px; line-height: 1.8; color: var(--text-muted); }
+  .subs-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+  .subs-media { padding: 12px; }
+  .subs-media img { display: block; width: 100%; border-radius: var(--r-control); }
+  @media (max-width: 860px) { .subs-card { grid-template-columns: 1fr; } }
+
+  /* ── التذييل ── */
+  .page-footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 24px; padding-bottom: 8px; }
+  .page-footer p { font-size: 12px; color: var(--text-muted); }
+
+  /* ── صناديق الرسائل: neu-inset + أيقونة حالة + نص ورقي منفصل ── */
+  .msg-box { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; font-size: 11px; font-weight: 600; line-height: 1.8; text-align: start; }
+  .msg-box i { margin-top: 3px; }
+  .msg-box--danger { color: var(--danger-color); }
+  .msg-box--info { color: var(--primary-color); }
+
+  /* ── نافذة دخول المشرف (AdminLoginModal + AdminLoginBox) ── */
+  .admin-title { margin-bottom: 20px; padding-inline-end: 48px; }
+  .admin-box { text-align: center; }
+  .admin-box-title { font-size: 17px; font-weight: 700; }
+  .admin-box .neu-sub { margin: 4px 0 20px; }
+  .admin-box form { text-align: start; }
+  .admin-box .msg-box { margin-bottom: 18px; }
+
+  /* ── نافذة الوضع التجريبي (غلاف GuestStudio — المحتوى خارج النطاق) ── */
+  .guest-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; padding-inline-end: 48px; }
+  .guest-head-id { display: flex; align-items: center; gap: 12px; }
+  .guest-title { font-size: 16px; font-weight: 700; }
+  .guest-card .msg-box { margin-bottom: 16px; }
+  .guest-card .neu-btn { margin-top: 16px; }
+
+  /* ── ملاحظة عينة (ليست من التصميم) ── */
+  .sample-note { border: 1.5px dashed var(--text-muted); border-radius: 12px; padding: 10px 14px; font-size: 11px; line-height: 1.8; color: var(--text-muted); text-align: start; }
+
+  /* ── أداة مراجعة: ليست من التصميم (تُزال عند التطبيق) ── */
+  .review-bar {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 150; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 14px; border: 1.5px dashed var(--text-muted);
+    border-radius: 12px; background: var(--bg-color);
+    font-size: 11px; color: var(--text-muted); max-width: calc(100vw - 24px);
+  }
+  .review-bar button, .review-bar a {
+    border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm);
+    color: var(--text-muted); border-radius: 10px; padding: 5px 12px;
+    font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+    text-decoration: none; display: inline-block;
+  }
+  .review-bar button.is-active, .review-bar a.is-active { box-shadow: var(--shadow-inner-sm); color: var(--primary-color); }
+</style>
+</head>
+<body>
+
+  <!-- شريط «بسم الله» — نص عربي ثابت لا يتأثر بمبدّل اللغة -->
+  <div lang="ar" translate="no" class="bismillah"><p>بسم الله</p></div>
+  <hr class="neu-divider">
+
+  <!-- الترويسة (PageHeader): شعار + تنقل + ثيم/لغة + الخطط + دخول المشرف + صفحة جديدة -->
+  <header class="page-header" id="pageHeader">
+    <div class="wrap">
+      <a href="home.html" class="brand-mark">
+        <div class="neu-circle neu-circle--sm">S</div>
+        <span class="brand-name"><span data-en="Studio" data-ar="استوديو">Studio</span><span class="t-primary">.</span></span>
+      </a>
+      <nav class="main-nav">
+        <a href="home.html#catalog" data-en="Products" data-ar="المنتجات">Products</a>
+        <a href="studio-login.html" data-en="Studio" data-ar="الاستوديو">Studio</a>
+      </nav>
+      <div class="header-actions">
+        <button type="button" class="neu-circle neu-circle--sm" id="themeBtn" data-en-title="Toggle dark mode" data-ar-title="تبديل الوضع الليلي" title="Toggle dark mode">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <button type="button" class="neu-circle neu-circle--sm" id="langBtn" data-en-title="Change language" data-ar-title="تغيير اللغة" title="Change language">AR</button>
+        <a href="pricing.html" class="neu-btn pricing-link"><span data-en="Plans &amp; pricing" data-ar="الخطط والأسعار">Plans &amp; pricing</span></a>
+        <button type="button" class="neu-btn" id="adminBtn" title="Admin login"
+                data-en-title="Admin login" data-ar-title="دخول المشرف"
+                aria-label="Admin login" data-en-aria="Admin login" data-ar-aria="دخول المشرف">
+          <i class="fa-solid fa-key admin-key" aria-hidden="true"></i>
+          <span class="admin-label" data-en="Admin login" data-ar="دخول المشرف">Admin login</span>
+        </button>
+        <a href="studio-login.html" class="neu-btn"><span data-en="Create new page" data-ar="إنشاء صفحة جديدة">Create new page</span></a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- البطل (hero) -->
+    <section class="hero">
+      <div class="wrap">
+        <div class="hero-copy">
+          <p class="neu-badge neu-badge--primary hero-badge">
+            <i class="fa-solid fa-circle hero-dot" aria-hidden="true"></i>
+            <span data-en="Landing page studio — Algeria" data-ar="استوديو صفحات الهبوط — الجزائر">Landing page studio — Algeria</span>
+          </p>
+          <h1 class="hero-title">
+            <span data-en="Your store," data-ar="انشىء متجرك الالكتروني">Your store,</span>
+            <span class="hero-title-2" data-en="ready in seconds." data-ar="في ثواني.">ready in seconds.</span>
+          </h1>
+          <p class="hero-sub" data-en="Just your product name, image, and price. The studio handles the rest: wilaya &amp; commune selection, 58-wilaya delivery, and payment on delivery."
+             data-ar="أدخل اسم المنتج، الصورة، والسعر — والاستوديو يولّد لك صفحة كاملة بنظام الطلب: الولاية والبلدية، التوصيل لـ 58 ولاية، والدفع عند الاستلام.">Just your product name, image, and price. The studio handles the rest: wilaya &amp; commune selection, 58-wilaya delivery, and payment on delivery.</p>
+          <div class="hero-ctas">
+            <a href="studio-login.html" class="neu-btn neu-btn--lg">
+              <span data-en="Start now" data-ar="ابدأ الإنشاء الآن">Start now</span>
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </a>
+            <a href="#catalog" class="neu-btn neu-btn--lg neu-btn--muted"><span data-en="Browse products" data-ar="تصفّح المنتجات">Browse products</span></a>
+            <button type="button" class="neu-btn neu-btn--lg" id="guestBtn">
+              <i class="fa-solid fa-flask" aria-hidden="true"></i>
+              <span data-en="Try it free" data-ar="جرّب المنصة مجاناً">Try it free</span>
+            </button>
+          </div>
+          <p class="hero-demo-sub" data-en="No sign-in needed — see your landing page instantly" data-ar="بدون تسجيل دخول — شاهد صفحة هبوطك فوراً">No sign-in needed — see your landing page instantly</p>
+        </div>
+
+        <!-- شريط الإحصائيات: أيقونات FA بدل رموز المشروع (infinity / location-dot / money-bill-wave) -->
+        <div class="grid grid-3 hero-stats">
+          <div class="neu-panel stat-card">
+            <div class="stat-icon"><i class="fa-solid fa-infinity" aria-hidden="true"></i></div>
+            <div class="stat-value"><i class="fa-solid fa-infinity" aria-hidden="true"></i></div>
+            <div class="stat-label" data-en="Unlimited pages" data-ar="صفحات غير محدودة">Unlimited pages</div>
+          </div>
+          <div class="neu-panel stat-card">
+            <div class="stat-icon"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></div>
+            <div class="stat-value">58</div>
+            <div class="stat-label" data-en="Delivery wilayas" data-ar="ولاية توصيل">Delivery wilayas</div>
+          </div>
+          <div class="neu-panel stat-card">
+            <div class="stat-icon"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i></div>
+            <div class="stat-value">COD</div>
+            <div class="stat-label" data-en="Cash on delivery" data-ar="دفع عند الاستلام">Cash on delivery</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- كيف يعمل -->
+    <section class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="neu-badge neu-badge--primary"><span data-en="How it works" data-ar="كيف يعمل">How it works</span></p>
+          <h2 class="neu-title section-title" data-en="Three steps and your page is ready" data-ar="ثلاث خطوات وصفحتك جاهزة">Three steps and your page is ready</h2>
+          <p class="section-sub" data-en="No coding, no complex setup — the platform generates everything for you." data-ar="بدون برمجة ولا إعدادات معقّدة — المنصة تولّد لك كل شيء.">No coding, no complex setup — the platform generates everything for you.</p>
+        </div>
+        <div class="grid grid-3">
+          <div class="neu-card step-card">
+            <div class="neu-circle neu-circle--lg step-num">1</div>
+            <h3 data-en="Enter your product details" data-ar="أدخل بيانات منتجك">Enter your product details</h3>
+            <p data-en="Type the name, upload the image, set the price. Colors are extracted from the image automatically." data-ar="اكتب الاسم، ارفع الصورة، وحدّد السعر. استخراج الألوان من الصورة تلقائي.">Type the name, upload the image, set the price. Colors are extracted from the image automatically.</p>
+          </div>
+          <div class="neu-card step-card">
+            <div class="neu-circle neu-circle--lg step-num">2</div>
+            <h3 data-en="We build your page" data-ar="نولّد صفحتك">We build your page</h3>
+            <p data-en="The studio generates a full page: product showcase, features, and customer reviews with matching colors." data-ar="الاستوديو يبني صفحة كاملة: عرض المنتج، المميزات، وآراء الزبائن بألوان متناسقة.">The studio generates a full page: product showcase, features, and customer reviews with matching colors.</p>
+          </div>
+          <div class="neu-card step-card">
+            <div class="neu-circle neu-circle--lg step-num">3</div>
+            <h3 data-en="Orders come in" data-ar="تصل الطلبات">Orders come in</h3>
+            <p data-en="A smart order form (wilaya &amp; commune), delivery to 58 wilayas, and cash on delivery." data-ar="نموذج طلب ذكي (الولاية والبلدية)، توصيل لـ 58 ولاية، والدفع عند الاستلام.">A smart order form (wilaya &amp; commune), delivery to 58 wilayas, and cash on delivery.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- الكتالوج — بطاقة CTA (تصفّح المتجر + إنشاء صفحة جديدة) -->
+    <section id="catalog" class="section">
+      <div class="wrap">
+        <div class="neu-card catalog-card">
+          <div class="catalog-copy">
+            <p class="neu-eyebrow" data-en="All products" data-ar="كل المنتجات">All products</p>
+            <h2 class="neu-title" data-en="Product catalog" data-ar="فهرس المنتجات">Product catalog</h2>
+            <p class="catalog-sub" data-en="Static and generated pages — click any product to open its full landing page with the order form." data-ar="صفحات ثابتة ومولّدة — اضغط على أي منتج لعرض صفحة الهبوط الكاملة مع نموذج الطلب.">Static and generated pages — click any product to open its full landing page with the order form.</p>
+          </div>
+          <div class="catalog-actions">
+            <a href="store.html" class="neu-btn neu-btn--lg">
+              <i class="fa-solid fa-store" aria-hidden="true"></i>
+              <span data-en="Browse store" data-ar="تصفّح المتجر">Browse store</span>
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </a>
+            <a href="studio-login.html" class="neu-btn">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i>
+              <span data-en="Create new page" data-ar="إنشاء صفحة جديدة">Create new page</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- قسم الاشتراكات — صورة fb.png + زر فيسبوك + زر الخطط -->
+    <section class="section">
+      <div class="wrap">
+        <div class="neu-card subs-card">
+          <div class="subs-copy">
+            <p class="neu-eyebrow" data-en="Our plans" data-ar="باقاتنا">Our plans</p>
+            <h2 class="neu-title subs-title" data-en="Subscription plans" data-ar="باقات الاشتراكات">Subscription plans</h2>
+            <p class="subs-sub" data-en="Flexible plans that fit your needs — from a single product to your full store" data-ar="خطط مرنة تناسب احتياجاتك — من المنتج الواحد إلى متجرك الكامل">Flexible plans that fit your needs — from a single product to your full store</p>
+            <div class="subs-actions">
+              <!-- الرابط الحقيقي مشاركة فيسبوك — عُطّل هنا لإبقاء العينة محلية 100% -->
+              <a href="#" class="neu-btn neu-btn--lg">
+                <i class="fa-brands fa-facebook" aria-hidden="true"></i>
+                <span data-en="View plans on Facebook" data-ar="عرض الباقات على فيسبوك">View plans on Facebook</span>
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+              </a>
+              <a href="pricing.html" class="neu-btn neu-btn--lg">
+                <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                <span data-en="View plans" data-ar="عرض الخطط">View plans</span>
+              </a>
+            </div>
+          </div>
+          <div class="subs-media neu-panel">
+            <img src="../public/fb.png" alt="باقات الاشتراكات">
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- التذييل (PageFooter): سطران + فاصل علوي -->
+  <footer class="page-footer">
+    <hr class="neu-divider">
+    <div class="wrap">
+      <p data-en="© 2026 Landing Pages Studio — Algeria." data-ar="© 2026 استوديو صفحات الهبوط — الجزائر.">© 2026 Landing Pages Studio — Algeria.</p>
+      <p data-en="Delivery to 58 wilayas · Cash on delivery" data-ar="التوصيل لـ 58 ولاية · الدفع عند الاستلام">Delivery to 58 wilayas · Cash on delivery</p>
+    </div>
+  </footer>
+
+  <!-- نافذة دخول المشرف (AdminLoginModal + AdminLoginBox) — تفتح من زر الترويسة ومن شريط المراجعة -->
+  <div class="neu-overlay hidden" id="adminOverlay" role="dialog" aria-modal="true"
+       aria-label="Admin login" data-en-aria="Admin login" data-ar-aria="دخول المشرف">
+    <div class="neu-card">
+      <button type="button" class="neu-circle neu-circle--sm neu-modal-close" id="adminClose"
+              aria-label="Close" data-en-aria="Close" data-ar-aria="إغلاق">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <h3 class="neu-title admin-title"><span data-en="Admin login" data-ar="دخول المشرف">Admin login</span></h3>
+      <div class="admin-box">
+        <p class="admin-box-title"><span data-en="Admin login" data-ar="دخول المشرف">Admin login</span></p>
+        <p class="neu-sub"><span data-en="For admin only" data-ar="للمشرف فقط">For admin only</span></p>
+        <form id="adminForm" novalidate>
+          <div class="input-group">
+            <input type="email" class="neu-input" dir="ltr" placeholder="Email"
+                   data-en-ph="Email" data-ar-ph="البريد الإلكتروني" autocomplete="username" required>
+          </div>
+          <div class="input-group">
+            <input type="password" class="neu-input" dir="ltr" placeholder="Password"
+                   data-en-ph="Password" data-ar-ph="كلمة المرور" autocomplete="current-password" required>
+          </div>
+          <div class="msg-box msg-box--danger neu-inset hidden" id="adminErr">
+            <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+            <span data-en="Invalid credentials." data-ar="بيانات الدخول غير صحيحة.">Invalid credentials.</span>
+          </div>
+          <button type="submit" class="neu-btn neu-btn--lg neu-btn--block"><span data-en="Enter" data-ar="دخول">Enter</span></button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- غلاف نافذة الوضع التجريبي (GuestStudio) — المحرر الكامل ومعاينة الهبوط خارج نطاق العينات -->
+  <div class="neu-overlay neu-overlay--wide hidden" id="guestOverlay" role="dialog" aria-modal="true"
+       aria-label="Try the platform — Guest Mode" data-en-aria="Try the platform — Guest Mode" data-ar-aria="تجربة المنصة — وضع تجريبي">
+    <div class="neu-card guest-card">
+      <button type="button" class="neu-circle neu-circle--sm neu-modal-close" id="guestClose"
+              aria-label="Close trial" data-en-aria="Close trial" data-ar-aria="إغلاق التجربة">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <div class="guest-head">
+        <div class="guest-head-id">
+          <span class="neu-circle neu-circle--sm neu-circle--primary"><i class="fa-solid fa-flask" aria-hidden="true"></i></span>
+          <div>
+            <p class="guest-title"><span data-en="Try the platform — Guest Mode" data-ar="تجربة المنصة — وضع تجريبي">Try the platform — Guest Mode</span></p>
+            <p class="neu-sub"><span data-en="No sign-in needed — see your landing page instantly" data-ar="بدون تسجيل دخول — شاهد صفحة هبوطك فوراً">No sign-in needed — see your landing page instantly</span></p>
+          </div>
+        </div>
+      </div>
+      <div class="msg-box msg-box--info neu-inset">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        <span data-en="You just saw the power of the platform! In Guest Mode: download, save, and email-linking are fully disabled — nothing is stored. To unlock saving, download, and your own studio page, please contact the admin to subscribe."
+              data-ar="شاهدت للتو قوة المنصة! في الوضع التجريبي: التحميل، الحفظ، وربط الإيميل معطّلة تماماً — لا تُحفظ أي بيانات. للحصول على صلاحيات الحفظ، التحميل، وفتح صفحة الستوديو الخاصة بك، يرجى التواصل مع الإدارة للاشتراك.">You just saw the power of the platform! In Guest Mode: download, save, and email-linking are fully disabled — nothing is stored. To unlock saving, download, and your own studio page, please contact the admin to subscribe.</span>
+      </div>
+      <div class="sample-note">
+        <span data-en="Sample note (not part of the design): the full guest editor and the live landing-page preview are omitted here — landing templates are out of scope for these samples."
+              data-ar="ملاحظة عينة (ليست من التصميم): محرر الوضع التجريبي الكامل ومعاينة صفحة الهبوط المباشرة غير مضمّنين هنا — قوالب صفحات الهبوط خارج نطاق هذه العينات.">Sample note (not part of the design): the full guest editor and the live landing-page preview are omitted here — landing templates are out of scope for these samples.</span>
+      </div>
+      <a href="studio-login.html" class="neu-btn">
+        <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        <span data-en="Open full studio" data-ar="فتح الستوديو الكامل">Open full studio</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- أداة مراجعة للتنقل بين الصفحات والنوافذ — ليست من التصميم -->
+  <div class="review-bar">
+    <span data-en="Review tool (not part of the design):" data-ar="أداة مراجعة (ليست من التصميم):">Review tool (not part of the design):</span>
+    <a href="home.html" class="is-active" data-en="Home" data-ar="الرئيسية">Home</a>
+    <a href="pricing.html" data-en="Pricing" data-ar="التسعير">Pricing</a>
+    <a href="store.html" data-en="Store" data-ar="المتجر">Store</a>
+    <button type="button" id="rvAdmin" data-en="Admin login" data-ar="دخول المشرف">Admin login</button>
+    <button type="button" id="rvGuest" data-en="Guest demo" data-ar="الوضع التجريبي">Guest demo</button>
+  </div>
+
+<script>
+  var pageHeader = document.getElementById("pageHeader");
+  var adminOverlay = document.getElementById("adminOverlay");
+  var guestOverlay = document.getElementById("guestOverlay");
+  var adminErr = document.getElementById("adminErr");
+
+  /* إخفاء الترويسة عند التمرير للأسفل (hideOnScroll في HomeClient) */
+  var lastY = window.scrollY;
+  window.addEventListener("scroll", function () {
+    var y = window.scrollY;
+    pageHeader.classList.toggle("is-hidden", y > lastY && y > 90);
+    lastY = y;
+  }, { passive: true });
+
+  /* إدارة النوافذ: منع تمرير الخلفية + Escape + نقرة الخلفية (كما AdminLoginModal) */
+  function syncScroll() {
+    var anyOpen = !adminOverlay.classList.contains("hidden") || !guestOverlay.classList.contains("hidden");
+    document.body.style.overflow = anyOpen ? "hidden" : "";
+  }
+  function openOverlay(el) {
+    adminOverlay.classList.add("hidden");
+    guestOverlay.classList.add("hidden");
+    el.classList.remove("hidden");
+    syncScroll();
+  }
+  function closeOverlays() {
+    adminOverlay.classList.add("hidden");
+    guestOverlay.classList.add("hidden");
+    syncScroll();
+  }
+  document.getElementById("adminBtn").addEventListener("click", function () { openOverlay(adminOverlay); });
+  document.getElementById("rvAdmin").addEventListener("click", function () { openOverlay(adminOverlay); });
+  document.getElementById("guestBtn").addEventListener("click", function () { openOverlay(guestOverlay); });
+  document.getElementById("rvGuest").addEventListener("click", function () { openOverlay(guestOverlay); });
+  document.getElementById("adminClose").addEventListener("click", closeOverlays);
+  document.getElementById("guestClose").addEventListener("click", closeOverlays);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeOverlays(); });
+  [adminOverlay, guestOverlay].forEach(function (ov) {
+    ov.addEventListener("mousedown", function (e) { if (e.target === ov) closeOverlays(); });
+  });
+
+  /* عرض تجريبي: الإرسال يُظهر حالة الخطأ كما في التدفق الحقيقي */
+  document.getElementById("adminForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    adminErr.classList.remove("hidden");
+  });
+</script>
+</body>
+</html>

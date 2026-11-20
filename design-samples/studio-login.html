@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Login — عينة الهوية الجديدة</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  /* ── تخطيط صفحة الدخول: من كود الهوية حرفياً ── */
+  body {
+    display: flex; justify-content: center; align-items: center;
+    position: relative; overflow: hidden; padding: 24px 24px 96px;
+  }
+  .bg1 { width: 150px; height: 150px; top: 8%; left: 10%; }
+  .bg2 { width: 50px; height: 50px; top: 20%; right: 20%; }
+  .bg3 { width: 100px; height: 100px; bottom: 10%; right: 12%; }
+
+  .login-card {
+    width: 380px; max-width: 100%;
+    padding: 40px 30px;
+    border-radius: var(--r-card);
+    background: var(--bg-color);
+    box-shadow: var(--shadow-outer);
+    z-index: 1; text-align: center; position: relative;
+  }
+  .logo-circle {
+    width: 70px; height: 70px; margin: 0 auto 20px;
+    border-radius: 50%; background: var(--bg-color);
+    box-shadow: var(--shadow-outer);
+    display: flex; justify-content: center; align-items: center;
+    color: var(--primary-color); font-size: 26px;
+  }
+  .brand { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
+  .brand .dot { color: var(--primary-color); }
+  .subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 30px; }
+
+  .info-box {
+    padding: 12px 14px; margin-bottom: 22px;
+    font-size: 11px; font-weight: 500; line-height: 1.8;
+    color: var(--text-muted); text-align: start;
+  }
+  .err-box {
+    padding: 10px 14px; margin-bottom: 18px;
+    font-size: 11px; font-weight: 600; line-height: 1.7;
+    color: var(--danger-color); text-align: start;
+  }
+  .ok-box {
+    padding: 10px 14px; margin-top: 16px;
+    font-size: 11px; font-weight: 600; line-height: 1.7;
+    color: var(--success-color); text-align: start;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .code-input { text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 0.4em; }
+  .back-link {
+    display: block; width: 100%; margin-top: 16px;
+    background: none; border: none; cursor: pointer; font-family: inherit;
+    font-size: 11px; font-weight: 600; color: var(--text-muted);
+  }
+  .back-link:hover { color: var(--primary-color); }
+  .hidden { display: none !important; }
+
+  /* ── أداة مراجعة: ليست من التصميم (تُزال عند التطبيق) ── */
+  .review-bar {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 150; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 14px; border: 1.5px dashed var(--text-muted);
+    border-radius: 12px; background: var(--bg-color);
+    font-size: 11px; color: var(--text-muted); max-width: calc(100vw - 24px);
+  }
+  .review-bar button {
+    border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm);
+    color: var(--text-muted); border-radius: 10px; padding: 5px 12px;
+    font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .review-bar button.is-active { box-shadow: var(--shadow-inner-sm); color: var(--primary-color); }
+</style>
+</head>
+<body>
+
+  <!-- أزرار التحكم (اللغة + المود الليلي) — من كود الهوية -->
+  <div class="top-controls">
+    <button class="neu-circle" id="langBtn" data-en-title="Change language" data-ar-title="تغيير اللغة" title="Change language">AR</button>
+    <button class="neu-circle" id="themeBtn" data-en-title="Toggle dark mode" data-ar-title="تبديل الوضع الليلي" title="Toggle dark mode">
+      <i class="fa-solid fa-moon"></i>
+    </button>
+  </div>
+
+  <!-- الدوائر الخلفية — من كود الهوية -->
+  <div class="bg-circle bg1"></div>
+  <div class="bg-circle bg2"></div>
+  <div class="bg-circle bg3"></div>
+
+  <!-- بطاقة الدخول (بنية AuthGate الحقيقية: بيانات ← رمز ← منع) -->
+  <div class="login-card">
+    <div class="logo-circle"><i class="fa-solid fa-lock"></i></div>
+    <p class="brand"><span data-en="Studio" data-ar="استوديو">Studio</span><span class="dot">.</span></p>
+    <p class="subtitle" id="cardSubtitle" data-en="Sign in to continue" data-ar="سجّل الدخول للمتابعة">Sign in to continue</p>
+
+    <!-- مرحلة البيانات -->
+    <form id="formCreds" novalidate>
+      <div class="input-group">
+        <input type="text" class="neu-input" id="username" placeholder="Username"
+               data-en-ph="Username" data-ar-ph="اسم المستخدم" autocomplete="username" required>
+        <span class="floating-label" data-en="Username" data-ar="اسم المستخدم">Username</span>
+      </div>
+      <div class="input-group">
+        <input type="password" class="neu-input" id="password" placeholder="Password"
+               data-en-ph="Password" data-ar-ph="كلمة المرور" autocomplete="current-password" required>
+        <span class="floating-label" data-en="Password" data-ar="كلمة المرور">Password</span>
+        <i class="fa-solid fa-eye toggle-password"></i>
+      </div>
+      <div class="err-box neu-inset" id="credsErr"
+           data-en="Incorrect username or password"
+           data-ar="اسم المستخدم أو كلمة المرور غير صحيحة">Incorrect username or password</div>
+      <button type="submit" class="neu-btn neu-btn--lg neu-btn--block" data-en="Sign in" data-ar="دخول">Sign in</button>
+    </form>
+
+    <!-- مرحلة رمز الجهاز الجديد -->
+    <form id="formCode" class="hidden" novalidate>
+      <div class="info-box neu-inset"
+           data-en="This is a new device — an activation code was sent to the admin's email. Enter the code to finish signing in and bind this device forever."
+           data-ar="هذا جهاز جديد — أُرسل رمز تفعيل إلى بريد المشرف. أدخل الرمز لإكمال الدخول وربط هذا الجهاز للأبد.">This is a new device — an activation code was sent to the admin's email. Enter the code to finish signing in and bind this device forever.</div>
+      <div class="input-group">
+        <input type="text" class="neu-input code-input" id="code" placeholder="000000"
+               inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+        <span class="floating-label" data-en="Activation code" data-ar="رمز التفعيل">Activation code</span>
+      </div>
+      <button type="submit" class="neu-btn neu-btn--lg neu-btn--block" data-en="Activate device" data-ar="تفعيل الجهاز">Activate device</button>
+      <div class="ok-box neu-inset hidden" id="codeOk">
+        <i class="fa-solid fa-circle-check"></i>
+        <span data-en="Device activated — entering the studio…" data-ar="تم تفعيل الجهاز — جارٍ دخول الاستوديو…">Device activated — entering the studio…</span>
+      </div>
+      <button type="button" class="back-link" id="backBtn" data-en="Back to sign in" data-ar="عودة لتسجيل الدخول">Back to sign in</button>
+    </form>
+
+    <!-- حالة المنع (محظور/موقوف/منتهٍ) -->
+    <div id="deniedBox" class="hidden">
+      <div class="err-box neu-inset"
+           data-en="This account is banned and you cannot sign in."
+           data-ar="هذا الحساب محظور ولا يمكنك الدخول.">This account is banned and you cannot sign in.</div>
+    </div>
+  </div>
+
+  <!-- أداة مراجعة للتنقل بين حالات الصفحة — ليست من التصميم -->
+  <div class="review-bar">
+    <span data-en="Review tool (not part of the design):" data-ar="أداة مراجعة (ليست من التصميم):">Review tool (not part of the design):</span>
+    <button type="button" data-stage="creds" class="is-active" data-en="Credentials" data-ar="البيانات">Credentials</button>
+    <button type="button" data-stage="code" data-en="Device code" data-ar="رمز الجهاز">Device code</button>
+    <button type="button" data-stage="denied" data-en="Denied" data-ar="المنع">Denied</button>
+  </div>
+
+<script>
+  var formCreds = document.getElementById("formCreds");
+  var formCode = document.getElementById("formCode");
+  var deniedBox = document.getElementById("deniedBox");
+  var subtitle = document.getElementById("cardSubtitle");
+  var codeOk = document.getElementById("codeOk");
+
+  function setStage(s) {
+    formCreds.classList.toggle("hidden", s !== "creds");
+    formCode.classList.toggle("hidden", s !== "code");
+    deniedBox.classList.toggle("hidden", s !== "denied");
+    codeOk.classList.add("hidden");
+    if (s === "creds") SampleUI.setText(subtitle, "Sign in to continue", "سجّل الدخول للمتابعة");
+    if (s === "code") SampleUI.setText(subtitle, "New device — activation code", "جهاز جديد — رمز التفعيل");
+    if (s === "denied") SampleUI.setText(subtitle, "Sign-in failed", "تعذّر الدخول");
+    document.querySelectorAll(".review-bar button[data-stage]").forEach(function (b) {
+      b.classList.toggle("is-active", b.getAttribute("data-stage") === s);
+    });
+  }
+
+  /* عرض تجريبي: الإرسال ينقل بين المراحل كما في التدفق الحقيقي */
+  formCreds.addEventListener("submit", function (e) { e.preventDefault(); setStage("code"); });
+  formCode.addEventListener("submit", function (e) {
+    e.preventDefault();
+    codeOk.classList.remove("hidden");
+    setTimeout(function () { setStage("creds"); }, 1800);
+  });
+  document.getElementById("backBtn").addEventListener("click", function () { setStage("creds"); });
+  document.getElementById("code").addEventListener("input", function (e) {
+    e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+  });
+  document.querySelectorAll(".review-bar button[data-stage]").forEach(function (b) {
+    b.addEventListener("click", function () { setStage(b.getAttribute("data-stage")); });
+  });
+</script>
+</body>
+</html>

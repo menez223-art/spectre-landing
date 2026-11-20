@@ -19,11 +19,11 @@ const SHEET_HEADERS = [
 ];
 
 const inputCls =
-  "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 dark:border-white/15 dark:bg-[#0d1117] dark:text-ivory-50 dark:placeholder:text-ivory-50/40";
+  "neu-input";
 const ghostBtn =
-  "rounded-full border border-navy-900/15 px-4 py-2 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400";
+  "neu-btn neu-btn--muted";
 const primaryBtn =
-  "rounded-full bg-navy-900 px-5 py-2.5 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-50";
+  "neu-btn";
 
 type Tab = "email" | "manual";
 
@@ -171,14 +171,14 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const sub = subDetail();
   const subToneCls =
     sub.tone === "purple"
-      ? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
+      ? "t-primary"
       : sub.tone === "amber"
-      ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+      ? "t-warning"
       : sub.tone === "green"
-      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+      ? "t-success"
       : sub.tone === "red"
-      ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200"
-      : "bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-200";
+      ? "t-danger"
+      : "t-muted";
 
   // لافتة إشعار من الأدمن للمستخدم (مثلاً «حدّث رابطك») — تظهر أعلى لوحة
   // الإعدادات إن وُجدت. لا علاقة لها بالحظر/الاشتراك — مجرد رسالة من المشرف.
@@ -323,19 +323,19 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-950/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4"
       role="dialog"
       aria-modal="true"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="liquid-glass liquid-glass--rounded my-4 w-full max-w-2xl overflow-hidden rounded-2xl shadow-2xl sm:my-8 sm:rounded-3xl">
-        <div className="flex items-center justify-between gap-2 border-b border-navy-900/10 px-4 py-3 dark:border-white/10 sm:px-6 sm:py-4">
-          <h2 className="font-display text-base font-extrabold text-navy-900 sm:text-lg dark:text-ivory-50">{t("settingsTitle")}</h2>
+      <div className="neu-card my-4 w-full max-w-2xl overflow-hidden sm:my-8">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4">
+          <h2 className="text-base font-extrabold sm:text-lg">{t("settingsTitle")}</h2>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
-            <button onClick={onClose} className="rounded-full px-2.5 py-1 text-xs font-bold text-navy-900/50 transition hover:bg-navy-900/5 hover:text-navy-900 sm:px-0 sm:py-0 dark:text-ivory-50/50 dark:hover:bg-white/5 dark:hover:text-ivory-50">
+            <button onClick={onClose} className="neu-btn neu-btn--muted !px-3 !py-1.5 !text-xs">
               {t("close")}
             </button>
           </div>
@@ -344,33 +344,33 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         <div className="grid gap-5 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6">
           {/* ── لافتة إشعار الأدمن للمستخدم ── */}
           {notice && (
-            <div className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
-              <span aria-hidden className="mt-0.5 text-amber-600">⚠</span>
+            <div className="neu-inset flex items-start gap-2 px-4 py-3 t-warning">
+              <i className="fa-solid fa-triangle-exclamation mt-0.5" aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">{t("msgFromAdmin")}</p>
-                <p className="mt-0.5 text-[12px] font-semibold leading-5 text-amber-900">{notice}</p>
+                <p className="neu-eyebrow">{t("msgFromAdmin")}</p>
+                <p className="mt-0.5 text-[12px] font-semibold leading-5">{notice}</p>
               </div>
               <button
                 type="button"
-                className="shrink-0 text-[11px] font-semibold text-amber-700/70 transition hover:text-amber-900"
+                className="neu-circle neu-circle--sm shrink-0"
                 aria-label="إغلاق الإشعار مؤقتاً"
                 onClick={() => setDismissedNotice(true)}
               >
-                ✕
+                <i className="fa-solid fa-xmark" aria-hidden="true" />
               </button>
             </div>
           )}
 
           {/* ── الحالة ── */}
           <div className="flex flex-wrap items-center gap-3">
-            <span className="font-display text-sm font-extrabold text-navy-900">{t("sheetLabel")}</span>
+            <span className="text-sm font-extrabold">{t("sheetLabel")}</span>
             {sheetUrl ? (
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-800">{t("linked")}</span>
+              <span className="neu-badge neu-badge--success">{t("linked")}</span>
             ) : (
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-bold text-amber-800">{t("notLinked")}</span>
+              <span className="neu-badge neu-badge--warning">{t("notLinked")}</span>
             )}
             {linkedEmail && (
-              <span className="rounded-full bg-navy-50 px-2.5 py-1 text-[10px] font-semibold text-navy-700">{linkedEmail}</span>
+              <span className="neu-badge">{linkedEmail}</span>
             )}
           </div>
 
@@ -379,30 +379,30 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             <button
               type="button"
               onClick={() => setShowSub((v) => !v)}
-              className="flex items-center justify-between gap-2 rounded-xl border border-navy-900/15 bg-navy-50 px-4 py-3 text-xs font-bold text-navy-800 transition hover:border-navy-500 dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50"
+              className="neu-btn neu-btn--block !justify-between !px-4 !py-3 !text-xs"
             >
               <span className="flex items-center gap-2">
-                <span aria-hidden className="text-sm">★</span>
+                <i className="fa-solid fa-star text-sm" aria-hidden="true" />
                 {t("subBtn")}
               </span>
               {sub.isPlan ? (
                 <span className="flex items-center gap-1.5">
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${subToneCls}`}>
+                  <span className={`neu-badge ${subToneCls}`}>
                     {sub.planText}
                   </span>
-                  <span className="text-[10px] font-bold text-navy-700 dark:text-ivory-50/80">
+                  <span className="text-[10px] font-bold t-muted">
                     {sub.timeText}
                   </span>
                 </span>
               ) : (
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${subToneCls}`}>
+                <span className={`neu-badge ${subToneCls}`}>
                   {sub.timeText}
                 </span>
               )}
             </button>
             {showSub && (
-              <div className={`rounded-2xl p-4 ${subToneCls}`}>
-                <p className="text-[10px] font-bold uppercase tracking-wide opacity-70">{t("subBtn")}</p>
+              <div className={`neu-inset p-4 ${subToneCls}`}>
+                <p className="neu-eyebrow opacity-70">{t("subBtn")}</p>
                 {sub.isPlan ? (
                   <>
                     <p className="mt-1 text-base font-extrabold leading-7">{sub.planText}</p>
@@ -416,15 +416,15 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </div>
 
           {/* ── التبويبان ── */}
-          <div className="flex rounded-full border border-navy-900/15 bg-ivory-100 p-1 text-xs font-bold">
+          <div className="neu-inset flex gap-1 !rounded-full p-1 text-xs font-bold">
             {/* تبويب «إنشاء الجدول تلقائيّاً» متاح دائماً لأنه يحوي خطوة ربط
                 الإيميل الإجبارية (الشرط الأول)؛ يُقفل داخله زرّ إنشاء الجدول
                 حتى يُربط الإيميل. */}
             <button
               type="button"
               onClick={() => setTab("email")}
-              className={`flex-1 rounded-full px-4 py-1.5 transition ${
-                tab === "email" ? "bg-navy-900 text-ivory-50" : "text-navy-700 hover:text-navy-900"
+              className={`neu-tab flex-1 !rounded-full ${
+                tab === "email" ? "is-active" : ""
               }`}
             >
               {t("tabEmail")}
@@ -434,12 +434,12 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               type="button"
               onClick={() => setTab("manual")}
               disabled={!emailLinked}
-              className={`flex-1 rounded-full px-4 py-1.5 transition ${
+              className={`neu-tab flex-1 !rounded-full ${
                 !emailLinked
-                  ? "cursor-not-allowed text-navy-900/30"
+                  ? "cursor-not-allowed opacity-40"
                   : tab === "manual"
-                  ? "bg-navy-900 text-ivory-50"
-                  : "text-navy-700 hover:text-navy-900"
+                  ? "is-active"
+                  : ""
               }`}
             >
               {t("tabManual")}
@@ -448,7 +448,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
           {/* لافتة إرشادية تظهر قبل ربط الإيميل — توضّح أن الربط مقفل حتى يُربط البريد */}
           {!emailLinked && (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] font-semibold leading-5 text-amber-800">
+            <p className="neu-inset px-3 py-2.5 text-[11px] font-semibold leading-5 t-warning">
               {t("emailRequiredHint")}
             </p>
           )}
@@ -463,11 +463,11 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               {!emailLinked ? (
                 linkStep === "admin" ? (
                   <form onSubmit={handleLinkEmail} className="grid gap-3">
-                    <p className="rounded-xl bg-navy-50 px-3 py-2.5 text-[11px] font-medium leading-5 text-navy-800">
+                    <p className="neu-inset px-3 py-2.5 text-[11px] font-medium leading-5 t-muted">
                       {t("linkAdminCodeInfo", { email: pendingEmail })}
                     </p>
                     <input
-                      className={`${inputCls} text-center font-display text-lg font-bold tracking-[0.4em]`}
+                      className={`${inputCls} text-center font-bold tracking-[0.4em]`}
                       dir="ltr"
                       placeholder="000000"
                       inputMode="numeric"
@@ -481,7 +481,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                     <button className={primaryBtn} type="submit" disabled={loading || adminCode.length !== 6}>
                       {loading ? t("checking") : t("confirmAdminCode")}
                     </button>
-                    <button type="button" className="text-center text-[11px] font-semibold text-navy-900/50 transition hover:text-navy-900" onClick={cancelLink}>
+                    <button type="button" className="neu-link text-center text-[11px] font-semibold" onClick={cancelLink}>
                       {t("cancel")}
                     </button>
                   </form>
@@ -504,38 +504,38 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               ) : (
                 /* ── بعد ربط الإيميل: إنشاء الجدول تلقائيّاً (أو البطاقة) ── */
                 <>
-                  <p className="text-[11px] leading-5 text-navy-900/70">
+                  <p className="text-[11px] leading-5 t-muted">
                     {t("emailTabDesc")}
                   </p>
 
                   {/* بطاقة عند وجود رابط مربوط (سواء عبر البريد أو يدويًا) */}
                   {sheetUrl ? (
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                    <div className="neu-inset p-4">
                       {linkedEmail && (
-                        <p className="text-xs font-bold text-emerald-800">{t("linkedEmail", { email: linkedEmail })}</p>
+                        <p className="text-xs font-bold t-success">{t("linkedEmail", { email: linkedEmail })}</p>
                       )}
                       {viewUrl ? (
                         <a
                           href={viewUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mt-2 block break-all text-[11px] text-emerald-700 underline"
+                          className="neu-link mt-2 block break-all text-[11px]"
                         >
                           {t("openSheet")}
                         </a>
                       ) : (
-                        <p className="mt-2 text-[11px] text-amber-700">
+                        <p className="mt-2 text-[11px] t-warning">
                           الجدول قيد الإعداد — أعد ربط بريدك لتفعيل رابطه.
                         </p>
                       )}
                       {linkedEmail && (
-                        <div className="liquid-glass liquid-glass--rounded mt-3 overflow-hidden rounded-xl p-3">
-                          <p className="mb-2 text-[10px] font-bold text-navy-900/60">{t("columns")}</p>
+                        <div className="neu-panel mt-3 p-3">
+                          <p className="mb-2 text-[10px] font-bold t-muted">{t("columns")}</p>
                           <div className="flex flex-wrap gap-1">
                             {SHEET_HEADERS.map((h) => (
                               <span
                                 key={h}
-                                className="rounded-full bg-navy-50 px-2.5 py-1 text-[10px] font-semibold text-navy-800"
+                                className="neu-badge"
                               >
                                 {h}
                               </span>
@@ -598,11 +598,11 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             <section className="grid gap-3">
               {manualStep === "admin" ? (
                 <form onSubmit={handleSaveManual} className="grid gap-3">
-                  <p className="rounded-xl bg-navy-50 px-3 py-2.5 text-[11px] font-medium leading-5 text-navy-800">
+                  <p className="neu-inset px-3 py-2.5 text-[11px] font-medium leading-5 t-muted">
                     {t("manualCodeInfo")}
                   </p>
                   <input
-                    className={`${inputCls} text-center font-display text-lg font-bold tracking-[0.4em]`}
+                    className={`${inputCls} text-center font-bold tracking-[0.4em]`}
                     dir="ltr"
                     placeholder="000000"
                     inputMode="numeric"
@@ -616,13 +616,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                   <button className={primaryBtn} type="submit" disabled={loading || adminCode.length !== 6}>
                     {loading ? t("checking") : t("confirmAdminCode")}
                   </button>
-                  <button type="button" className="text-center text-[11px] font-semibold text-navy-900/50 transition hover:text-navy-900" onClick={cancelManual}>
+                  <button type="button" className="neu-link text-center text-[11px] font-semibold" onClick={cancelManual}>
                     {t("cancel")}
                   </button>
                 </form>
               ) : (
                 <>
-                  <ol className="list-decimal space-y-1.5 rounded-2xl border border-navy-900/10 bg-ivory-50 p-4 text-xs leading-5 text-navy-900/80">
+                  <ol className="neu-inset list-decimal space-y-1.5 p-4 text-xs leading-5">
                     <li className="ms-4">{t("manualStep1")}</li>
                     <li className="ms-4">{t("manualStep2")}</li>
                     <li className="ms-4">{t("manualStep3")}</li>
@@ -651,7 +651,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                       </button>
                     )}
                   </div>
-                  <p className="text-[11px] leading-5 text-navy-900/50">
+                  <p className="text-[11px] leading-5 t-muted">
                     {t("manualNote")}
                   </p>
                 </>
@@ -662,8 +662,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           {/* ── رسالة الحالة ── */}
           {msg && (
             <p
-              className={`rounded-xl px-3 py-2 text-[11px] font-semibold ${
-                msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+              className={`neu-inset px-3 py-2 text-[11px] font-semibold ${
+                msg.ok ? "t-success" : "t-danger"
               }`}
             >
               {msg.text}
@@ -674,9 +674,9 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           {emailLinked && <MarketingSection />}
 
           {/* ── خروج ── */}
-          <section className="border-t border-navy-900/10 pt-5">
+          <section className="pt-5">
             <button
-              className="rounded-full border border-red-300 px-5 py-2.5 text-xs font-bold text-red-600 transition hover:bg-red-50"
+              className="neu-btn neu-btn--danger !px-5 !py-2.5 !text-xs"
               onClick={logout}
             >
               {t("logout")}
@@ -685,16 +685,16 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
           {/* ── حذف الاشتراك نهائياً (بمبادرة المستخدم) ── */}
           {emailLinked && (
-            <section className="mt-4 rounded-2xl border-2 border-red-200 bg-red-50/40 p-4 dark:border-red-900/40 dark:bg-red-950/20">
-              <h3 className="text-sm font-extrabold text-red-700 dark:text-red-400">
-                ⚠ {t("deleteAccountTitle") || "حذف الاشتراك نهائياً"}
+            <section className="neu-inset mt-4 p-4">
+              <h3 className="text-sm font-extrabold t-danger">
+                <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {t("deleteAccountTitle") || "حذف الاشتراك نهائياً"}
               </h3>
-              <p className="mt-1 text-[11px] leading-5 text-red-900/80 dark:text-red-300/80">
+              <p className="mt-1 text-[11px] leading-5 t-muted">
                 {t("deleteAccountWarning") || "سيتم حذف اشتراكك وكل صفحاتك وروابطك وملفك الشخصي نهائياً. لا يمكن التراجع. أجهزتك لن تُحظر لكن ستحتاج ربط بريد جديد لتفعيل حساب مستقبلي."}
               </p>
               <button
                 type="button"
-                className="mt-3 rounded-full bg-red-600 px-5 py-2 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+                className="neu-btn neu-btn--danger mt-3 !px-5 !py-2 !text-xs"
                 disabled={deleteBusy}
                 onClick={() => setDeleteConfirmOpen(true)}
               >
@@ -706,16 +706,16 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           {/* ── نافذة تأكيد الحذف (مطالبة بكتابة البريد) ── */}
           {deleteConfirmOpen && emailLinked && (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4"
               role="dialog"
               aria-modal="true"
               onMouseDown={(e) => { if (e.target === e.currentTarget) setDeleteConfirmOpen(false); }}
             >
-              <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl dark:bg-[#161b22]">
-                <h4 className="text-base font-extrabold text-red-700 dark:text-red-400">
-                  ⚠ {t("deleteAccountTitle") || "حذف الاشتراك نهائياً"}
+              <div className="neu-card w-full max-w-md p-6">
+                <h4 className="text-base font-extrabold t-danger">
+                  <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {t("deleteAccountTitle") || "حذف الاشتراك نهائياً"}
                 </h4>
-                <p className="mt-2 text-[12px] leading-5 text-navy-900/80 dark:text-ivory-50/80">
+                <p className="mt-2 text-[12px] leading-5 t-muted">
                   {(t("deleteAccountConfirmHint") || "اكتب بريدك الإلكتروني ({email}) لتأكيد الحذف النهائي:").replace("{email}", account?.email ?? "")}
                 </p>
                 <input
@@ -727,7 +727,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                   autoFocus
                 />
                 {deleteError && (
-                  <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-600 dark:bg-red-900/30">
+                  <p className="neu-inset mt-2 px-3 py-2 text-[11px] font-semibold t-danger">
                     {deleteError}
                   </p>
                 )}
@@ -742,7 +742,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                   </button>
                   <button
                     type="button"
-                    className="flex-1 rounded-full bg-red-600 px-5 py-2 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+                    className="neu-btn neu-btn--danger flex-1 !px-5 !py-2 !text-xs"
                     disabled={deleteBusy || deleteConfirmInput.toLowerCase().trim() !== (account?.email ?? "").toLowerCase().trim()}
                     onClick={handleDeleteAccount}
                   >
@@ -909,20 +909,20 @@ function MarketingSection() {
   }
 
   return (
-    <section className="grid gap-3 rounded-2xl border border-navy-900/10 bg-ivory-50 p-4 dark:border-white/10 dark:bg-[#161b22]">
+    <section className="neu-inset grid gap-3 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-display text-sm font-bold">{t("marketingSection")}</h3>
+        <h3 className="text-sm font-bold">{t("marketingSection")}</h3>
         <button
           type="button"
           onClick={() => setGuideOpen(true)}
-          className="rounded-full border border-sky-300/60 px-2.5 py-1 text-[11px] font-bold text-sky-700 transition hover:bg-sky-50 dark:border-sky-500/40 dark:text-sky-300 dark:hover:bg-sky-500/10"
+          className="neu-btn neu-btn--muted !px-2.5 !py-1 !text-[11px]"
         >
-          ؟ {t("marketingGuideBtn")}
+          <i className="fa-solid fa-circle-question" aria-hidden="true" /> {t("marketingGuideBtn")}
         </button>
       </div>
 
       <label className="grid gap-1.5">
-        <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("storeNameLabel")}</span>
+        <span className="text-xs font-semibold">{t("storeNameLabel")}</span>
         <input
           className={inputCls}
           value={storeName}
@@ -932,20 +932,20 @@ function MarketingSection() {
         />
       </label>
 
-      <label className="flex items-center justify-between gap-3 rounded-xl border border-navy-900/10 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-[#0d1117]">
-        <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("showNameLabel")}</span>
+      <label className="neu-inset flex items-center justify-between gap-3 px-3 py-2.5">
+        <span className="text-xs font-semibold">{t("showNameLabel")}</span>
         <button
           type="button"
           role="switch"
           aria-checked={showPublicly}
           disabled={!storeName.trim()}
           onClick={() => setShowPublicly((v) => !v)}
-          className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${
-            showPublicly && storeName.trim() ? "bg-emerald-500" : "bg-navy-900/20 dark:bg-white/20"
+          className={`relative h-6 w-11 shrink-0 rounded-full [box-shadow:var(--shadow-inner-sm)] transition disabled:opacity-40 ${
+            showPublicly && storeName.trim() ? "bg-[color-mix(in_srgb,var(--success-color)_30%,var(--bg-color))]" : "bg-[var(--bg-color)]"
           }`}
         >
           <span
-            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+            className={`absolute top-0.5 h-5 w-5 rounded-full bg-[var(--bg-color)] [box-shadow:var(--shadow-outer-sm)] transition-all ${
               showPublicly && storeName.trim() ? "start-0.5" : "end-0.5"
             }`}
           />
@@ -954,14 +954,14 @@ function MarketingSection() {
 
       <label className="grid gap-1.5">
         <span className="flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("pixelLabel")}</span>
+          <span className="text-xs font-semibold">{t("pixelLabel")}</span>
           <button
             type="button"
             onClick={() => setTestCodeOpen(true)}
-            className="rounded-full border border-emerald-300/60 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+            className="neu-btn neu-btn--success !px-2.5 !py-0.5 !text-[11px]"
             aria-label="Meta Pixel Test Event Code"
           >
-            🧪 Test Code
+            <i className="fa-solid fa-flask" aria-hidden="true" /> Test Code
           </button>
         </span>
         <input
@@ -974,14 +974,14 @@ function MarketingSection() {
           placeholder="123456789012345"
         />
         {pixelTestCode && (
-          <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-            🟢 Test Event Code فعّال: <span className="font-mono">{pixelTestCode}</span>
+          <span className="text-[11px] font-semibold t-success">
+            <i className="fa-solid fa-circle t-success" aria-hidden="true" /> Test Event Code فعّال: <span className="font-mono">{pixelTestCode}</span>
           </span>
         )}
       </label>
 
       <label className="grid gap-1.5">
-        <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("tiktokPixelLabel") || "TikTok Pixel"}</span>
+        <span className="text-xs font-semibold">{t("tiktokPixelLabel") || "TikTok Pixel"}</span>
         <input
           className={inputCls}
           dir="ltr"
@@ -993,7 +993,7 @@ function MarketingSection() {
       </label>
 
       <label className="grid gap-1.5">
-        <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">{t("whatsappLabel")}</span>
+        <span className="text-xs font-semibold">{t("whatsappLabel")}</span>
         <input
           className={inputCls}
           dir="ltr"
@@ -1010,12 +1010,12 @@ function MarketingSection() {
           type="button"
           onClick={startWhatsappChange}
           disabled={busy || waVerifying}
-          className="rounded-full border border-emerald-400/60 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+          className="neu-btn neu-btn--success !px-4 !py-2 !text-xs disabled:opacity-40"
         >
-          🔄 {t("changeWhatsappBtn")}
+          <i className="fa-solid fa-rotate-right" aria-hidden="true" /> {t("changeWhatsappBtn")}
         </button>
         {waVerifying && (
-          <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+          <span className="text-[11px] font-semibold t-warning">
             {t("waVerifyPending")}
           </span>
         )}
@@ -1023,12 +1023,12 @@ function MarketingSection() {
 
       {/* خطوة رمز المشرف — تظهر بعد ضغط زر التغيير */}
       {waCode !== null && (
-        <div className="grid gap-2 rounded-xl border border-amber-300/60 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
-          <p className="text-[11px] font-medium leading-5 text-amber-800 dark:text-amber-200">
+        <div className="neu-inset grid gap-2 p-3">
+          <p className="text-[11px] font-medium leading-5 t-warning">
             {t("mktWhatsappCodeInfo")}
           </p>
           <input
-            className={`${inputCls} text-center font-display text-lg font-bold tracking-[0.4em]`}
+            className={`${inputCls} text-center font-bold tracking-[0.4em]`}
             dir="ltr"
             inputMode="numeric"
             pattern="[0-9]{6}"
@@ -1054,7 +1054,7 @@ function MarketingSection() {
         </div>
       )}
 
-      <p className="text-[11px] leading-5 text-navy-900/50 dark:text-ivory-50/50">{t("marketingHint")}</p>
+      <p className="text-[11px] leading-5 t-muted">{t("marketingHint")}</p>
 
       {/* الحفظ العام: البيكسل + الاسم + خيار الظهور (الواتساب يتغير من زره المستقل) */}
       <div className="flex flex-wrap items-center gap-2">
@@ -1062,7 +1062,7 @@ function MarketingSection() {
           {busy ? t("saving") : t("saveLink")}
         </button>
         {mMsg && (
-          <span className={`text-[11px] font-semibold ${mMsg.ok ? "text-emerald-700" : "text-red-600"}`}>
+          <span className={`text-[11px] font-semibold ${mMsg.ok ? "t-success" : "t-danger"}`}>
             {mMsg.text}
           </span>
         )}
@@ -1071,27 +1071,27 @@ function MarketingSection() {
       {/* منبثقة دليل إنشاء البيكسل — خطوات مبسطة بلا أي أكواد */}
       {guideOpen && (
         <div
-          className="fixed inset-0 z-[80] grid place-items-center bg-navy-950/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] grid place-items-center bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4"
           role="dialog"
           aria-modal="true"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setGuideOpen(false);
           }}
         >
-          <div className="liquid-glass liquid-glass--rounded w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
-            <div className="bg-gradient-to-l from-sky-600 to-blue-500 px-5 py-4 text-center text-white">
-              <p className="font-display text-base font-extrabold">{t("guideTitle")}</p>
-              <p className="mt-0.5 text-[11px] opacity-90">{t("guideSub")}</p>
+          <div className="neu-card w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 text-center">
+              <p className="text-base font-extrabold t-primary">{t("guideTitle")}</p>
+              <p className="mt-0.5 text-[11px] t-muted">{t("guideSub")}</p>
             </div>
             <div className="grid gap-3 p-5">
-              <ol className="list-decimal space-y-2 rounded-2xl bg-sky-50 p-4 text-xs leading-6 text-navy-900 dark:bg-white/5 dark:text-ivory-50">
+              <ol className="neu-inset list-decimal space-y-2 p-4 text-xs leading-6">
                 <li className="ms-4">{t("guideStep1")}</li>
                 <li className="ms-4">{t("guideStep2")}</li>
                 <li className="ms-4">{t("guideStep3")}</li>
                 <li className="ms-4">{t("guideStep4")}</li>
                 <li className="ms-4">{t("guideStep5")}</li>
               </ol>
-              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium leading-5 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <p className="neu-inset px-3 py-2 text-[11px] font-medium leading-5 t-success">
                 {t("guideNote")}
               </p>
               <button
@@ -1108,24 +1108,24 @@ function MarketingSection() {
 
       {testCodeOpen && (
         <div
-          className="fixed inset-0 z-[80] grid place-items-center bg-navy-950/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] grid place-items-center bg-[color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4"
           role="dialog"
           aria-modal="true"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setTestCodeOpen(false);
           }}
         >
-          <div className="liquid-glass liquid-glass--rounded w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
-            <div className="bg-gradient-to-l from-emerald-600 to-teal-500 px-5 py-4 text-center text-white">
-              <p className="font-display text-base font-extrabold">Meta Pixel Test Event Code</p>
-              <p className="mt-0.5 text-[11px] opacity-90">Events Manager → Test Events</p>
+          <div className="neu-card w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 text-center">
+              <p className="text-base font-extrabold t-primary">Meta Pixel Test Event Code</p>
+              <p className="mt-0.5 text-[11px] t-muted">Events Manager → Test Events</p>
             </div>
             <div className="grid gap-3 p-5">
-              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium leading-5 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+              <p className="neu-inset px-3 py-2 text-[11px] font-medium leading-5 t-success">
                 {t("metaTestEventsHint")}
               </p>
               <label className="grid gap-1.5">
-                <span className="text-xs font-semibold text-navy-700 dark:text-ivory-50/70">Test Event Code</span>
+                <span className="text-xs font-semibold">Test Event Code</span>
                 <input
                   className={inputCls}
                   dir="ltr"
@@ -1171,7 +1171,7 @@ function MarketingSection() {
                 <button
                   type="button"
                   onClick={() => setTestCodeOpen(false)}
-                  className="rounded-xl border border-navy-300 px-4 py-2 text-xs font-semibold text-navy-700 transition hover:bg-navy-50 dark:border-navy-700 dark:text-ivory-50 dark:hover:bg-navy-800"
+                  className="neu-btn neu-btn--muted !px-4 !py-2 !text-xs"
                 >
                   {t("close")}
                 </button>

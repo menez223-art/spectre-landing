@@ -80,7 +80,7 @@ export function useAuth(): AuthContextValue {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#0d1117] dark:text-ivory-50 dark:placeholder:text-ivory-50/40";
+  "neu-input";
 
 // ── شاشة تسجيل الدخول: خطوة البيانات ثم خطوة رمز الجهاز ──
 function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }) {
@@ -163,13 +163,13 @@ function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }
   }
 
   const card = (
-    <div className="overflow-hidden rounded-3xl border border-ivory-50/10 bg-white shadow-2xl shadow-navy-950/40 dark:border-white/10 dark:bg-[#161b22]">
-      <div className="flex items-center justify-between bg-navy-900 px-5 py-3 text-ivory-50 sm:px-7 sm:py-4">
+    <div className="neu-card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 sm:px-7 sm:py-4">
         <div className="text-center">
-          <p className="font-display text-2xl font-extrabold">
-            استوديو<span className="text-navy-400">.</span>
+          <p className="text-2xl font-extrabold">
+            استوديو<span className="t-primary">.</span>
           </p>
-          <p className="mt-1 text-xs text-ivory-50/70">
+          <p className="mt-1 text-xs t-muted">
             {stage === "credentials" ? t("loginTitle") : t("newDevice")}
           </p>
         </div>
@@ -196,10 +196,10 @@ function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }
             required
           />
           {error && (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-[11px] font-semibold leading-5 text-red-600">{error}</p>
+            <p className="neu-inset px-3 py-2 text-[11px] font-semibold leading-5 t-danger">{error}</p>
           )}
           <button
-            className="rounded-full bg-navy-900 px-6 py-3 text-sm font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-50"
+            className="neu-btn neu-btn--lg neu-btn--block"
             type="submit"
             disabled={busy}
           >
@@ -208,11 +208,11 @@ function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }
         </form>
       ) : (
         <form onSubmit={handleVerify} className="grid gap-3 p-7">
-          <p className="rounded-xl bg-navy-50 px-3 py-2.5 text-[11px] font-medium leading-5 text-navy-800">
+          <p className="neu-inset px-3 py-2.5 text-[11px] font-medium leading-5 t-muted">
             {t("codeInfo")}
           </p>
           <input
-            className={`${inputCls} text-center font-display text-lg font-bold tracking-[0.4em]`}
+            className={`${inputCls} text-center font-bold tracking-[0.4em]`}
             placeholder="000000"
             inputMode="numeric"
             pattern="[0-9]{6}"
@@ -223,10 +223,10 @@ function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }
             required
           />
           {error && (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-[11px] font-semibold leading-5 text-red-600">{error}</p>
+            <p className="neu-inset px-3 py-2 text-[11px] font-semibold leading-5 t-danger">{error}</p>
           )}
           <button
-            className="rounded-full bg-navy-900 px-6 py-3 text-sm font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-50"
+            className="neu-btn neu-btn--lg neu-btn--block"
             type="submit"
             disabled={busy}
           >
@@ -238,7 +238,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }
               setStage("credentials");
               setError("");
             }}
-            className="text-center text-[11px] font-semibold text-navy-900/50 transition hover:text-navy-900"
+            className="neu-link text-center text-[11px] font-semibold"
           >
             {t("backToLogin")}
           </button>
@@ -248,7 +248,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }
   );
 
   return (
-    <div className="grid min-h-screen place-items-center bg-navy-950 px-6 py-12 text-navy-900">
+    <div className="neu-app grid min-h-screen place-items-center px-6 py-12">
       <div className="w-full max-w-md">{card}</div>
     </div>
   );
@@ -258,16 +258,16 @@ function LoginScreen({ onSuccess }: { onSuccess: (fingerprint: string) => void }
 function DeniedScreen({ reason }: { reason: string | null }) {
   const { t } = useLocale();
   return (
-    <div className="grid min-h-screen place-items-center bg-navy-950 px-6 py-12 text-navy-900">
-      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-ivory-50/10 bg-white shadow-2xl shadow-navy-950/40">
-        <div className="bg-navy-900 px-7 py-8 text-center text-ivory-50">
-          <p className="font-display text-2xl font-extrabold">
-            استوديو<span className="text-navy-400">.</span>
+    <div className="neu-app grid min-h-screen place-items-center px-6 py-12">
+      <div className="neu-card w-full max-w-md overflow-hidden">
+        <div className="px-7 py-8 text-center">
+          <p className="text-2xl font-extrabold">
+            استوديو<span className="t-primary">.</span>
           </p>
-          <p className="mt-1 text-xs text-ivory-50/70">{t("loginFailed")}</p>
+          <p className="mt-1 text-xs t-muted">{t("loginFailed")}</p>
         </div>
         <div className="grid gap-3 p-7">
-          <p className="rounded-xl bg-red-50 px-3 py-3 text-[12px] font-semibold leading-6 text-red-600">
+          <p className="neu-inset px-3 py-3 text-[12px] font-semibold leading-6 t-danger">
             {reason ?? "لا يمكنك الوصول إلى الاستوديو في الوقت الحالي."}
           </p>
         </div>
@@ -505,8 +505,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!loaded) {
     return (
-      <div className="grid min-h-screen place-items-center bg-navy-950">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-navy-400/20 border-t-navy-400" />
+      <div className="neu-app grid min-h-screen place-items-center">
+        <div className="neu-inset h-10 w-10 !rounded-full" />
       </div>
     );
   }
@@ -543,8 +543,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       }}
     >
       {subscription?.notice ? (
-        <div className="sticky top-0 z-40 flex items-center gap-2 border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-[13px] font-bold text-amber-900">
-          <span aria-hidden="true">⚠️</span>
+        <div className="neu-inset sticky top-0 z-40 flex items-center gap-2 px-4 py-2 text-center text-[13px] font-bold t-warning">
+          <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />
           <span className="flex-1">{subscription.notice}</span>
         </div>
       ) : null}

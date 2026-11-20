@@ -25,13 +25,13 @@ const COPY = {
     waHint: "يبدأ الرقم بـ 213 (رمز الجزائر) — مثال: 213555123456. لا تكتب 0 في البداية.",
     waSendCode: "أرسل رمز التفعيل عبر واتساب",
     waResend: "أعد إرسال الرمز",
-    codeSent: "✓ فُتح واتساب — انسخ الرمز والصقه أدناه.",
+    codeSent: "فُتح واتساب — انسخ الرمز والصقه أدناه.",
     codeLabel: "رمز التفعيل (6 أرقام)",
     codePh: "••••••",
     codeHint: "افتح واتساب، انسخ الرمز الذي وصلك، والصقه هنا — ثم اضغط «تأكيد الرمز».",
     verifyCode: "تأكيد الرمز",
     verifying: "جارٍ التأكيد…",
-    codeOk: "✓ الرمز صحيح — اضغط «أنشئ الرابط التجريبي».",
+    codeOk: "الرمز صحيح — اضغط «أنشئ الرابط التجريبي».",
     errVerifyFirst: "أكّد الرمز أولاً بالزر أعلاه — ثم أنشئ الرابط.",
     errCodeRequired: "أرسل رمز التفعيل عبر واتساب أولاً — الزر الأخضر فوق خانة الرمز.",
     errCode: "أدخل رمز التفعيل المكوّن من 6 أرقام.",
@@ -50,7 +50,7 @@ const COPY = {
     terms: "بالمتابعة تقبل: رابط واحد فقط لكل بريد وجهاز ورقم · يُرفض الرابط إن كان البريد أو الجهاز أو الرقم مسجلاً لدى مشترك · يختفي نهائياً بعد 24 ساعة · لا يمكن استرجاعه أو إنشاء رابط آخر.",
     okTitle: "رابطك جاهز",
     copy: "انسخ الرابط",
-    copied: "تم النسخ ✓",
+    copied: "تم النسخ",
     open: "افتح الرابط",
     remaining: "الوقت المتبقي",
     del: "احذف الرابط",
@@ -85,13 +85,13 @@ const COPY = {
     waHint: "Starts with 213 (Algeria code) — e.g. 213555123456. Do not write 0 at the start.",
     waSendCode: "Send activation code via WhatsApp",
     waResend: "Resend code",
-    codeSent: "✓ WhatsApp opened — copy the code and paste it below.",
+    codeSent: "WhatsApp opened — copy the code and paste it below.",
     codeLabel: "Activation code (6 digits)",
     codePh: "••••••",
     codeHint: "Open WhatsApp, copy the code you received, paste it here — then press “Verify code”.",
     verifyCode: "Verify code",
     verifying: "Verifying…",
-    codeOk: "✓ Code accepted — press “Create my trial link”.",
+    codeOk: "Code accepted — press “Create my trial link”.",
     errVerifyFirst: "Verify the code first with the button above — then create the link.",
     errCodeRequired: "Send the activation code via WhatsApp first — the green button above the code field.",
     errCode: "Enter the 6-digit activation code.",
@@ -110,7 +110,7 @@ const COPY = {
     terms: "By continuing you accept: one link per email, device and number · the link is refused if the email, device or number belongs to a subscriber · it disappears permanently after 24 hours · it cannot be restored or re-created.",
     okTitle: "Your link is ready",
     copy: "Copy link",
-    copied: "Copied ✓",
+    copied: "Copied",
     open: "Open link",
     remaining: "Time remaining",
     del: "Delete link",
@@ -434,33 +434,31 @@ export function TrialPanel({
     }
   }
 
-  const inputCls =
-    "w-full rounded-xl border border-navy-900/15 bg-white px-4 py-2.5 text-[16px] text-navy-900 outline-none transition placeholder:text-navy-900/35 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/15 sm:text-sm dark:border-white/15 dark:bg-[#161b22] dark:text-ivory-50 dark:placeholder:text-ivory-50/35";
-  const ghostBtn =
-    "rounded-full border border-navy-900/15 px-4 py-2.5 text-xs font-bold text-navy-700 transition hover:border-navy-500 hover:text-navy-900 dark:border-white/15 dark:text-ivory-50 dark:hover:border-navy-400";
+  const inputCls = "neu-input !text-[16px] sm:!text-sm";
+  const ghostBtn = "neu-btn neu-btn--muted !px-4 !py-2.5 !text-xs";
 
   return (
     <div
-      className="absolute inset-0 z-20 grid place-items-center bg-navy-950/70 p-4"
+      className="absolute inset-0 z-20 grid place-items-center bg-[color:color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4"
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-navy-900/15 bg-white shadow-2xl dark:border-white/10 dark:bg-[#161b22]">
-        <div className="bg-navy-900 px-5 py-4 text-center text-ivory-50">
-          <p className="font-display text-lg font-extrabold">{c.title}</p>
+      <div className="neu-card w-full max-w-lg overflow-hidden">
+        <div className="px-5 py-4 text-center">
+          <p className="text-lg font-bold t-primary">{c.title}</p>
         </div>
 
         <div className="grid gap-4 p-6">
           <button onClick={onClose} className={ghostBtn} disabled={busy}>{c.cancel}</button>
-          {(error || restoreFailed) && <p role="alert" className="text-sm text-red-600">{error || c.errGeneric}</p>}
+          {(error || restoreFailed) && <p role="alert" className="neu-inset px-3 py-2 text-sm t-danger">{error || c.errGeneric}</p>}
           {restoring ? <p role="status">{c.checking}</p> : restoreFailed ? (
             <button className={ghostBtn} onClick={() => void restore(email, fp)}>{c.restore}</button>
           ) : deleted ? (
             <>
-              <p className="text-sm text-navy-800 dark:text-ivory-50/80">{c.ended}</p>
+              <p className="text-sm">{c.ended}</p>
               <Link
                 href="/pricing"
-                className="rounded-full bg-amber-600 px-5 py-3 text-center text-sm font-bold text-white transition hover:bg-amber-700"
+                className="neu-btn neu-btn--warning neu-btn--block"
               >
                 {c.subscribe}
               </Link>
@@ -468,13 +466,13 @@ export function TrialPanel({
             </>
           ) : made ? (
             <>
-              <p className="text-sm font-bold text-navy-900 dark:text-ivory-50">{converted ? c.converted : c.okTitle}</p>
-              <div className="rounded-xl border border-navy-900/10 bg-navy-50 px-3 py-2 text-xs break-all text-navy-800 dark:border-white/10 dark:bg-white/5 dark:text-ivory-50/85">
+              <p className="text-sm font-bold">{converted ? c.converted : c.okTitle}</p>
+              <div className="neu-inset px-3 py-2 text-xs break-all">
                 {made.url}
               </div>
-              <div className="rounded-xl bg-amber-50 px-3 py-2 text-center dark:bg-amber-400/10">
-                <span className="block text-[10px] uppercase text-amber-800/70 dark:text-amber-100/70">{c.remaining}</span>
-                <span className="font-mono text-lg font-bold tabular-nums text-amber-900 dark:text-amber-100">
+              <div className="neu-inset px-3 py-2 text-center">
+                <span className="block text-[10px] uppercase t-muted">{c.remaining}</span>
+                <span className="font-mono text-lg font-bold tabular-nums t-warning">
                   {mounted ? fmt(left) : "--:--:--"}
                 </span>
               </div>
@@ -485,7 +483,7 @@ export function TrialPanel({
                     setCopied(true);
                     window.setTimeout(() => setCopied(false), 2000);
                   }}
-                  className="rounded-full bg-navy-900 px-4 py-2.5 text-xs font-bold text-ivory-50 transition hover:bg-navy-700"
+                  className="neu-btn !px-4 !py-2.5 !text-xs"
                 >
                   {copied ? c.copied : c.copy}
                 </button>
@@ -497,33 +495,33 @@ export function TrialPanel({
                 >
                   {c.open}
                 </a>
-                <button disabled={busy || converted || !fp} onClick={() => setConfirmDel(true)} className="rounded-full border border-red-500/40 px-4 py-2.5 text-xs font-bold text-red-600 transition hover:border-red-500">
+                <button disabled={busy || converted || !fp} onClick={() => setConfirmDel(true)} className="neu-btn neu-btn--danger !px-4 !py-2.5 !text-xs">
                   {c.del}
                 </button>
               </div>
               <Link
                 href="/pricing"
-                className="rounded-full bg-amber-600 px-5 py-3 text-center text-sm font-bold text-white transition hover:bg-amber-700"
+                className="neu-btn neu-btn--warning neu-btn--block"
               >
                 {c.subscribe}
               </Link>
             </>
           ) : (
             <>
-              <p className="text-sm leading-7 text-navy-800 dark:text-ivory-50/80">{c.lead}</p>
+              <p className="text-sm leading-7">{c.lead}</p>
 
               {closed && (
                 <div
                   role="status"
-                  className="rounded-xl border border-amber-400/40 bg-amber-50 px-4 py-3 dark:bg-amber-400/10"
+                  className="neu-inset px-4 py-3 t-warning"
                 >
-                  <p className="text-sm font-bold text-amber-900 dark:text-amber-100">{c.disabledTitle}</p>
-                  <p className="mt-1 text-xs leading-6 text-amber-800/85 dark:text-amber-100/75">{c.disabledMsg}</p>
+                  <p className="text-sm font-bold">{c.disabledTitle}</p>
+                  <p className="mt-1 text-xs leading-6">{c.disabledMsg}</p>
                 </div>
               )}
 
               <label className="grid gap-1.5">
-                <span className="text-xs font-bold text-navy-700 dark:text-ivory-50/70">{c.email}</span>
+                <span className="text-xs font-bold">{c.email}</span>
                 <input
                   className={inputCls}
                   type="email"
@@ -537,7 +535,7 @@ export function TrialPanel({
               </label>
 
               <label className="grid gap-1.5">
-                <span className="text-xs font-bold text-navy-700 dark:text-ivory-50/70">{c.whatsapp}</span>
+                <span className="text-xs font-bold">{c.whatsapp}</span>
                 <input
                   className={inputCls}
                   type="tel"
@@ -548,29 +546,29 @@ export function TrialPanel({
                   disabled={closed}
                   readOnly={closed}
                 />
-                <span className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">{c.waHint}</span>
+                <span className="text-[11px] t-muted">{c.waHint}</span>
                 {/* زر إرسال رمز التفعيل عبر واتساب — يفتح wa.me برسالة جاهزة */}
                 {whatsapp.trim() && email.trim() && !closed && (
                   <button
                     type="button"
                     onClick={() => void sendCode()}
                     disabled={sending || busy || !fp || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())}
-                    className="self-start rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 min-h-[44px] touch-manipulation sm:min-h-0"
+                    className="neu-btn neu-btn--success self-start !px-3 !py-1.5 !text-[11px] min-h-[44px] touch-manipulation sm:min-h-0"
                   >
                     {sending ? "…" : codeSent ? c.waResend : c.waSendCode}
                   </button>
                 )}
                 {codeSent && (
-                  <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">{c.codeSent}</span>
+                  <span className="neu-inset flex items-center gap-2 px-3 py-2 text-[11px] font-bold t-success"><i className="fa-solid fa-circle-check" aria-hidden="true" />{c.codeSent}</span>
                 )}
               </label>
 
               {/* خانة إدخال رمز التفعيل — تظهر بعد الإرسال (شرط أساسي لإنشاء الرابط) */}
               {codeSent && !closed && (
                 <label className="grid gap-1.5">
-                  <span className="text-xs font-bold text-navy-700 dark:text-ivory-50/70">{c.codeLabel}</span>
+                  <span className="text-xs font-bold">{c.codeLabel}</span>
                   <input
-                    className={`${inputCls} text-center font-mono text-lg tracking-[0.4em]`}
+                    className={`${inputCls} text-center !font-mono !text-lg tracking-[0.4em]`}
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
@@ -581,29 +579,29 @@ export function TrialPanel({
                     maxLength={6}
                     disabled={closed}
                   />
-                  <span className="text-[11px] text-navy-900/50 dark:text-ivory-50/50">{c.codeHint}</span>
+                  <span className="text-[11px] t-muted">{c.codeHint}</span>
                   {/* زر تأكيد الرمز — يتحقق مسبقاً دون استهلاكه */}
                   <button
                     type="button"
                     onClick={() => void verifyCode()}
                     disabled={verifying || busy || closed || !fp || !/^\d{6}$/.test(code)}
-                    className="self-start rounded-full bg-navy-900 px-4 py-2 text-xs font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-50 dark:bg-white/10 dark:hover:bg-white/20 min-h-[44px] touch-manipulation sm:min-h-0"
+                    className="neu-btn self-start !px-4 !py-2 !text-xs min-h-[44px] touch-manipulation sm:min-h-0"
                   >
                     {verifying ? c.verifying : c.verifyCode}
                   </button>
                   {codeOk && (
-                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">{c.codeOk}</span>
+                    <span className="neu-inset flex items-center gap-2 px-3 py-2 text-[11px] font-bold t-success"><i className="fa-solid fa-circle-check" aria-hidden="true" />{c.codeOk}</span>
                   )}
                 </label>
               )}
 
               {error && (
-                <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 dark:bg-red-500/10 dark:text-red-300">
+                <p className="neu-inset px-3 py-2 text-xs font-bold t-danger">
                   {error}
                 </p>
               )}
 
-              <p className="rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-6 text-amber-900 dark:bg-amber-400/10 dark:text-amber-100">
+              <p className="neu-inset px-3 py-2 text-[11px] leading-6 t-warning">
                 {c.terms}
               </p>
 
@@ -611,7 +609,7 @@ export function TrialPanel({
                 <button
                   onClick={submit}
                   disabled={busy || closed}
-                  className="rounded-full bg-navy-900 px-5 py-3 text-sm font-bold text-ivory-50 transition hover:bg-navy-700 disabled:opacity-50"
+                  className="neu-btn"
                 >
                   {busy ? c.busy : c.submit}
                 </button>
@@ -623,14 +621,14 @@ export function TrialPanel({
         </div>
 
         {confirmDel && (
-          <div className="absolute inset-0 z-30 grid place-items-center bg-navy-950/80 p-4">
-            <div className="w-full max-w-sm overflow-hidden rounded-3xl border border-red-500/40 bg-white dark:bg-[#161b22]">
-              <div className="bg-red-600 px-5 py-3 text-center text-sm font-extrabold text-white">
+          <div className="absolute inset-0 z-30 grid place-items-center bg-[color:color-mix(in_srgb,var(--bg-color)_82%,transparent)] p-4">
+            <div className="neu-card w-full max-w-sm overflow-hidden">
+              <div className="px-5 py-3 text-center text-sm font-bold t-danger">
                 {c.delConfirmTitle}
               </div>
               <div className="grid gap-3 p-5">
-                <p className="text-sm leading-7 text-navy-800 dark:text-ivory-50/80">{c.delConfirmBody}</p>
-                <button onClick={removeLink} disabled={busy} className="rounded-full bg-red-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-50">
+                <p className="text-sm leading-7">{c.delConfirmBody}</p>
+                <button onClick={removeLink} disabled={busy} className="neu-btn neu-btn--danger neu-btn--block">
                   {c.delYes}
                 </button>
                 <button onClick={() => setConfirmDel(false)} className={ghostBtn}>{c.delNo}</button>

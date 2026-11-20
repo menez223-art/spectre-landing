@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Cairo, Tajawal } from "next/font/google";
 import "./globals.css";
+import "./neu.css";
+import "./vendor/fontawesome/css/all.min.css";
 import { LocaleProvider } from "@/app/components/LocaleProvider";
 import { ThemeProvider } from "@/app/components/ThemeProvider";
 import { NavigationProgress } from "@/app/components/NavigationProgress";
@@ -39,7 +41,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
       </head>
       <body className={`${cairo.variable} ${tajawal.variable} font-body min-h-screen`}>

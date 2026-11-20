@@ -29,20 +29,10 @@ function FilterChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={
-        "inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition " +
-        (active
-          ? "bg-navy-900 text-ivory-50 shadow-sm dark:bg-white/15"
-          : "border border-navy-900/12 text-navy-700 hover:border-navy-500 hover:text-navy-900 dark:border-white/12 dark:text-ivory-50/70 dark:hover:text-ivory-50")
-      }
+      className={"neu-tab inline-flex items-center gap-2 " + (active ? "is-active" : "")}
     >
       {label}
-      <span
-        className={
-          "rounded-full px-1.5 py-0.5 text-[10px] font-extrabold " +
-          (active ? "bg-white/20 text-ivory-50" : "bg-navy-900/8 text-navy-700/70 dark:bg-white/10 dark:text-ivory-50/60")
-        }
-      >
+      <span className="neu-badge px-1.5 py-0.5 text-[10px] font-extrabold">
         {count}
       </span>
     </button>
@@ -84,12 +74,12 @@ export function StorefrontClient() {
     if (active !== ALL && !cats.includes(active)) setActive(ALL);
   }, [active, cats]);
 
-  // أثناء التحميل — هيكل بديل متناسق.
+  // أثناء التحميل — هيكل بديل متناسق (ثابت بلا نبض — جهاز ضعيف).
   if (products === null) {
     return (
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-72 animate-pulse rounded-3xl bg-navy-900/10 dark:bg-white/10" />
+          <div key={i} className="neu-inset h-72 rounded-3xl" />
         ))}
       </div>
     );
@@ -98,14 +88,10 @@ export function StorefrontClient() {
   // حالة فارغة — لا منتجات معروضة للعموم بعد.
   if (products.length === 0) {
     return (
-      <div className="grid place-items-center rounded-3xl border border-navy-900/10 bg-white px-6 py-16 text-center shadow-sm dark:border-white/10 dark:bg-[#161b22]">
-        <p className="text-4xl">🛍️</p>
-        <h2 className="mt-4 font-display text-lg font-extrabold text-navy-900 dark:text-ivory-50">
-          {t("storeEmptyTitle")}
-        </h2>
-        <p className="mt-2 max-w-sm text-sm leading-6 text-navy-900/60 dark:text-ivory-50/60">
-          {t("storeEmptySub")}
-        </p>
+      <div className="neu-card grid place-items-center px-6 py-16 text-center">
+        <p className="text-4xl t-primary"><i className="fa-solid fa-store" aria-hidden="true" /></p>
+        <h2 className="mt-4 text-lg font-bold">{t("storeEmptyTitle")}</h2>
+        <p className="mt-2 max-w-sm text-sm leading-6 t-muted">{t("storeEmptySub")}</p>
       </div>
     );
   }
@@ -142,11 +128,11 @@ export function StorefrontClient() {
               <div className="mb-4 flex items-end justify-between gap-3 sm:mb-5">
                 <h2
                   id={`cat-${cat}`}
-                  className="font-display text-xl font-extrabold text-navy-900 sm:text-2xl dark:text-ivory-50"
+                  className="text-xl font-bold sm:text-2xl"
                 >
                   {cat}
                 </h2>
-                <span className="text-[11px] font-bold text-navy-900/45 dark:text-ivory-50/45">
+                <span className="text-[11px] font-bold t-muted">
                   {t("catalogSectionCount", { n: items.length })}
                 </span>
               </div>

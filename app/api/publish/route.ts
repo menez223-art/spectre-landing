@@ -43,6 +43,25 @@ async function generateSlug(): Promise<string> {
   return `p${Date.now().toString(36)}`;
 }
 
+// ── سلاغ مخصص من المالك (خانة تسمية السلاغ — طلب المالك) ──
+// يُطبَّع السلاغ، وعند التشابه مع أي رابط موجود في المنصة تُضاف لاحقة رقمية
+// (-2، -3…) حتى يصبح فريداً. لا يمس نظام الحظر/الملكية — الملكية تُثبَّت لاحقاً.
+const CUSTOM_SLUG_RE = /[^a-z0-9-]+/g;
+const RESERVED_SLUGS = new Set(["admin", "api", "p", "new", "edit", "store", "pricing", "studio", "tryfree"]);
+function normalizeSlug(raw: string): string {
+  return raw.toLowerCase().trim().replace(/\s+/g, "-").replace(CUSTOM_SLUG_RE, "").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+}
+async function resolveCustomSlug(raw: string): Promise<string | null> {
+  const base = normalizeSlug(raw);
+  if (base.length < 2) return null;
+  let candidate = base;
+  for (let n = 1; n <= 60; n++) {
+    if (!RESERVED_SLUGS.has(candidate) && !(await getPublishedProduct(candidate))) return candidate;
+    candidate = `${base}-${n + 1}`;
+  }
+  return null;
+}
+
 // عدّ الصفحات الفعّالة للمالك (المحروقة لا تُحسب — ليست متاحة للزوار).
 async function countOwnedPages(owner: string): Promise<number> {
   try {
@@ -224,11 +243,16 @@ export async function POST(request: Request) {
           { status: 403 }
         );
       }
-      const fresh = await generateSlug();
-      // ضمان أن السلاغ المُولَّد لا يصطدم بسلاغ يملكه شخص آخر (احتمال ضئيل).
-      const collision = await getPublishedProduct(fresh);
-      if (collision) {
-        return NextResponse.json({ error: "storage" }, { status: 502 });
+      // سلاغ مخصص اختياري من المالك (خانة تسمية السلاغ) — وإلا عشوائي.
+      const desiredSlug = (searchParams.get("slug") ?? "").trim();
+      let fresh = desiredSlug ? await resolveCustomSlug(desiredSlug) : null;
+      if (!fresh) {
+        fresh = await generateSlug();
+        // ضمان أن السلاغ المُولَّد لا يصطدم بسلاغ يملكه شخص آخر (احتمال ضئيل).
+        const collision = await getPublishedProduct(fresh);
+        if (collision) {
+          return NextResponse.json({ error: "storage" }, { status: 502 });
+        }
       }
       slug = fresh;
     }

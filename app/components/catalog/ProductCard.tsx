@@ -56,14 +56,14 @@ export function presentCategories(products: StoreCard[]): string[] {
   return groupByCategory(products).map(([cat]) => cat);
 }
 
-// بطاقة منتج واحدة — رابطها يفتح صفحة المنتج /p/<id>.
+// بطاقة منتج واحدة — رابطها يفتح صفحة المنتج /p/<id>. هوية Neumorphism.
 export function ProductCard({ product }: { product: StoreCard }) {
   const { t } = useLocale();
   return (
-    <article className="group flex flex-col overflow-hidden rounded-3xl border border-navy-900/10 bg-white shadow-sm transition hover:-translate-y-1 hover:border-navy-400/40 hover:shadow-xl hover:shadow-navy-500/10 dark:border-white/10 dark:bg-[#161b22]">
+    <article className="neu-card group flex flex-col overflow-hidden">
       <Link
         href={`/p/${product.id}`}
-        className="relative block aspect-[4/3] overflow-hidden bg-ivory-100 dark:bg-white/5"
+        className="neu-inset relative block aspect-[4/3] overflow-hidden rounded-3xl"
       >
         {product.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -71,18 +71,20 @@ export function ProductCard({ product }: { product: StoreCard }) {
             src={product.image}
             alt={product.name}
             loading="lazy"
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover"
           />
         ) : (
-          <div className="grid h-full w-full place-items-center text-4xl">🛍️</div>
+          <div className="grid h-full w-full place-items-center text-4xl t-muted">
+            <i className="fa-solid fa-store" aria-hidden="true" />
+          </div>
         )}
         {product.badge && (
-          <span className="absolute top-3 start-3 rounded-full bg-navy-900/85 px-3 py-1 text-[10px] font-bold text-ivory-50 backdrop-blur">
+          <span className="neu-badge absolute top-3 start-3">
             {product.badge}
           </span>
         )}
         {product.oldPrice && product.oldPrice > product.price && (
-          <span className="absolute top-3 end-3 rounded-full bg-rose-500 px-2.5 py-1 text-[10px] font-bold text-white">
+          <span className="neu-badge neu-badge--danger absolute top-3 end-3">
             -{Math.round((1 - product.price / product.oldPrice) * 100)}%
           </span>
         )}
@@ -91,28 +93,28 @@ export function ProductCard({ product }: { product: StoreCard }) {
       <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h4 className="truncate font-display text-sm font-bold text-navy-900 sm:text-base dark:text-ivory-50">
-              <Link href={`/p/${product.id}`} className="transition hover:text-navy-400">
+            <h4 className="truncate text-sm font-bold sm:text-base">
+              <Link href={`/p/${product.id}`} className="neu-link">
                 {product.name}
               </Link>
             </h4>
             {product.eyebrow && (
-              <p className="mt-1 truncate text-[11px] font-semibold text-navy-900/45 dark:text-ivory-50/45">
+              <p className="mt-1 truncate text-[11px] font-semibold t-muted">
                 {product.eyebrow}
               </p>
             )}
             {product.ownerDisplayName && (
-              <p className="mt-1 truncate text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                🛍️ {t("byOwner")} {product.ownerDisplayName}
+              <p className="mt-1 truncate text-[11px] font-bold t-success">
+                <i className="fa-solid fa-store" aria-hidden="true" /> {t("byOwner")} {product.ownerDisplayName}
               </p>
             )}
           </div>
           <div className="shrink-0 text-end">
-            <p className="font-display text-base font-extrabold text-navy-900 sm:text-lg dark:text-ivory-50">
+            <p className="text-base font-bold sm:text-lg">
               {formatDZD(product.price)}
             </p>
             {product.oldPrice && product.oldPrice > product.price && (
-              <p className="text-[11px] text-navy-900/40 line-through dark:text-ivory-50/40">
+              <p className="text-[11px] t-muted line-through">
                 {formatDZD(product.oldPrice)}
               </p>
             )}
@@ -121,7 +123,7 @@ export function ProductCard({ product }: { product: StoreCard }) {
 
         <Link
           href={`/p/${product.id}`}
-          className="mt-auto rounded-full bg-navy-900 px-4 py-2.5 text-center text-xs font-bold text-ivory-50 transition hover:bg-navy-700 dark:bg-white/10 dark:hover:bg-white/20"
+          className="neu-btn neu-btn--block mt-auto"
         >
           {t("openPage")}
         </Link>

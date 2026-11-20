@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — عينة الهوية الجديدة</title>
+<link rel="stylesheet" href="assets/css/fontawesome.css">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<script src="assets/js/shared.js"></script>
+<style>
+  /* ── لوحة الأدمن — مشتقة من tokens.css فقط (لا خلفيات ملونة) ──
+     البنية من AdminPageClient.tsx + AdminPanel.tsx الحقيقية */
+  body { padding-bottom: 130px; }
+  .hidden { display: none !important; }
+  .wrap { padding-block: 24px; display: grid; gap: 24px; }
+
+  /* الترويسة (AdminHeader): عنوان + رابط الاستوديو + بريد + ثيم/لغة + خروج */
+  .admin-title { font-size: 18px; font-weight: 700; color: var(--text-main); text-decoration: none; }
+  .studio-link { padding: 8px 14px; font-size: 12px; }
+  .studio-link .ext { font-size: 10px; opacity: 0.7; }
+  .header-id { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+  .btn-sm { padding: 8px 14px; font-size: 12px; }
+  .icon-group { display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: var(--r-control); background: var(--bg-color); box-shadow: var(--shadow-inner-sm); }
+
+  /* شريط صلاحية المشرف */
+  .auth-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px; }
+  .auth-strip .auth-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+  /* الأقسام */
+  .section-card { background: var(--bg-color); border-radius: var(--r-card); box-shadow: var(--shadow-outer); padding: 24px; display: grid; gap: 16px; }
+  .sec-h { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .hint-line { font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+  .count-note { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+  /* بطاقات الإحصائيات */
+  .stat-grid { display: grid; gap: 16px; grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 1024px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .stat-grid { grid-template-columns: 1fr; } }
+  .stat-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 16px; }
+  .stat-label { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+  .stat-value { font-size: 22px; font-weight: 700; margin-top: 4px; word-break: break-word; }
+  .stat-icon { width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--r-control); background: var(--bg-color); box-shadow: var(--shadow-inner-sm); display: grid; place-items: center; font-size: 16px; color: var(--primary-color); }
+
+  /* توزيع الخطط */
+  .plan-dist { display: grid; gap: 10px; }
+  .dist-row { display: flex; align-items: center; gap: 12px; }
+  .dist-label { width: 90px; flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--text-main); }
+  .dist-row .neu-progress { flex: 1; height: 12px; }
+  .dist-count { width: 84px; flex-shrink: 0; text-align: end; font-size: 11px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+  /* التحذيرات الذكية */
+  .warn-box { padding: 14px; display: grid; gap: 8px; }
+  .warn-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
+  .warn-list { display: grid; gap: 6px; max-height: 160px; overflow-y: auto; }
+  .warn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 10px; color: var(--text-muted); }
+  .warn-row code { font-size: 10px; font-weight: 600; color: var(--text-main); font-family: 'Poppins', monospace; }
+
+  /* البحث والفلترة */
+  .search-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .search-bar .input-group { flex: 1; min-width: 220px; margin-bottom: 0; }
+  .input-sm { padding: 10px 14px; font-size: 13px; }
+  .select-wrap { position: relative; }
+  .select-wrap .select-caret { position: absolute; top: 50%; inset-inline-end: 16px; transform: translateY(-50%); color: var(--text-muted); font-size: 12px; pointer-events: none; }
+  select.neu-input { background-image: none; width: auto; min-width: 150px; }
+  .search-bar .select-wrap { flex-shrink: 0; }
+
+  /* المستخدمون */
+  .users-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; }
+  .bulk-count { font-size: 11px; font-weight: 700; color: var(--primary-color); }
+  .empty-note { font-size: 11px; color: var(--text-muted); text-align: center; padding: 32px 0; }
+
+  /* بطاقة الاشتراك (SubscriptionCard) */
+  .sub-list { display: grid; gap: 14px; }
+  .sub-card { padding: 16px; display: grid; gap: 12px; }
+  .sub-card.is-selected { box-shadow: var(--shadow-inner-sm); }
+  .sub-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .sub-id-wrap { display: flex; align-items: flex-start; gap: 10px; min-width: 0; flex: 1; }
+  .sub-id-wrap input[type="checkbox"] { accent-color: var(--primary-color); width: 16px; height: 16px; margin-top: 3px; cursor: pointer; flex-shrink: 0; }
+  .sub-id { min-width: 0; flex: 1; display: grid; gap: 2px; }
+  .store-name { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-main); }
+  .store-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub-email { display: block; direction: ltr; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-main); font-family: 'Poppins', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+  .wa-link { display: inline-flex; align-items: center; gap: 5px; direction: ltr; font-size: 10px; font-weight: 700; color: var(--success-color); text-decoration: none; }
+  .wa-link:hover { text-decoration: underline; }
+  .pages-note { font-size: 10px; color: var(--text-muted); }
+
+  /* التحكم السريع بالخطة والأيام */
+  .quick-panel { padding: 12px; display: grid; gap: 8px; }
+  .quick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .quick-label { font-size: 10px; font-weight: 600; color: var(--text-muted); }
+  .quick-row select.neu-input { min-width: 0; padding: 8px 34px 8px 12px; font-size: 12px; }
+  [dir="rtl"] .quick-row select.neu-input { padding: 8px 12px 8px 34px; }
+  .days-input { width: 80px; padding: 8px 12px; font-size: 12px; }
+  .quick-current { font-size: 10px; color: var(--text-muted); }
+  .quick-current strong { color: var(--text-main); }
+
+  .badges-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+  /* أشرطة الاستهلاك */
+  .usage { display: grid; gap: 8px; }
+  .usage-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; }
+  .usage-label { font-weight: 600; color: var(--text-main); }
+  .usage-count { font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 5px; }
+  .usage-count.is-over { color: var(--danger-color); }
+  .usage .neu-progress { height: 10px; }
+
+  /* التفاصيل القابلة للتوسيع */
+  .sub-details { display: grid; gap: 10px; }
+  .detail-rows { display: grid; gap: 6px; }
+  .detail-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; color: var(--text-muted); }
+  .detail-row strong { font-weight: 600; color: var(--text-main); }
+  .detail-row strong.t-danger { color: var(--danger-color); }
+  .sub-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chevron-row { display: flex; justify-content: flex-end; }
+
+  /* قائمة المحظورين */
+  .banned-list { display: grid; gap: 10px; }
+  .banned-row { display: grid; gap: 8px; padding: 12px 14px; }
+  .banned-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .banned-top code { direction: ltr; font-size: 11px; font-weight: 600; color: var(--text-main); font-family: 'Poppins', monospace; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .banned-reason { font-size: 10px; line-height: 1.7; color: var(--danger-color); }
+  .banned-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  /* صحة الروابط */
+  .health-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .health-time { font-size: 11px; color: var(--text-muted); }
+  .health-list { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; }
+  .health-entry { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; }
+  .health-id { display: grid; gap: 2px; min-width: 0; }
+  .health-id code { direction: ltr; font-size: 11px; font-weight: 600; color: var(--text-main); font-family: 'Poppins', monospace; }
+  .health-owner { direction: ltr; font-size: 10px; color: var(--text-muted); font-family: 'Poppins', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* منتجات المتجر */
+  .product-list { display: grid; gap: 10px; max-height: 520px; overflow-y: auto; }
+  .product-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; }
+  .p-thumb { width: 48px; height: 48px; flex-shrink: 0; border-radius: var(--r-control); background: var(--bg-color); box-shadow: var(--shadow-inner-sm); display: grid; place-items: center; color: var(--text-muted); font-size: 18px; }
+  .p-info { min-width: 160px; flex: 1; display: grid; gap: 3px; }
+  .p-name { font-size: 12px; font-weight: 700; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .p-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 10px; color: var(--text-muted); }
+  .p-meta .p-price { direction: ltr; font-weight: 600; }
+  .p-meta .p-owner { font-family: 'Poppins', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .p-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .p-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+  /* الاحتياط والسعة */
+  .bw-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; }
+  .bw-label { font-weight: 600; color: var(--text-main); }
+  .bw-value { font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .bw-value.is-warn { font-weight: 700; color: var(--danger-color); }
+  .bw-note { font-size: 10px; color: var(--text-muted); line-height: 1.7; }
+  .alert-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; }
+  .alert-msg { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; }
+  .fallback-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
+  .fallback-text { display: grid; gap: 3px; min-width: 200px; flex: 1; }
+  .fallback-label { font-size: 11px; font-weight: 700; color: var(--text-main); }
+  .fallback-desc { font-size: 10px; color: var(--text-muted); line-height: 1.7; }
+  .note-box { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; }
+  .note-box i { flex-shrink: 0; margin-top: 3px; }
+  .note-text { display: grid; gap: 3px; }
+  .note-title { font-size: 11px; font-weight: 700; }
+  .note-desc { font-size: 10px; color: var(--text-muted); line-height: 1.7; }
+
+  /* النوافذ المنبثقة */
+  .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .modal-head h2 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .modal-sub { font-size: 11px; color: var(--text-muted); line-height: 1.7; margin-top: 4px; }
+  .modal-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex-shrink: 0; }
+  .modal-body { display: grid; gap: 16px; }
+  .modal-foot { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+  .confirm-msg { font-size: 12px; line-height: 1.9; color: var(--text-muted); }
+  .msg-box { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 11px; font-weight: 700; }
+  .msg-box i { flex-shrink: 0; }
+  .field { display: grid; gap: 6px; }
+  .field-label { font-size: 12px; font-weight: 600; color: var(--text-main); }
+  .form-2 { display: grid; gap: 14px; }
+  @media (min-width: 560px) { .form-2 { grid-template-columns: 1fr 1fr; } }
+
+  /* روابط التجربة */
+  .gen-strip { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 11px; font-weight: 700; }
+  .trial-list { display: grid; gap: 12px; max-height: 56vh; overflow-y: auto; }
+  .trial-row { display: grid; gap: 8px; padding: 12px 14px; }
+  .trial-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .trial-email { direction: ltr; font-size: 12px; font-weight: 700; color: var(--text-main); font-family: 'Poppins', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trial-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 11px; color: var(--text-muted); }
+  .trial-meta span { display: inline-flex; align-items: center; gap: 6px; }
+  .trial-meta .ltr { direction: ltr; font-family: 'Poppins', monospace; }
+  .trial-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .trial-open.is-disabled { opacity: 0.4; pointer-events: none; }
+  .plan-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; }
+  .plan-picker .quick-label { color: var(--primary-color); }
+  .plan-picker select.neu-input { min-width: 0; padding: 8px 34px 8px 12px; font-size: 12px; }
+  [dir="rtl"] .plan-picker select.neu-input { padding: 8px 12px 8px 34px; }
+
+  /* الإعدادات المتقدمة (site-copy) */
+  .sc-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sc-tabs .neu-tab { padding: 7px 14px; font-size: 11px; }
+  .sc-list { display: grid; gap: 12px; max-height: 52vh; overflow-y: auto; }
+  .sc-row { display: grid; gap: 8px; padding: 12px 14px; }
+  .sc-row.is-mod { box-shadow: var(--shadow-inner-sm); }
+  .sc-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .sc-key { direction: ltr; font-size: 11px; color: var(--text-muted); font-family: 'Poppins', monospace; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sc-head-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .sc-inputs { display: grid; gap: 10px; }
+  @media (min-width: 640px) { .sc-inputs { grid-template-columns: 1fr 1fr; } }
+  .sc-lang { font-size: 10px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: block; }
+  .sc-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .sc-hint { font-size: 11px; color: var(--text-muted); }
+
+  /* بيانات الدخول */
+  .cred-warn { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; font-size: 11px; font-weight: 600; line-height: 1.7; }
+  .cred-warn i { flex-shrink: 0; margin-top: 3px; }
+  .cred-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cred-tabs .neu-tab { display: inline-flex; align-items: center; gap: 8px; }
+  .cred-form { display: grid; gap: 14px; }
+  .cred-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+  /* إدارة التخزين */
+  .stor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .stor-list { display: grid; gap: 10px; max-height: 46vh; overflow-y: auto; }
+  .stor-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; }
+  .stor-row.is-selected { box-shadow: var(--shadow-inner-sm); }
+  .stor-row input[type="checkbox"] { accent-color: var(--danger-color); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+  .stor-name { flex: 1; min-width: 160px; font-size: 12px; font-weight: 700; color: var(--text-main); }
+  .stor-warn { white-space: normal; border-radius: 12px; max-width: 360px; text-align: start; line-height: 1.6; font-size: 10px; padding: 6px 10px; }
+  .stor-confirm { display: grid; gap: 10px; }
+
+  /* ── أداة مراجعة: ليست من التصميم (تُزال عند التطبيق) ── */
+  .review-bar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 8px 14px; border: 1.5px dashed var(--text-muted); border-radius: 12px; background: var(--bg-color); box-shadow: var(--shadow-outer-sm); font-size: 11px; color: var(--text-muted); max-width: calc(100vw - 24px); }
+  .review-bar button { border: none; background: var(--bg-color); box-shadow: var(--shadow-outer-sm); color: var(--text-muted); border-radius: 10px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .review-bar button.is-active { box-shadow: var(--shadow-inner-sm); color: var(--primary-color); }
+</style>
+</head>
+<body>
+
+<!-- ══════════ الترويسة (AdminHeader الحقيقي) ══════════ -->
+<header class="page-header">
+  <div class="wrap" style="padding-block:0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div class="header-id">
+      <a class="admin-title" href="#" data-en="Subscription Management" data-ar="إدارة الاشتراكات">Subscription Management</a>
+      <a class="neu-btn neu-btn--success studio-link" href="studio.html" target="_blank" rel="noopener"
+         data-en-title="Open studio in a new tab" data-ar-title="فتح الاستوديو في تبويب جديد" title="Open studio in a new tab">
+        <i class="fa-solid fa-store"></i>
+        <span data-en="Store Products Management" data-ar="إدارة منتجات المتجر">Store Products Management</span>
+        <i class="fa-solid fa-arrow-up-right-from-square ext"></i>
+      </a>
+    </div>
+    <div class="header-actions">
+      <span class="neu-badge"><i class="fa-solid fa-envelope"></i><span dir="ltr">admin@spectre.dz</span></span>
+      <div class="icon-group">
+        <button class="neu-circle neu-circle--sm" id="themeBtn" data-en-title="Toggle dark mode" data-ar-title="تبديل الوضع الليلي" title="Toggle dark mode">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <button class="neu-circle neu-circle--sm" id="langBtn" data-en-title="Change language" data-ar-title="تغيير اللغة" title="Change language">AR</button>
+      </div>
+      <button type="button" class="neu-btn neu-btn--muted btn-sm" id="exitBtn">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span data-en="Exit" data-ar="خروج">Exit</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- شريط صلاحية المشرف (أول عنصر في AdminPanel) -->
+  <div class="auth-strip neu-row">
+    <span class="neu-badge neu-badge--primary"><span dir="ltr">admin@spectre.dz</span></span>
+    <span class="auth-label" data-en="Admin access" data-ar="صلاحية المشرف">Admin access</span>
+    <span class="neu-badge neu-badge--warning"><i class="fa-solid fa-flask"></i><span data-en="Demo data — display only" data-ar="بيانات تجريبية — عرض فقط">Demo data — display only</span></span>
+  </div>
+
+  <!-- صندوق الخطأ العام (error) — مخفي افتراضياً -->
+  <div class="msg-box neu-inset t-danger hidden" id="errorBox" role="alert">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span data-en="Failed to execute action." data-ar="فشل تنفيذ العملية.">Failed to execute action.</span>
+  </div>
+
+  <!-- ══════════ لوحة الإحصائيات (StatsDashboard) ══════════ -->
+  <section class="section-card">
+    <h2 class="sec-h"><i class="fa-solid fa-chart-line t-primary"></i><span data-en="Subscriptions Overview" data-ar="ملخص الاشتراكات">Subscriptions Overview</span></h2>
+    <div class="stat-grid">
+      <div class="stat-card neu-panel">
+        <div>
+          <p class="stat-label" data-en="Total subscribers" data-ar="إجمالي المشتركين">Total subscribers</p>
+          <p class="stat-value" id="statTotal">8</p>
+        </div>
+        <span class="stat-icon"><i class="fa-solid fa-users"></i></span>
+      </div>
+      <div class="stat-card neu-panel">
+        <div>
+          <p class="stat-label" data-en="Monthly revenue" data-ar="الإيرادات الشهرية">Monthly revenue</p>
+          <p class="stat-value" id="statRevenue">18,000 DZD</p>
+        </div>
+        <span class="stat-icon t-success"><i class="fa-solid fa-money-bill-wave"></i></span>
+      </div>
+      <div class="stat-card neu-panel">
+        <div>
+          <p class="stat-label" data-en="Active today" data-ar="نشط اليوم">Active today</p>
+          <p class="stat-value" id="statActive">5</p>
+        </div>
+        <span class="stat-icon"><i class="fa-solid fa-chart-column"></i></span>
+      </div>
+      <div class="stat-card neu-panel">
+        <div>
+          <p class="stat-label" data-en="Expiring soon (7 days)" data-ar="تنتهي قريباً (7 أيام)">Expiring soon (7 days)</p>
+          <p class="stat-value" id="statExpiring">2</p>
+        </div>
+        <span class="stat-icon t-warning"><i class="fa-solid fa-clock"></i></span>
+      </div>
+    </div>
+    <div class="plan-dist" id="planDist"></div>
+  </section>
+
+  <!-- ══════════ التحذيرات الذكية (SmartWarnings) ══════════ -->
+  <section class="section-card" id="warningsSection">
+    <h2 class="sec-h t-warning"><i class="fa-solid fa-triangle-exclamation"></i><span data-en="Smart Warnings" data-ar="تنبيهات ذكية">Smart Warnings</span></h2>
+    <div id="warningsBody" style="display:grid;gap:12px"></div>
+  </section>
+
+  <!-- ══════════ البحث والفلترة (SearchFilterBar + Tabs) ══════════ -->
+  <section class="section-card">
+    <div class="search-bar">
+      <div class="input-group input-group--icon">
+        <i class="fa-solid fa-magnifying-glass input-icon"></i>
+        <input type="text" class="neu-input input-sm" id="searchInput" placeholder="Search by email or ID..."
+               data-en-ph="Search by email or ID..." data-ar-ph="بحث بالبريد أو المعرف...">
+      </div>
+      <div class="select-wrap">
+        <select class="neu-input input-sm" id="statusFilter">
+          <option value="all" data-en="All statuses" data-ar="كل الحالات">All statuses</option>
+          <option value="active" data-en="Active" data-ar="نشط">Active</option>
+          <option value="suspended" data-en="Suspended" data-ar="موقوف">Suspended</option>
+          <option value="banned" data-en="Banned" data-ar="محظور">Banned</option>
+          <option value="expired" data-en="Expired" data-ar="منتهٍ">Expired</option>
+        </select>
+        <i class="fa-solid fa-chevron-down select-caret"></i>
+      </div>
+      <div class="select-wrap">
+        <select class="neu-input input-sm" id="planFilter">
+          <option value="all" data-en="All plans" data-ar="كل الخطط">All plans</option>
+          <option value="basic" data-en="Basic" data-ar="أساسي">Basic</option>
+          <option value="pro" data-en="Pro" data-ar="متقدم">Pro</option>
+          <option value="gold" data-en="Gold" data-ar="الذهبية">Gold</option>
+        </select>
+        <i class="fa-solid fa-chevron-down select-caret"></i>
+      </div>
+      <button type="button" class="neu-btn neu-btn--muted btn-sm" id="refreshBtn">
+        <i class="fa-solid fa-rotate-right"></i>
+        <span data-en="Refresh" data-ar="تحديث">Refresh</span>
+      </button>
+    </div>
+    <div class="neu-tabs" id="planTabs" role="tablist" style="margin-top:4px">
+      <button type="button" class="neu-tab is-active" role="tab" aria-selected="true" data-tab="all" data-en="All (8)" data-ar="الكل (8)">All (8)</button>
+      <button type="button" class="neu-tab" role="tab" aria-selected="false" data-tab="basic" data-en="Basic (4)" data-ar="أساسي (4)">Basic (4)</button>
+      <button type="button" class="neu-tab" role="tab" aria-selected="false" data-tab="pro" data-en="Pro (2)" data-ar="متقدم (2)">Pro (2)</button>
+      <button type="button" class="neu-tab" role="tab" aria-selected="false" data-tab="gold" data-en="Gold (2)" data-ar="الذهبية (2)">Gold (2)</button>
+    </div>
+  </section>
+
+  <!-- ══════════ قائمة المستخدمين (SubscriptionCard) ══════════ -->
+  <section class="section-card">
+    <div class="sec-head">
+      <h2 class="sec-h" id="usersHeading">Users (8 / 8)</h2>
+      <div class="users-controls">
+        <div class="select-wrap">
+          <select class="neu-input input-sm" id="sortBy">
+            <option value="updated" data-en="Sort: Last updated" data-ar="ترتيب: آخر تحديث">Sort: Last updated</option>
+            <option value="created" data-en="Sort: Oldest first" data-ar="ترتيب: الأقدم">Sort: Oldest first</option>
+            <option value="plan" data-en="Sort: By plan" data-ar="ترتيب: حسب الخطة">Sort: By plan</option>
+          </select>
+          <i class="fa-solid fa-chevron-down select-caret"></i>
+        </div>
+        <button type="button" class="neu-btn neu-btn--warning btn-sm" id="trialsBtn">
+          <i class="fa-solid fa-gift"></i>
+          <span data-en="Trial links" data-ar="روابط التجربة">Trial links</span>
+        </button>
+        <button type="button" class="neu-btn neu-btn--muted btn-sm" id="siteCopyBtn"
+                data-en-title="Advanced settings — home page texts" data-ar-title="الإعدادات المتقدمة — نصوص الرئيسية" title="Advanced settings — home page texts">
+          <i class="fa-solid fa-gear"></i>
+          <span data-en="Advanced settings" data-ar="إعدادات متقدمة">Advanced settings</span>
+        </button>
+        <button type="button" class="neu-btn neu-btn--muted btn-sm" id="credsBtn"
+                data-en-title="Change the studio username/password and the admin email/password. Applied instantly, no redeploy needed."
+                data-ar-title="تغيير اسم وكلمة دخول الاستوديو، وبريد وكلمة الأدمن. يُطبَّق فوراً بدون إعادة نشر."
+                title="Change the studio username/password and the admin email/password. Applied instantly, no redeploy needed.">
+          <i class="fa-solid fa-key"></i>
+          <span data-en="Login credentials" data-ar="بيانات الدخول">Login credentials</span>
+        </button>
+        <button type="button" class="neu-btn neu-btn--muted btn-sm" id="refreshBtn2">
+          <span data-en="Refresh" data-ar="تحديث">Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- الإجراءات الجماعية (تظهر عند التحديد) -->
+    <div class="bulk-bar neu-inset hidden" id="bulkBar">
+      <span class="bulk-count" id="bulkCount">0 selected</span>
+      <button type="button" class="neu-btn btn-sm" data-bulk="extend_7" data-en="Extend 7 days" data-ar="تمديد 7 أيام">Extend 7 days</button>
+      <button type="button" class="neu-btn btn-sm" data-bulk="extend_30" data-en="Extend 30 days" data-ar="تمديد 30 يوم">Extend 30 days</button>
+      <button type="button" class="neu-btn neu-btn--success btn-sm" data-bulk="activate" data-en="Activate" data-ar="تفعيل">Activate</button>
+      <button type="button" class="neu-btn neu-btn--warning btn-sm" data-bulk="suspend" data-en="Suspend" data-ar="إيقاف">Suspend</button>
+      <button type="button" class="neu-btn neu-btn--muted btn-sm" id="clearSelectionBtn" data-en="Clear selection" data-ar="إلغاء التحديد">Clear selection</button>
+    </div>
+
+    <p class="empty-note hidden" id="noMatches" data-en="No subscriptions match the selected filters." data-ar="لا توجد اشتراكات مطابقة للفلاتر المختارة.">No subscriptions match the selected filters.</p>
+    <div class="sub-list" id="subList"></div>
+  </section>
+  <!-- ══════════ قائمة المحظورين (BannedList) ══════════ -->
+  <section class="section-card">
+    <div class="sec-head">
+      <h2 class="sec-h t-danger"><i class="fa-solid fa-ban"></i><span data-en="Banned List" data-ar="قائمة المحظورين">Banned List</span></h2>
+      <span class="neu-badge neu-badge--danger" id="bannedCount">1 banned</span>
+    </div>
+    <p class="empty-note hidden" id="noBanned" style="padding:8px 0" data-en="No banned accounts currently." data-ar="لا يوجد أي حساب محظور حالياً.">No banned accounts currently.</p>
+    <div class="banned-list" id="bannedList"></div>
+  </section>
+
+  <!-- ══════════ رصد صحة الروابط (LinkHealth) ══════════ -->
+  <section class="section-card">
+    <div class="sec-head">
+      <h2 class="sec-h"><i class="fa-solid fa-link t-primary"></i><span data-en="Link Health Monitor" data-ar="رصد صحة الروابط">Link Health Monitor</span></h2>
+      <button type="button" class="neu-btn neu-btn--muted btn-sm" id="healthCheckBtn">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span id="healthCheckLabel" data-en="Check now" data-ar="فحص الآن">Check now</span>
+      </button>
+    </div>
+    <p class="hint-line hidden" id="noHealth" data-en="No check has been run yet. Click &quot;Check now&quot; to test all user links and verify they work without issues." data-ar="لم يُجرَ فحص بعد. اضغط «فحص الآن» لاختبار كل روابط المستخدمين والتأكد من أنها تعمل دون مشاكل.">No check has been run yet. Click "Check now" to test all user links and verify they work without issues.</p>
+    <div id="healthBody" style="display:grid;gap:12px">
+      <div class="health-badges" id="healthBadges"></div>
+      <div class="msg-box neu-inset t-warning hidden" id="healthErrorNote">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span id="healthErrorText">1 links have issues — see the list below.</span>
+      </div>
+      <div class="health-list" id="healthList"></div>
+    </div>
+  </section>
+
+  <!-- ══════════ إدارة منتجات المتجر (StoreProducts) ══════════ -->
+  <section class="section-card">
+    <div class="sec-head">
+      <h2 class="sec-h"><i class="fa-solid fa-store t-primary"></i><span data-en="Store Products Management" data-ar="إدارة منتجات المتجر">Store Products Management</span></h2>
+      <button type="button" class="neu-btn neu-btn--muted btn-sm" id="productsRefreshBtn">
+        <i class="fa-solid fa-rotate-right"></i>
+        <span data-en="Refresh" data-ar="تحديث">Refresh</span>
+      </button>
+    </div>
+    <p class="hint-line" data-en="Edit any published product's data, or hide it from the public store. Hiding removes it from the store only — its page remains functional." data-ar="تعديل بيانات أي منتج منشور، أو إخفاؤه من المتجر العام. الإخفاء يزيله من المتجر فقط — تبقى صفحته تعمل بشكل طبيعي.">Edit any published product's data, or hide it from the public store. Hiding removes it from the store only — its page remains functional.</p>
+    <p class="empty-note hidden" id="noProducts" data-en="No published products yet." data-ar="لا توجد منتجات منشورة بعد.">No published products yet.</p>
+    <div class="product-list" id="productList"></div>
+  </section>
+
+  <!-- ══════════ الاحتياط وإنذار السعة (Fallback) ══════════ -->
+  <section class="section-card">
+    <div class="sec-head">
+      <h2 class="sec-h"><i class="fa-solid fa-shield-halved t-primary"></i><span data-en="Fallback &amp; Bandwidth Alert" data-ar="الاحتياط وإنذار السعة">Fallback &amp; Bandwidth Alert</span></h2>
+      <div class="users-controls">
+        <button type="button" class="neu-btn neu-btn--danger btn-sm" id="storageBtn"
+                data-en-title="Pick what to permanently delete from the database. This cannot be undone."
+                data-ar-title="اختر ما تريد حذفه نهائياً من قاعدة البيانات. لا يمكن التراجع."
+                title="Pick what to permanently delete from the database. This cannot be undone.">
+          <i class="fa-solid fa-trash"></i>
+          <span data-en="Storage management" data-ar="إدارة التخزين">Storage management</span>
+        </button>
+        <button type="button" class="neu-btn neu-btn--muted btn-sm" id="fallbackRefreshBtn">
+          <span data-en="Refresh" data-ar="تحديث">Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- شريط السعة -->
+    <div style="display:grid;gap:8px">
+      <div class="bw-head">
+        <span class="bw-label" data-en="Bandwidth used (Vercel)" data-ar="السعة المستهلكة (Vercel)">Bandwidth used (Vercel)</span>
+        <span class="bw-value" id="bwValue" dir="ltr">62.40 / 90 GB</span>
+      </div>
+      <div class="neu-progress"><span id="bwBar" style="width:69.3%"></span></div>
+      <p class="bw-note" data-en="Calculated on each visit to a published link. When 90GB is exceeded, the alert activates automatically." data-ar="يُحسب عند كل زيارة لرابط منشور. عند تجاوز 90GB يُفعَّل الإنذار تلقائياً.">Calculated on each visit to a published link. When 90GB is exceeded, the alert activates automatically.</p>
+    </div>
+
+    <!-- شارة الإنذار (تظهر عند تجاوز الحد) -->
+    <div class="alert-row neu-inset t-danger hidden" id="bwAlert">
+      <span class="alert-msg"><i class="fa-solid fa-triangle-exclamation"></i><span data-en="Bandwidth approaching limit (90GB)!" data-ar="اقتربت السعة من الحد (90GB)!">Bandwidth approaching limit (90GB)!</span></span>
+      <button type="button" class="neu-btn neu-btn--danger btn-sm" id="clearWarningBtn" data-en="Clear alert" data-ar="مسح الإنذار">Clear alert</button>
+    </div>
+
+    <!-- تبديل وضع الاحتياط -->
+    <div class="fallback-row neu-row">
+      <div class="fallback-text">
+        <span class="fallback-label" data-en="Fallback mode (GitHub Pages)" data-ar="وضع الاحتياط (GitHub Pages)">Fallback mode (GitHub Pages)</span>
+        <span class="fallback-desc" id="fallbackDesc" data-en="Disabled: All products are published on Vercel as usual." data-ar="معطّل: كل المنتجات تُنشر على Vercel كالمعتاد.">Disabled: All products are published on Vercel as usual.</span>
+      </div>
+      <button type="button" class="neu-btn neu-btn--success btn-sm" id="fallbackToggleBtn" data-en="Enable fallback" data-ar="تفعيل الاحتياط">Enable fallback</button>
+    </div>
+
+    <!-- ملاحظات التفعيل -->
+    <div class="note-box neu-inset t-warning hidden" id="fallbackTempNote">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span class="note-text">
+        <span class="note-title" data-en="Temporary" data-ar="مؤقت">Temporary</span>
+        <span class="note-desc" data-en="New links are published on GitHub Pages as a fallback only — they expire after one week, then auto-burn and require renewal from the studio. Use this mode when approaching Vercel bandwidth limit (90GB) and don't keep it enabled unless necessary." data-ar="الروابط الجديدة تُنشر على GitHub Pages احتياطياً فقط — تنتهي صلاحيتها بعد أسبوع ثم تُحرق تلقائياً وتطلب التجديد من الاستوديو. استخدم هذا الوضع عند الاقتراب من حد سعة Vercel (90GB) ولا تبقِه مفعّلاً إلا عند الحاجة.">New links are published on GitHub Pages as a fallback only — they expire after one week, then auto-burn and require renewal from the studio. Use this mode when approaching Vercel bandwidth limit (90GB) and don't keep it enabled unless necessary.</span>
+      </span>
+    </div>
+    <div class="note-box neu-inset t-danger hidden" id="fallbackMisconfNote">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span class="note-text">
+        <span class="note-title" data-en="Misconfigured" data-ar="إعداد ناقص">Misconfigured</span>
+        <span class="note-desc" data-en="Mode is enabled but GITHUB_TOKEN / GITHUB_REPO are not set in .env.local — no links will actually be uploaded until you add them. Return to Vercel immediately or add the variables." data-ar="الوضع مفعّل لكن GITHUB_TOKEN / GITHUB_REPO غير مضبوطين في .env.local — لن يُرفع أي رابط فعلياً حتى تضيفهما. عد إلى Vercel فوراً أو أضف المتغيرين.">Mode is enabled but GITHUB_TOKEN / GITHUB_REPO are not set in .env.local — no links will actually be uploaded until you add them. Return to Vercel immediately or add the variables.</span>
+      </span>
+    </div>
+  </section>
+</div>
+
+<!-- ══════════ نافذة التأكيد العامة (ConfirmDialog) ══════════ -->
+<div class="neu-overlay hidden" id="confirmOverlay">
+  <div class="neu-card" style="max-width:440px">
+    <div class="modal-head">
+      <h2 id="confirmTitle">Confirm Ban</h2>
+    </div>
+    <p class="confirm-msg" id="confirmMsg"></p>
+    <div class="modal-foot" style="margin-top:18px">
+      <button type="button" class="neu-btn neu-btn--muted" id="confirmCancel" data-en="Cancel" data-ar="إلغاء">Cancel</button>
+      <button type="button" class="neu-btn neu-btn--danger" id="confirmOk">Ban</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة تعديل المنتج (ProductEditModal) ══════════ -->
+<div class="neu-overlay hidden" id="productEditOverlay">
+  <div class="neu-card" style="max-width:480px">
+    <div class="modal-head">
+      <div>
+        <h2 data-en="Edit Product" data-ar="تعديل المنتج">Edit Product</h2>
+        <p class="modal-sub" data-en="Changes apply to the published page immediately. Theme and other data remain unchanged." data-ar="يُطبَّق التعديل على الصفحة المنشورة فوراً. يبقى الثيم وباقي البيانات كما هي.">Changes apply to the published page immediately. Theme and other data remain unchanged.</p>
+      </div>
+      <button type="button" class="neu-circle neu-circle--sm" id="productEditClose" data-en-title="Close" data-ar-title="إغلاق" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <span class="field-label" data-en="Name" data-ar="الاسم">Name</span>
+        <input class="neu-input input-sm" type="text" id="peName" dir="auto">
+      </div>
+      <div class="form-2">
+        <div class="field">
+          <span class="field-label" data-en="Price (DZD)" data-ar="السعر (د.ج)">Price (DZD)</span>
+          <input class="neu-input input-sm" type="text" inputmode="numeric" id="pePrice" dir="ltr">
+        </div>
+        <div class="field">
+          <span class="field-label" data-en="Old price (optional)" data-ar="السعر القديم (اختياري)">Old price (optional)</span>
+          <input class="neu-input input-sm" type="text" inputmode="numeric" id="peOldPrice" dir="ltr">
+        </div>
+      </div>
+      <div class="field">
+        <span class="field-label" data-en="Badge" data-ar="الشارة (Badge)">Badge</span>
+        <input class="neu-input input-sm" type="text" id="peBadge" dir="auto">
+      </div>
+      <div class="field">
+        <span class="field-label" data-en="Eyebrow" data-ar="العنوان الفرعي (Eyebrow)">Eyebrow</span>
+        <input class="neu-input input-sm" type="text" id="peEyebrow" dir="auto">
+      </div>
+    </div>
+    <div class="modal-foot" style="margin-top:18px">
+      <button type="button" class="neu-btn neu-btn--muted" id="productEditCancel" data-en="Cancel" data-ar="إلغاء">Cancel</button>
+      <button type="button" class="neu-btn" id="productEditSave"><i class="fa-solid fa-floppy-disk"></i><span data-en="Save" data-ar="حفظ">Save</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة روابط تجربة الڤيست (GuestTrialsPanel) ══════════ -->
+<div class="neu-overlay neu-overlay--wide hidden" id="trialsOverlay">
+  <div class="neu-card">
+    <div class="modal-head">
+      <div>
+        <h2><i class="fa-solid fa-gift t-primary"></i><span data-en="Guest trial links" data-ar="روابط تجربة الڤيست">Guest trial links</span></h2>
+        <p class="modal-sub" data-en="One link per email, device and number · 24 hours · no extension" data-ar="رابط واحد لكل إيميل وجهاز ورقم · 24 ساعة · لا تمديد">One link per email, device and number · 24 hours · no extension</p>
+      </div>
+      <div class="modal-head-actions">
+        <button type="button" class="neu-btn neu-btn--warning btn-sm" id="genToggleBtn" data-en="Stop link generation" data-ar="إيقاف توليد الروابط">Stop link generation</button>
+        <button type="button" class="neu-btn neu-btn--muted btn-sm" id="trialsRefreshBtn"><i class="fa-solid fa-rotate-right"></i><span data-en="Refresh" data-ar="تحديث">Refresh</span></button>
+        <button type="button" class="neu-btn btn-sm" id="trialsCloseBtn" data-en="Close" data-ar="إغلاق">Close</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="gen-strip neu-inset t-success" id="genStrip">
+        <i class="fa-solid fa-circle-check" id="genStripIcon"></i>
+        <span id="genStripText" data-en="Trial-link generation is enabled." data-ar="توليد الروابط التجريبية مُفعّل.">Trial-link generation is enabled.</span>
+      </div>
+      <div class="trial-list" id="trialList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة الإعدادات المتقدمة (SiteCopyPanel) ══════════ -->
+<div class="neu-overlay neu-overlay--wide hidden" id="siteCopyOverlay">
+  <div class="neu-card">
+    <div class="modal-head">
+      <div>
+        <h2><i class="fa-solid fa-gear t-primary"></i><span data-en="Advanced settings — home page texts" data-ar="الإعدادات المتقدمة — نصوص الرئيسية">Advanced settings — home page texts</span></h2>
+        <p class="modal-sub">
+          <span data-en="37 texts in 7 groups · changes appear within a minute" data-ar="٣٧ نصاً في ٧ مجموعات · التعديل يظهر خلال دقيقة">37 texts in 7 groups · changes appear within a minute</span>
+          <span class="neu-badge neu-badge--warning hidden" id="scModCount" style="margin-inline-start:8px"><span id="scModCountText">1 Modified</span></span>
+        </p>
+      </div>
+      <div class="modal-head-actions">
+        <button type="button" class="neu-btn neu-btn--muted btn-sm" id="scRefreshBtn"><i class="fa-solid fa-rotate-right"></i><span data-en="Refresh" data-ar="تحديث">Refresh</span></button>
+        <button type="button" class="neu-btn btn-sm" id="scCloseBtn" data-en="Cancel" data-ar="إلغاء">Cancel</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="sc-tabs" id="scTabs"></div>
+      <div class="sc-list" id="scList"></div>
+      <div class="sc-foot">
+        <span class="sc-hint" id="scHint" data-en="Leave empty for the default" data-ar="اتركه فارغاً للافتراضي">Leave empty for the default</span>
+        <div class="users-controls">
+          <button type="button" class="neu-btn neu-btn--muted btn-sm" id="scResetAllBtn" data-en="Restore all" data-ar="استرجاع الكل">Restore all</button>
+          <button type="button" class="neu-btn neu-btn--warning btn-sm" id="scSaveBtn"><i class="fa-solid fa-floppy-disk"></i><span data-en="Save" data-ar="حفظ">Save</span></button>
+        </div>
+      </div>
+      <div class="msg-box neu-inset t-success hidden" id="scMsg">
+        <i class="fa-solid fa-circle-check"></i>
+        <span data-en="Saved — will appear within a minute." data-ar="تم الحفظ — سيظهر خلال دقيقة.">Saved — will appear within a minute.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة بيانات الدخول (CredentialsPanel) ══════════ -->
+<div class="neu-overlay hidden" id="credsOverlay">
+  <div class="neu-card" style="max-width:640px">
+    <div class="modal-head">
+      <div>
+        <h2><i class="fa-solid fa-key t-primary"></i><span data-en="Login credentials" data-ar="بيانات الدخول">Login credentials</span></h2>
+        <p class="modal-sub" data-en="Change the studio username/password and the admin email/password. Applied instantly, no redeploy needed." data-ar="تغيير اسم وكلمة دخول الاستوديو، وبريد وكلمة الأدمن. يُطبَّق فوراً بدون إعادة نشر.">Change the studio username/password and the admin email/password. Applied instantly, no redeploy needed.</p>
+      </div>
+      <button type="button" class="neu-btn btn-sm" id="credsCloseBtn" data-en="Cancel" data-ar="إلغاء">Cancel</button>
+    </div>
+    <div class="modal-body">
+      <div class="cred-warn neu-inset t-warning">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span data-en="Store the new credentials somewhere safe before changing — they cannot be shown again from this panel." data-ar="احفظ البيانات الجديدة في مكان آمن قبل التغيير — لا يمكن عرضها مرة أخرى من هذه اللوحة.">Store the new credentials somewhere safe before changing — they cannot be shown again from this panel.</span>
+      </div>
+      <div class="cred-tabs" id="credTabs">
+        <button type="button" class="neu-tab is-active" data-ctab="studio">
+          <span data-en="Studio" data-ar="الاستوديو">Studio</span>
+          <span class="neu-badge neu-badge--success" id="studioStateBadge"><span data-en="Custom" data-ar="مخصّص">Custom</span></span>
+        </button>
+        <button type="button" class="neu-tab" data-ctab="admin">
+          <span data-en="Admin" data-ar="الأدمن">Admin</span>
+          <span class="neu-badge" id="adminStateBadge"><span data-en="Default (environment variables)" data-ar="افتراضي (متغيّرات البيئة)">Default (environment variables)</span></span>
+        </button>
+      </div>
+
+      <!-- تبويب الاستوديو -->
+      <div class="cred-form" id="credStudioTab">
+        <div class="field">
+          <span class="field-label" data-en="Username" data-ar="اسم المستخدم">Username</span>
+          <input class="neu-input input-sm" type="text" id="credStUser" dir="ltr" autocomplete="off" data-en-ph="Username" data-ar-ph="اسم المستخدم" placeholder="Username">
+        </div>
+        <div class="field">
+          <span class="field-label" data-en="Password" data-ar="كلمة المرور">Password</span>
+          <div class="input-group" style="margin-bottom:0">
+            <input class="neu-input input-sm" type="password" id="credStPass" dir="ltr" autocomplete="new-password" data-en-ph="Password" data-ar-ph="كلمة المرور" placeholder="Password">
+            <i class="fa-solid fa-eye toggle-password"></i>
+          </div>
+        </div>
+        <div class="cred-actions">
+          <button type="button" class="neu-btn neu-btn--success btn-sm" id="credStSave"><i class="fa-solid fa-floppy-disk"></i><span data-en="Save" data-ar="حفظ">Save</span></button>
+          <button type="button" class="neu-btn neu-btn--danger btn-sm" id="credStReset"><i class="fa-solid fa-rotate-right"></i><span data-en="Reset to default" data-ar="استرجاع الافتراضي">Reset to default</span></button>
+        </div>
+      </div>
+
+      <!-- تبويب الأدمن -->
+      <div class="cred-form hidden" id="credAdminTab">
+        <div class="field">
+          <span class="field-label" data-en="Email" data-ar="البريد الإلكتروني">Email</span>
+          <input class="neu-input input-sm" type="email" id="credAdEmail" dir="ltr" autocomplete="off" value="admin@spectre.dz" data-en-ph="Email" data-ar-ph="البريد الإلكتروني" placeholder="Email">
+        </div>
+        <div class="field">
+          <span class="field-label" data-en="Password" data-ar="كلمة المرور">Password</span>
+          <div class="input-group" style="margin-bottom:0">
+            <input class="neu-input input-sm" type="password" id="credAdPass" dir="ltr" autocomplete="new-password" data-en-ph="Password" data-ar-ph="كلمة المرور" placeholder="Password">
+            <i class="fa-solid fa-eye toggle-password"></i>
+          </div>
+        </div>
+        <div class="cred-actions">
+          <button type="button" class="neu-btn neu-btn--success btn-sm" id="credAdSave"><i class="fa-solid fa-floppy-disk"></i><span data-en="Save" data-ar="حفظ">Save</span></button>
+          <button type="button" class="neu-btn neu-btn--danger btn-sm hidden" id="credAdReset"><i class="fa-solid fa-rotate-right"></i><span data-en="Reset to default" data-ar="استرجاع الافتراضي">Reset to default</span></button>
+        </div>
+      </div>
+
+      <div class="msg-box neu-inset t-success hidden" id="credMsgOk">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="credMsgOkText" data-en="Saved — applied instantly." data-ar="تم الحفظ — يُطبَّق فوراً.">Saved — applied instantly.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ نافذة إدارة التخزين (StoragePanel) ══════════ -->
+<div class="neu-overlay neu-overlay--wide hidden" id="storageOverlay">
+  <div class="neu-card">
+    <div class="modal-head">
+      <div>
+        <h2><i class="fa-solid fa-trash t-danger"></i><span data-en="Storage management" data-ar="إدارة التخزين">Storage management</span></h2>
+        <p class="modal-sub" data-en="Pick what to permanently delete from the database. This cannot be undone." data-ar="اختر ما تريد حذفه نهائياً من قاعدة البيانات. لا يمكن التراجع.">Pick what to permanently delete from the database. This cannot be undone.</p>
+      </div>
+      <div class="modal-head-actions">
+        <button type="button" class="neu-btn neu-btn--muted btn-sm" id="storRefreshBtn"><i class="fa-solid fa-rotate-right"></i><span data-en="Refresh counters" data-ar="تحديث العدّادات">Refresh counters</span></button>
+        <button type="button" class="neu-btn btn-sm" id="storCloseBtn" data-en="Cancel" data-ar="إلغاء">Cancel</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="stor-toolbar">
+        <button type="button" class="neu-btn neu-btn--muted btn-sm" id="storSelectAllBtn" data-en="Select all" data-ar="تحديد الكل">Select all</button>
+        <span class="neu-badge neu-badge--primary hidden" id="storSelBadge"><span id="storSelText">0 · 0 keys</span></span>
+      </div>
+      <div class="stor-list" id="storList"></div>
+      <div class="stor-confirm">
+        <div class="field">
+          <span class="field-label" data-en="Type &quot;DELETE&quot; to confirm" data-ar="اكتب «حذف» للتأكيد">Type "DELETE" to confirm</span>
+          <input class="neu-input input-sm" type="text" id="storConfirmInput" data-en-ph="DELETE" data-ar-ph="حذف" placeholder="DELETE">
+        </div>
+        <div class="msg-box neu-inset t-success hidden" id="storMsg">
+          <i class="fa-solid fa-circle-check"></i>
+          <span id="storMsgText">Deleted: 0 keys</span>
+        </div>
+        <button type="button" class="neu-btn neu-btn--danger neu-btn--block" id="storDeleteBtn" disabled>
+          <i class="fa-solid fa-trash"></i>
+          <span data-en="Delete selected permanently" data-ar="احذف المحدد نهائياً">Delete selected permanently</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ أداة مراجعة للتنقل بين حالات الصفحة/النوافذ — ليست من التصميم ══════════ -->
+<div class="review-bar">
+  <span data-en="Review tool (not part of the design):" data-ar="أداة مراجعة (ليست من التصميم):">Review tool (not part of the design):</span>
+  <button type="button" data-stage="panel" class="is-active" data-en="Panel" data-ar="اللوحة">Panel</button>
+  <button type="button" data-stage="error" data-en="Error" data-ar="الخطأ">Error</button>
+  <button type="button" data-stage="fallback" data-en="Fallback on" data-ar="الاحتياط مفعّل">Fallback on</button>
+  <button type="button" data-stage="nohealth" data-en="No health check" data-ar="بلا فحص">No health check</button>
+  <button type="button" data-stage="trials" data-en="Trials" data-ar="التجارب">Trials</button>
+  <button type="button" data-stage="sitecopy" data-en="Site copy" data-ar="نصوص الرئيسية">Site copy</button>
+  <button type="button" data-stage="creds" data-en="Credentials" data-ar="بيانات الدخول">Credentials</button>
+  <button type="button" data-stage="storage" data-en="Storage" data-ar="التخزين">Storage</button>
+  <button type="button" data-stage="confirm" data-en="Confirm dialog" data-ar="نافذة التأكيد">Confirm dialog</button>
+</div>
+<script>
+  /* ════════════════════════════════════════════════════════════
+     عينة تصميم ثابتة — كل البيانات تجريبية موسومة، وكل الأزرار
+     خاملة/محلية: لا API ولا أي منطق حظر/سماح حقيقي.
+     النصوص من app/lib/i18n.ts (قاموس T المضمّن أدناه).
+     ════════════════════════════════════════════════════════════ */
+  var T = {"adminActivate":["Activate","تفعيل"],"adminActiveToday":["Active today","نشط اليوم"],"adminAdminAuth":["Admin access","صلاحية المشرف"],"adminAll":["All","الكل"],"adminAllPlans":["All plans","كل الخطط"],"adminAllStatuses":["All statuses","كل الحالات"],"adminBan":["Ban","حظر"],"adminBandwidthNote":["Calculated on each visit to a published link. When 90GB is exceeded, the alert activates automatically.","يُحسب عند كل زيارة لرابط منشور. عند تجاوز 90GB يُفعَّل الإنذار تلقائياً."],"adminBandwidthUsed":["Bandwidth used (Vercel)","السعة المستهلكة (Vercel)"],"adminBandwidthWarning":["Bandwidth approaching limit (90GB)!","اقتربت السعة من الحد (90GB)!"],"adminBannedCount":["banned","محظور"],"adminBannedList":["Banned List","قائمة المحظورين"],"adminBlocked":["Blocked","محجوبة"],"adminBulkActivateConfirm":["Activate every selected subscription?","هل تريد تفعيل كل المحدد؟"],"adminBulkExtendConfirm":["Extend every selected subscription by {n} days? Permanent subscriptions are left untouched.","هل تريد تمديد كل المحدد بـ {n} يوم؟ الاشتراكات الدائمة تُترك كما هي."],"adminBulkSuspendConfirm":["Suspend every selected subscription?","هل تريد إيقاف كل المحدد؟"],"adminCancel":["Cancel","إلغاء"],"adminCheckNow":["Check now","فحص الآن"],"adminChecking":["Checking…","جارٍ الفحص…"],"adminChoosePlan":["Choose plan:","اختر الخطة:"],"adminClearSelection":["Clear selection","إلغاء التحديد"],"adminClearWarning":["Clear alert","مسح الإنذار"],"adminConfirmBanBtn":["Ban","حظر"],"adminConfirmBanMsg":["This user's account will be fully frozen: all their pages and links stop immediately, no customer can purchase via their links, and a clear ban message appears. Their data remains saved and can be restored later via \"Unban\". Are you sure?","سيتم تجميد حساب المستخدم وتعطيله بالكامل: تتوقف جميع صفحاته وروابطه فوراً، ويُمنع أي زبون من الشراء عبر روابطه مع ظهور رسالة حظر واضحة. بياناته تبقى محفوظة ويمكن استرجاعها لاحقاً عبر «إلغاء الحظر». هل أنت متأكد؟"],"adminConfirmBanTitle":["Confirm Ban","تأكيد الحظر"],"adminConfirmDeleteBtn":["Delete permanently","حذف نهائي"],"adminConfirmDeleteMsg":["This user's account will be completely deleted from the system. This action cannot be undone.","سيتم حذف حساب هذا المستخدم من النظام بشكل كامل. لا يمكن التراجع عن هذه العملية."],"adminConfirmDeletePagesBtn":["Delete pages","حذف الصفحات"],"adminConfirmDeletePagesMsg":["All pages and links of this user will be permanently deleted from the database and stop working immediately. Their account and subscription remain intact. This action cannot be undone.","سيتم حذف جميع صفحات وروابط هذا المستخدم من قاعدة البيانات نهائياً وتتوقف عن العمل فوراً. يبقى حسابه واشتراكه كما هما. لا يمكن التراجع عن هذه العملية."],"adminConfirmDeletePagesTitle":["Confirm Page Deletion","تأكيد حذف الصفحات"],"adminConfirmDeleteProductBtn":["Delete permanently","حذف نهائي"],"adminConfirmDeleteProductMsg":["Product \"{name}\" (/{slug}) will be permanently deleted from the store and its public page. This action cannot be undone.","سيتم حذف «{name}» (/{slug}) من المتجر وصفحته العامة نهائياً. لا يمكن التراجع عن هذه العملية."],"adminConfirmDeleteTitle":["Confirm Deletion","تأكيد الحذف"],"adminConfirmPurgeBtn":["Delete inventory permanently","حذف المخزون نهائياً"],"adminConfirmPurgeMsg":["This email will be removed from the banned list and their entire inventory, all pages, and all links will be permanently deleted — they stop working and become unreachable. Inventory deletion cannot be undone.","سيتم إزالة هذا الإيميل من قائمة المحظورين وحذف كامل مخزونه من التخزين وكل صفحاته وروابطه نهائياً — تتوقف عن العمل غير قابلة للوصول. لا يمكن التراجع عن حذف المخزون."],"adminConfirmPurgeTitle":["Permanent Removal + Delete Inventory","إزالة نهائية + حذف المخزون"],"adminConfirmSuspendBtn":["Suspend","توقيف"],"adminConfirmSuspendMsg":["This user's pages will be temporarily suspended without deleting their account. You can restore them later via \"Activate\".","سيتم إيقاف صفحات هذا المستخدم مؤقتاً عن العمل دون حذف حسابه. يمكنك إعادتها لاحقاً عبر «تفعيل»."],"adminConfirmSuspendTitle":["Confirm Suspension","تأكيد التوقيف"],"adminConfirmUnbanBtn":["Remove from list","إزالة من القائمة"],"adminConfirmUnbanMsg":["This account will be unbanned and restored to normal operation (links and pages become available again). Their inventory remains as-is. Continue?","سيتم إلغاء حظر هذا الحساب وإعادته للعمل بشكل طبيعي (روابطه وصفحاته تعود متاحة). يبقى مخزونه كما هو. هل تريد المتابعة؟"],"adminConfirmUnbanTitle":["Remove from Banned List","إزالة من قائمة المحظورين"],"adminCurrency":["DZD","د.ج"],"adminCurrentPlan":["Current plan","الخطة الحالية"],"adminDay":["days","يوم"],"adminDeleteInventory":["Delete inventory permanently","حذف المخزون نهائياً"],"adminDeletePages":["Delete pages","حذف الصفحات"],"adminDeleteProductTitle":["Delete product permanently","حذف المنتج نهائياً"],"adminDeleteSub":["Delete subscription","حذف الاشتراك"],"adminDisableFallback":["Disable fallback","إيقاف الاحتياط"],"adminEdit":["Edit","تعديل"],"adminEditProduct":["Edit Product","تعديل المنتج"],"adminEditProductDesc":["Changes apply to the published page immediately. Theme and other data remain unchanged.","يُطبَّق التعديل على الصفحة المنشورة فوراً. يبقى الثيم وباقي البيانات كما هي."],"adminEmailPh":["Email","البريد الإلكتروني"],"adminEnableFallback":["Enable fallback","تفعيل الاحتياط"],"adminEnter":["Enter","دخول"],"adminErrActionError":["Could not execute action.","تعذّر تنفيذ العملية."],"adminErrActionFailed":["Failed to execute action.","فشل تنفيذ العملية."],"adminErrCannotModifyAdmin":["Cannot modify admin account.","لا يمكن تعديل حساب المشرف."],"adminErrGithubNotConfigured":["Fallback mode is enabled but will not actually serve: GitHub Pages is not configured.","تفعيل الاحتياط لا يرفع فعلياً: GitHub Pages غير مضبوط."],"adminErrInvalidRequest":["Invalid request.","طلب غير صالح."],"adminErrLoadSubs":["Failed to load subscriptions.","تعذّر تحميل الاشتراكات."],"adminErrPlanUpdate":["Failed to update plan.","فشل تحديث الخطة."],"adminErrSession":["Session expired. Please log in again.","انتهت الجلسة. سجّل الدخول من جديد."],"adminErrSubUpdate":["Failed to update subscription.","تعذّر تحديث الاشتراك."],"adminErrUnauthorized":["Session expired or unauthorized.","انتهت الجلسة أو غير مصرّح لك."],"adminErrValidityFailed":["Plan updated but setting the duration failed. Check the row and retry.","ضبطتُ الخطة لكن فشل ضبط المدّة. تحقّق من الصف وأعد المحاولة."],"adminError":["Error","خطأ"],"adminExit":["Exit","خروج"],"adminExpiringSoon":["Expiring soon (7 days)","تنتهي قريباً (7 أيام)"],"adminExpiringWarn":["{count} subscriptions expire within 7 days","{count} اشتراك ينتهي خلال 7 أيام"],"adminExpiryDate":["Expiry date","تاريخ الانتهاء"],"adminExtend30":["Extend 30 days","تمديد 30 يوم"],"adminExtend7":["Extend 7 days","تمديد 7 أيام"],"adminExtendAll":["Extend all 30 days","تمديد الكل 30 يوم"],"adminFallbackDisabled":["Disabled: All products are published on Vercel as usual.","معطّل: كل المنتجات تُنشر على Vercel كالمعتاد."],"adminFallbackEnabled":["Enabled: New products are published as standalone HTML pages on GitHub Pages with one-week validity.","مُفعّل: المنتجات الجديدة تُنشر كصفحات HTML مستقلة على GitHub Pages مع صلاحية أسبوع."],"adminFallbackMisconfigured":["Misconfigured","إعداد ناقص"],"adminFallbackMisconfiguredDesc":["Mode is enabled but GITHUB_TOKEN / GITHUB_REPO are not set in .env.local — no links will actually be uploaded until you add them. Return to Vercel immediately or add the variables.","الوضع مفعّل لكن GITHUB_TOKEN / GITHUB_REPO غير مضبوطين في .env.local — لن يُرفع أي رابط فعلياً حتى تضيفهما. عد إلى Vercel فوراً أو أضف المتغيرين."],"adminFallbackMode":["Fallback mode (GitHub Pages)","وضع الاحتياط (GitHub Pages)"],"adminFallbackTemp":["Temporary","مؤقت"],"adminFallbackTempDesc":["New links are published on GitHub Pages as a fallback only — they expire after one week, then auto-burn and require renewal from the studio. Use this mode when approaching Vercel bandwidth limit (90GB) and don't keep it enabled unless necessary.","الروابط الجديدة تُنشر على GitHub Pages احتياطياً فقط — تنتهي صلاحيتها بعد أسبوع ثم تُحرق تلقائياً وتطلب التجديد من الاستوديو. استخدم هذا الوضع عند الاقتراب من حد سعة Vercel (90GB) ولا تبقِه مفعّلاً إلا عند الحاجة."],"adminFallbackTitle":["Fallback & Bandwidth Alert","الاحتياط وإنذار السعة"],"adminHealthErrorCount":["{count} links have issues — see the list below.","يوجد {count} رابط بها مشكل — راجع القائمة أدناه."],"adminHealthy":["Healthy","سليمة"],"adminHidden":["Hidden","مخفي"],"adminHide":["Hide","إخفاء"],"adminImagesLabel":["Images","صور"],"adminLastError":["Last check","آخر فحص"],"adminLastUpdate":["Last update","آخر تحديث"],"adminLinkHealth":["Link Health Monitor","رصد صحة الروابط"],"adminListed":["Listed","مُدرَج"],"adminLoading":["Loading...","جارٍ التحميل..."],"adminLoginError":["Invalid credentials.","بيانات الدخول غير صحيحة."],"adminLoginTitle":["Admin login","دخول المشرف"],"adminMonthlyRevenue":["Monthly revenue","الإيرادات الشهرية"],"adminNoBanned":["No banned accounts currently.","لا يوجد أي حساب محظور حالياً."],"adminNoHealthCheck":["No check has been run yet. Click \"Check now\" to test all user links and verify they work without issues.","لم يُجرَ فحص بعد. اضغط «فحص الآن» لاختبار كل روابط المستخدمين والتأكد من أنها تعمل دون مشاكل."],"adminNoMatch":["No subscriptions match the selected filters.","لا توجد اشتراكات مطابقة للفلاتر المختارة."],"adminNoMatches":["No subscriptions match the selected filters.","لا توجد اشتراكات مطابقة للفلاتر المختارة."],"adminNoProducts":["No published products yet.","لا توجد منتجات منشورة بعد."],"adminNoValidity":["No validity set","بلا مدة محددة"],"adminOnly":["For admin only","للمشرف فقط"],"adminOpen":["Open","فتح"],"adminOpenStudioTip":["Open studio in a new tab","فتح الاستوديو في تبويب جديد"],"adminPageTitle":["Subscription Management","إدارة الاشتراكات"],"adminPageUnit":["page","صفحة"],"adminPages":["published pages","صفحة منشورة"],"adminPagesLabel":["Pages","صفحات"],"adminPasswordPh":["Password","كلمة المرور"],"adminPermanent":["permanent","دائم"],"adminPlanBasic":["Basic","أساسي"],"adminPlanBasicPrice":["Basic (2000 DZD)","أساسي (2000 د.ج)"],"adminPlanColon":["Plan:","الخطة:"],"adminPlanGold":["Gold","الذهبية"],"adminPlanGoldPrice":["Gold (6000 DZD)","الذهبية (6000 د.ج)"],"adminPlanPro":["Pro","متقدم"],"adminPlanProPrice":["Pro (4000 DZD)","متقدم (4000 د.ج)"],"adminPrivate":["Private","خاص"],"adminProductBadge":["Badge","الشارة (Badge)"],"adminProductDesc":["Edit any published product's data, or hide it from the public store. Hiding removes it from the store only — its page remains functional.","تعديل بيانات أي منتج منشور، أو إخفاؤه من المتجر العام. الإخفاء يزيله من المتجر فقط — تبقى صفحته تعمل بشكل طبيعي."],"adminProductEyebrow":["Eyebrow","العنوان الفرعي (Eyebrow)"],"adminProductManage":["Store Products Management","إدارة منتجات المتجر"],"adminProductName":["Name","الاسم"],"adminProductOldPrice":["Old price (optional)","السعر القديم (اختياري)"],"adminProductPrice":["Price (DZD)","السعر (د.ج)"],"adminProductsLabel":["Products","منتجات"],"adminQuotaExceeded":["Quota exceeded","تجاوز الحصة"],"adminQuotaWarn":["{count} subscribers exceeded their quota","{count} مشترك تجاوز حصته"],"adminReason":["Reason","السبب"],"adminReasonBanned":["Banned by admin.","حظر من المشرف."],"adminReasonBulkSuspended":["Bulk suspension by admin.","إيقاف جماعي من المشرف."],"adminReasonExpired":["Subscription expired.","انتهت صلاحية الاشتراك."],"adminReasonSuspended":["Temporarily suspended by admin.","إيقاف مؤقت من المشرف."],"adminRefresh":["Refresh","تحديث"],"adminRemaining":["remaining","متبقٍ"],"adminRemainingDays":["Remaining days:","الأيام المتبقية:"],"adminRemoveFromList":["Remove from list","إزالة من القائمة"],"adminRenew":["Renew","تجديد"],"adminSave":["Save","حفظ"],"adminSaveUnbansConfirm":["Warning: saving edits on a banned account reactivates it and restores its burned links. Continue?","تنبيه: حفظ تعديلات على حساب محظور يُفعّله ويعيد روابطه المحروقة. متابعة؟"],"adminSaveValidity":["Save validity","حفظ الصلاحية"],"adminSaving":["Saving...","جارٍ الحفظ..."],"adminSearchPlaceholder":["Search by email or ID...","بحث بالبريد أو المعرف..."],"adminSelected":["selected","محدد"],"adminShow":["Show","إظهار"],"adminSmartWarnings":["Smart Warnings","تنبيهات ذكية"],"adminSortCreated":["Sort: Oldest first","ترتيب: الأقدم"],"adminSortPlan":["Sort: By plan","ترتيب: حسب الخطة"],"adminSortUpdated":["Sort: Last updated","ترتيب: آخر تحديث"],"adminStartSub":["Subscription start","بدء الاشتراك"],"adminStatsTitle":["Subscriptions Overview","ملخص الاشتراكات"],"adminStatusActive":["Active","نشط"],"adminStatusBanned":["Banned","محظور"],"adminStatusExpired":["Expired","منتهٍ"],"adminStatusSuspended":["Suspended","موقوف"],"adminStoreManage":["Store Products Management","إدارة منتجات المتجر"],"adminSuspend":["Suspend","إيقاف"],"adminSuspendedAuto":["{count} subscribers auto-suspended for expiry","{count} مشترك موقوف تلقائياً لانتهاء الصلاحية"],"adminTotalSubs":["Total subscribers","إجمالي المشتركين"],"adminTrialLinks":["Trial links","روابط التجربة"],"adminTrialsPanelTitle":["Guest trial links","روابط تجربة الڤيست"],"adminUnban":["Unban","إلغاء الحظر"],"adminUsers":["Users","المستخدمون"],"adminUsersHeading":["Users ({count} / {total})","المستخدمون ({count} / {total})"],"adminValidityAlways":["Permanent","دائم"],"adminValidityDays":["By days","بالأيام"],"adminValidityDaysPlaceholder":["Number of days","عدد الأيام"],"adminValidityEnd":["Validity end","نهاية الصلاحية"],"adminValidityNone":["No validity","بلا مدة"],"adminValidityStart":["Validity start","بداية الصلاحية"],"adminWhatsappTip":["Quick contact via WhatsApp","تواصل سريع عبر واتساب"],"brand":["Studio.","استوديو."],"browseStore":["Browse store","تصفّح المتجر"],"catalogEyebrow":["All products","كل المنتجات"],"catalogSub":["Static and generated pages — click any product to open its full landing page with the order form.","صفحات ثابتة ومولّدة — اضغط على أي منتج لعرض صفحة الهبوط الكاملة مع نموذج الطلب."],"catalogTitle":["Product catalog","فهرس المنتجات"],"close":["Close","إغلاق"],"credAdminTab":["Admin","الأدمن"],"credDefault":["Default (environment variables)","افتراضي (متغيّرات البيئة)"],"credEmail":["Email","البريد الإلكتروني"],"credErrEmail":["Invalid email address.","بريد غير صالح."],"credErrLoad":["Could not read status.","تعذّر قراءة الحالة."],"credErrSave":["Could not save — please try again.","تعذّر الحفظ — حاول مجدداً."],"credErrShort":["Password must be at least 6 characters.","كلمة المرور ٦ أحرف على الأقل."],"credErrUsername":["Username must be at least 3 characters.","اسم المستخدم ٣ أحرف على الأقل."],"credOverridden":["Custom","مخصّص"],"credPassword":["Password","كلمة المرور"],"credReset":["Reset to default","استرجاع الافتراضي"],"credResetConfirm":["The custom override will be removed and environment variables will be used again. Continue?","سيُحذف التخصيص ويعود النظام لبيانات متغيّرات البيئة. متابعة؟"],"credResetDone":["Reset to default.","تم استرجاع الافتراضي."],"credSave":["Save","حفظ"],"credSaved":["Saved — applied instantly.","تم الحفظ — يُطبَّق فوراً."],"credSaving":["Saving…","جارٍ الحفظ…"],"credStudioTab":["Studio","الاستوديو"],"credSub":["Change the studio username/password and the admin email/password. Applied instantly, no redeploy needed.","تغيير اسم وكلمة دخول الاستوديو، وبريد وكلمة الأدمن. يُطبَّق فوراً بدون إعادة نشر."],"credTitle":["Login credentials","بيانات الدخول"],"credUsername":["Username","اسم المستخدم"],"credWarn":["Store the new credentials somewhere safe before changing — they cannot be shown again from this panel.","احفظ البيانات الجديدة في مكان آمن قبل التغيير — لا يمكن عرضها مرة أخرى من هذه اللوحة."],"ctaBrowse":["Browse products","تصفّح المنتجات"],"ctaStart":["Start now","ابدأ الإنشاء الآن"],"footer1":["© 2026 Landing Pages Studio — Algeria.","© 2026 استوديو صفحات الهبوط — الجزائر."],"footer2":["Delivery to 58 wilayas · Cash on delivery","التوصيل لـ 58 ولاية · الدفع عند الاستلام"],"heroBadge":["Landing page studio — Algeria","استوديو صفحات الهبوط — الجزائر"],"heroSub":["Just your product name, image, and price. The studio handles the rest: wilaya & commune selection, 58-wilaya delivery, and payment on delivery.","أدخل اسم المنتج، الصورة، والسعر — والاستوديو يولّد لك صفحة كاملة بنظام الطلب: الولاية والبلدية، التوصيل لـ 58 ولاية، والدفع عند الاستلام."],"heroTitle1":["Your store,","انشىء متجرك الالكتروني"],"heroTitle2":["ready in seconds.","في ثواني."],"howEyebrow":["How it works","كيف يعمل"],"howSub":["No coding, no complex setup — the platform generates everything for you.","بدون برمجة ولا إعدادات معقّدة — المنصة تولّد لك كل شيء."],"howTitle":["Three steps and your page is ready","ثلاث خطوات وصفحتك جاهزة"],"newPage":["Create new page","إنشاء صفحة جديدة"],"products":["Products","المنتجات"],"siteCopyEmptyHint":["Leave empty for the default","اتركه فارغاً للافتراضي"],"siteCopyGroup_catalog":["Catalog","الفهرس"],"siteCopyGroup_footer":["Footer","التذييل"],"siteCopyGroup_header":["Header","الترويسة"],"siteCopyGroup_hero":["Hero section","القسم الرئيسي"],"siteCopyGroup_how":["How it works","كيف يعمل"],"siteCopyGroup_stats":["Stats","الأرقام"],"siteCopyGroup_subs":["Plans","الباقات"],"siteCopyModified":["Modified","معدَّل"],"siteCopyReset":["Restore default","استرجاع الافتراضي"],"siteCopyResetAll":["Restore all","استرجاع الكل"],"siteCopySave":["Save","حفظ"],"siteCopySaved":["Saved — will appear within a minute.","تم الحفظ — سيظهر خلال دقيقة."],"siteCopyShort":["Advanced settings","إعدادات متقدمة"],"siteCopySub":["37 texts in 7 groups · changes appear within a minute","٣٧ نصاً في ٧ مجموعات · التعديل يظهر خلال دقيقة"],"siteCopyTitle":["Advanced settings — home page texts","الإعدادات المتقدمة — نصوص الرئيسية"],"statCod":["COD","COD"],"statCodLabel":["Cash on delivery","دفع عند الاستلام"],"statPages":["",""],"statPagesLabel":["Unlimited pages","صفحات غير محدودة"],"statWilayas":["58","58"],"statWilayasLabel":["Delivery wilayas","ولاية توصيل"],"step1Copy":["Type the name, upload the image, set the price. Colors are extracted from the image automatically.","اكتب الاسم، ارفع الصورة، وحدّد السعر. استخراج الألوان من الصورة تلقائي."],"step1Title":["Enter your product details","أدخل بيانات منتجك"],"step2Copy":["The studio generates a full page: product showcase, features, and customer reviews with matching colors.","الاستوديو يبني صفحة كاملة: عرض المنتج، المميزات، وآراء الزبائن بألوان متناسقة."],"step2Title":["We build your page","نولّد صفحتك"],"step3Copy":["A smart order form (wilaya & commune), delivery to 58 wilayas, and cash on delivery.","نموذج طلب ذكي (الولاية والبلدية)، توصيل لـ 58 ولاية، والدفع عند الاستلام."],"step3Title":["Orders come in","تصل الطلبات"],"storCancel":["Cancel","إلغاء"],"storCatAuth":["Studio accounts (devices + profiles + codes + marketing)","حسابات الاستوديو (أجهزة + ملفات + أكواد + تسويق)"],"storCatCopy":["Home page text overrides (advanced settings)","تجاوزات نصوص الرئيسية (الإعدادات المتقدمة)"],"storCatCreds":["Login credential overrides","تجاوزات بيانات الدخول"],"storCatFlags":["Flags (fallback mode + trials disabled + sheet)","الأعلام (وضع الاحتياط + تعطيل التجارب + الجدول)"],"storCatLimits":["Rate-limit counters","عدّادات حدّ الإيقاع"],"storCatPages":["Published pages (published + meta)","الصفحات المنشورة (published + meta)"],"storCatStats":["Statistics (visits + bandwidth + link health)","الإحصاءات (زيارات + سعة + صحة الروابط)"],"storCatSubs":["Subscriptions (subs)","الاشتراكات (subs)"],"storCatTrials":["Trials (records + devices + WhatsApp + codes)","التجارب (سجلات + أجهزة + واتساب + رموز)"],"storClear":["Clear selection","مسح التحديد"],"storConfirmLabel":["Type \"DELETE\" to confirm","اكتب «حذف» للتأكيد"],"storConfirmPh":["DELETE","حذف"],"storDelete":["Delete selected permanently","احذف المحدد نهائياً"],"storDeleting":["Deleting…","جارٍ الحذف…"],"storDone":["Deleted","تم الحذف"],"storErrConfirm":["Type the confirmation word first.","اكتب كلمة التأكيد أولاً."],"storErrLoad":["Could not read counters.","تعذّر قراءة العدّادات."],"storErrNone":["Select at least one category.","اختر فئة واحدة على الأقل."],"storErrSave":["Deletion failed — please try again.","تعذّر الحذف — حاول مجدداً."],"storKeyUnit":["key","مفتاح"],"storKeysUnit":["keys","مفاتيح"],"storOpen":["Storage management","إدارة التخزين"],"storRefresh":["Refresh counters","تحديث العدّادات"],"storSelectAll":["Select all","تحديد الكل"],"storSub":["Pick what to permanently delete from the database. This cannot be undone.","اختر ما تريد حذفه نهائياً من قاعدة البيانات. لا يمكن التراجع."],"storTitle":["Storage management","إدارة التخزين"],"storWarnCritical":["Critical: deletes all devices and accounts — you will need to re-approve.","خطر شديد: سيحذف كل الأجهزة والحسابات — ستحتاج لإعادة الاعتماد."],"storWarnHigh":["Warning: directly affects users (their pages or subscriptions).","تحذير: يؤثر على المستخدمين مباشرةً (صفحاتهم أو اشتراكاتهم)."],"storWarnLow":["Safe: temporary data only.","آمن: بيانات مؤقتة فقط."],"storWarnMed":["Medium impact: data that can be recreated.","أثر متوسط: بيانات يمكن إعادة إنشائها."],"storeEmptySub":["No products are listed publicly yet — check back soon for new pages.","لا توجد منتجات معروضة للعموم بعد — عُد قريباً لاكتشاف صفحات جديدة."],"storeEmptyTitle":["The store is empty for now","المتجر فارغ حالياً"],"storeFilterAll":["All","الكل"],"storeNameLabel":["Your store name","اسم متجرك"],"storeNamePlaceholder":["e.g. Sara Fashion Store","مثال: متجر سارة للملابس"],"storeTitle":["Store title","عنوان المتجر"],"storeTitleHint":["Shown as the main heading in store mode (multiple products). For a single product, its name is used automatically.","يظهر كترويسة رئيسية للصفحة في وضع المتجر (منتجات متعددة). في منتج واحد يُعتمد اسمه تلقائياً."],"studio":["Studio","الاستوديو"],"subsCta":["View plans on Facebook","عرض الباقات على فيسبوك"],"subsEyebrow":["Our plans","باقاتنا"],"subsTitle":["Subscription plans","باقات الاشتراكات"],"themeDark":["Dark","ليلي"],"themeLight":["Light","نهاري"],"themeToDark":["Switch to dark mode","الوضع الليلي"],"themeToLight":["Switch to light mode","الوضع النهاري"],"trialAssignPlan":["Assign subscription","تعيين اشتراك"],"trialBurnNow":["Burn now","حرق فوري"],"trialCancel":["Cancel","إلغاء"],"trialClose":["Close","إغلاق"],"trialConfirmActivation":["Confirm activation","تأكيد التفعيل"],"trialConfirmBtn":["Confirm","تأكيد"],"trialConfirmBurnMsg":["The link and product data will be permanently deleted. This cannot be undone.","سيُحذف الرابط وبيانات المنتج نهائياً. لا يمكن التراجع."],"trialConfirmBurnTitle":["Confirm immediate burn","تأكيد الحرق الفوري"],"trialConfirmReleaseMsg":["The email, device and number will be released — so its owner can take a new trial.","سيُحرَّر الإيميل والجهاز والرقم — فيستطيع صاحبها أخذ تجربة جديدة."],"trialConfirmReleaseTitle":["Confirm releasing the email","تأكيد تحرير الإيميل"],"trialDisableGeneration":["Stop link generation","إيقاف توليد الروابط"],"trialEnableGeneration":["Resume link generation","تفعيل توليد الروابط"],"trialErrAction":["Action failed.","فشل الإجراء."],"trialErrForbidden":["Not authorized.","غير مصرّح."],"trialErrLoad":["Could not load.","تعذّر الجلب."],"trialErrNotFound":["Trial not found.","التجربة غير موجودة."],"trialGenerationOff":["Trial-link generation is currently stopped — visitors cannot create new links.","توليد الروابط التجريبية متوقف الآن — الزوار لا يستطيعون إنشاء روابط جديدة."],"trialGenerationOn":["Trial-link generation is enabled.","توليد الروابط التجريبية مُفعّل."],"trialNeedsEmail":["Email and WhatsApp number (inside the dialog)","البريد الإلكتروني ورقم الواتساب (داخل النافذة)"],"trialNeedsTitle":["Complete these fields first to get your link:","أكمل هذه الحقول أولاً لتحصل على الرابط:"],"trialNoTrials":["No trials yet.","لا توجد تجارب بعد."],"trialOpenLink":["Open link","فتح الرابط"],"trialPanelSub":["One link per email, device and number · 24 hours · no extension","رابط واحد لكل إيميل وجهاز ورقم · 24 ساعة · لا تمديد"],"trialReleaseEmail":["Release email","تحرير الإيميل"],"trialRemaining":["left","متبقٍ"],"trialRevertBtn":["Cancel","تراجع"],"trialStatusActive":["Live","حي"],"trialStatusBurned":["Burned","محروق"],"trialStatusConverted":["Subscribed","مشترك"],"trialStatusDeleted":["Deleted by owner","حذفه صاحبه"],"trialStatusExpired":["Expired","منتهٍ"],"tryDemo":["Try it free","جرّب المنصة مجاناً"],"tryDemoSub":["No sign-in needed — see your landing page instantly","بدون تسجيل دخول — شاهد صفحة هبوطك فوراً"]};
+  var SC_GROUPS = [{"id":"header","keys":[{"k":"brand","ar":"استوديو.","en":"Studio."},{"k":"products","ar":"المنتجات","en":"Products"},{"k":"studio","ar":"الاستوديو","en":"Studio"},{"k":"adminLoginTitle","ar":"دخول المشرف","en":"Admin login"}]},{"id":"hero","keys":[{"k":"heroBadge","ar":"استوديو صفحات الهبوط — الجزائر","en":"Landing page studio — Algeria"},{"k":"heroTitle1","ar":"انشىء متجرك الالكتروني","en":"Your store,"},{"k":"heroTitle2","ar":"في ثواني.","en":"ready in seconds."},{"k":"heroSub","ar":"أدخل اسم المنتج، الصورة، والسعر — والاستوديو يولّد لك صفحة كاملة بنظام الطلب: الولاية والبلدية، التوصيل لـ 58 ولاية، والدفع عند الاستلام.","en":"Just your product name, image, and price. The studio handles the rest: wilaya & commune selection, 58-wilaya delivery, and payment on delivery."},{"k":"ctaStart","ar":"ابدأ الإنشاء الآن","en":"Start now"},{"k":"ctaBrowse","ar":"تصفّح المنتجات","en":"Browse products"},{"k":"tryDemo","ar":"جرّب المنصة مجاناً","en":"Try it free"},{"k":"tryDemoSub","ar":"بدون تسجيل دخول — شاهد صفحة هبوطك فوراً","en":"No sign-in needed — see your landing page instantly"}]},{"id":"stats","keys":[{"k":"statPages","ar":"∞","en":"∞"},{"k":"statPagesLabel","ar":"صفحات غير محدودة","en":"Unlimited pages"},{"k":"statWilayas","ar":"58","en":"58"},{"k":"statWilayasLabel","ar":"ولاية توصيل","en":"Delivery wilayas"},{"k":"statCod","ar":"COD","en":"COD"},{"k":"statCodLabel","ar":"دفع عند الاستلام","en":"Cash on delivery"}]},{"id":"how","keys":[{"k":"howEyebrow","ar":"كيف يعمل","en":"How it works"},{"k":"howTitle","ar":"ثلاث خطوات وصفحتك جاهزة","en":"Three steps and your page is ready"},{"k":"howSub","ar":"بدون برمجة ولا إعدادات معقّدة — المنصة تولّد لك كل شيء.","en":"No coding, no complex setup — the platform generates everything for you."},{"k":"step1Title","ar":"أدخل بيانات منتجك","en":"Enter your product details"},{"k":"step1Copy","ar":"اكتب الاسم، ارفع الصورة، وحدّد السعر. استخراج الألوان من الصورة تلقائي.","en":"Type the name, upload the image, set the price. Colors are extracted from the image automatically."},{"k":"step2Title","ar":"نولّد صفحتك","en":"We build your page"},{"k":"step2Copy","ar":"الاستوديو يبني صفحة كاملة: عرض المنتج، المميزات، وآراء الزبائن بألوان متناسقة.","en":"The studio generates a full page: product showcase, features, and customer reviews with matching colors."},{"k":"step3Title","ar":"تصل الطلبات","en":"Orders come in"},{"k":"step3Copy","ar":"نموذج طلب ذكي (الولاية والبلدية)، توصيل لـ 58 ولاية، والدفع عند الاستلام.","en":"A smart order form (wilaya & commune), delivery to 58 wilayas, and cash on delivery."}]},{"id":"catalog","keys":[{"k":"catalogEyebrow","ar":"كل المنتجات","en":"All products"},{"k":"catalogTitle","ar":"فهرس المنتجات","en":"Product catalog"},{"k":"catalogSub","ar":"صفحات ثابتة ومولّدة — اضغط على أي منتج لعرض صفحة الهبوط الكاملة مع نموذج الطلب.","en":"Static and generated pages — click any product to open its full landing page with the order form."},{"k":"browseStore","ar":"تصفّح المتجر","en":"Browse store"},{"k":"newPage","ar":"إنشاء صفحة جديدة","en":"Create new page"}]},{"id":"subs","keys":[{"k":"subsEyebrow","ar":"باقاتنا","en":"Our plans"},{"k":"subsTitle","ar":"باقات الاشتراكات","en":"Subscription plans"},{"k":"subsCta","ar":"عرض الباقات على فيسبوك ←","en":"View plans on Facebook ←"}]},{"id":"footer","keys":[{"k":"footer1","ar":"© 2026 استوديو صفحات الهبوط — الجزائر.","en":"© 2026 Landing Pages Studio — Algeria."},{"k":"footer2","ar":"التوصيل لـ 58 ولاية · الدفع عند الاستلام","en":"Delivery to 58 wilayas · Cash on delivery"}]}];
+
+  var ADMIN_EMAIL = "admin@spectre.dz";
+  var QUOTAS = { basic: { pages: 1, products: 1, images: 2 }, pro: { pages: 2, products: 2, images: 4 }, gold: { pages: 4, products: 5, images: 8 } };
+  var PLAN_PRICES = { basic: 2000, pro: 4000, gold: 6000 };
+  var PLAN_KEY = { basic: "adminPlanBasic", pro: "adminPlanPro", gold: "adminPlanGold" };
+  var STATUS_KEY = { active: "adminStatusActive", suspended: "adminStatusSuspended", banned: "adminStatusBanned", expired: "adminStatusExpired" };
+  var STATUS_CLS = { active: "neu-badge--success", suspended: "neu-badge--warning", banned: "neu-badge--danger", expired: "" };
+  var REASON_KEYS = { "إيقاف مؤقت من المشرف.": "adminReasonSuspended", "حظر من المشرف.": "adminReasonBanned", "انتهت صلاحية الاشتراك.": "adminReasonExpired", "إيقاف جماعي من المشرف.": "adminReasonBulkSuspended" };
+
+  /* ── بيانات تجريبية (Demo) ── */
+  var SUBS = [
+    { userId: "admin@spectre.dz", plan: "gold", status: "active", validityUnit: "always", remainingDays: null, pages: 2, productCount: 6, imageCount: 12, startsAt: "2026-01-05", updatedAt: "2026-11-18", validityStartsAt: "2026-01-05" },
+    { userId: "sara.fashion@example.dz", storeName: "Sara Fashion Store", whatsapp: "213555123456", plan: "pro", status: "active", validityUnit: "day", remainingDays: 27, pages: 2, productCount: 4, imageCount: 7, startsAt: "2026-08-12", updatedAt: "2026-11-19", expiresAt: "2026-12-17", validityStartsAt: "2026-11-20", validityExpiresAt: "2026-12-17" },
+    { userId: "karim.electro@example.dz", plan: "basic", status: "active", validityUnit: "day", remainingDays: 5, pages: 1, productCount: 1, imageCount: 2, startsAt: "2026-09-01", updatedAt: "2026-11-15", expiresAt: "2026-11-25", validityStartsAt: "2026-10-26", validityExpiresAt: "2026-11-25" },
+    { userId: "amina.beauty@example.dz", storeName: "Amina Beauty", plan: "pro", status: "active", validityUnit: "day", remainingDays: 3, pages: 2, productCount: 3, imageCount: 6, startsAt: "2026-07-20", updatedAt: "2026-11-17", expiresAt: "2026-11-23", validityStartsAt: "2026-10-24", validityExpiresAt: "2026-11-23" },
+    { userId: "youcef.store@example.dz", plan: "basic", status: "active", validityUnit: "day", remainingDays: 18, pages: 2, productCount: 3, imageCount: 5, startsAt: "2026-10-02", updatedAt: "2026-11-16", expiresAt: "2026-12-08", validityStartsAt: "2026-11-20", validityExpiresAt: "2026-12-08" },
+    { userId: "lina.decor@example.dz", plan: "gold", status: "suspended", reason: "إيقاف مؤقت من المشرف.", validityUnit: "day", remainingDays: 12, pages: 1, productCount: 2, imageCount: 4, startsAt: "2026-06-11", updatedAt: "2026-11-10", expiresAt: "2026-12-02", validityStartsAt: "2026-11-20", validityExpiresAt: "2026-12-02" },
+    { userId: "ramzi.tech@example.dz", plan: "basic", status: "suspended", reason: "انتهت صلاحية الاشتراك.", validityUnit: "day", remainingDays: 0, pages: 1, productCount: 1, imageCount: 1, startsAt: "2026-05-30", updatedAt: "2026-11-01", expiresAt: "2026-11-01", validityStartsAt: "2026-10-02", validityExpiresAt: "2026-11-01" },
+    { userId: "spammer@example.dz", plan: "basic", status: "banned", reason: "حظر من المشرف.", validityUnit: "day", remainingDays: 0, pages: 2, productCount: 2, imageCount: 2, startsAt: "2026-10-25", updatedAt: "2026-11-12", expiresAt: "2026-11-12" }
+  ];
+  var HEALTH = { checkedAt: "2026-11-19 14:30", ok: 5, blocked: 1, error: 1, entries: [
+    { slug: "pro-wireless-earbuds", status: "ok", owner: "sara.fashion@example.dz" },
+    { slug: "smart-sport-watch", status: "ok", owner: "karim.electro@example.dz" },
+    { slug: "amina-beauty-box", status: "ok", owner: "amina.beauty@example.dz" },
+    { slug: "youcef-home-tools", status: "ok", owner: "youcef.store@example.dz" },
+    { slug: "lina-decor-set", status: "ok", owner: "lina.decor@example.dz" },
+    { slug: "spam-offer-page", status: "blocked", owner: "spammer@example.dz" },
+    { slug: "ramzi-tech-gadget", status: "error", httpStatus: 500, owner: "ramzi.tech@example.dz" }
+  ] };
+  var PRODUCTS = [
+    { slug: "pro-wireless-earbuds", name: "Pro Wireless Earbuds", price: 4500, oldPrice: 5000, badge: "New", eyebrow: "USB-C · Fast charging", owner: "sara.fashion@example.dz", listed: true, hidden: false, banned: false },
+    { slug: "smart-sport-watch", name: "Smart Sport Watch", price: 3200, oldPrice: null, badge: null, eyebrow: null, owner: "karim.electro@example.dz", listed: true, hidden: true, banned: false },
+    { slug: "spam-offer-page", name: "Spam Offer Page", price: 900, oldPrice: null, badge: null, eyebrow: null, owner: "spammer@example.dz", listed: false, hidden: false, banned: true }
+  ];
+  var TRIALS = [
+    { email: "guest1@example.dz", whatsapp: "213661000111", slug: "trial-guest1-ab12", created: "2026-11-19", status: "active", leftEn: "5h 20m", leftAr: "5س 20د" },
+    { email: "guest2@example.dz", whatsapp: "213770222333", slug: "trial-guest2-cd34", created: "2026-11-18", status: "converted" },
+    { email: "guest3@example.dz", whatsapp: null, slug: "trial-guest3-ef56", created: "2026-11-17", status: "burned" },
+    { email: "guest4@example.dz", whatsapp: "213550444555", slug: "trial-guest4-gh78", created: "2026-11-16", status: "expired" }
+  ];
+  var TRIAL_KEY = { active: "trialStatusActive", converted: "trialStatusConverted", expired: "trialStatusExpired", burned: "trialStatusBurned", deleted: "trialStatusDeleted" };
+  var TRIAL_CLS = { active: "neu-badge--success", converted: "neu-badge--primary", expired: "neu-badge--warning", burned: "neu-badge--danger", deleted: "" };
+  var STOR_CATS = [
+    { id: "pages", danger: "high", n: 12 }, { id: "trials", danger: "med", n: 9 },
+    { id: "subs", danger: "high", n: 8 }, { id: "auth", danger: "critical", n: 6 },
+    { id: "stats", danger: "low", n: 21 }, { id: "limits", danger: "low", n: 4 },
+    { id: "copy", danger: "med", n: 1 }, { id: "creds", danger: "critical", n: 2 },
+    { id: "flags", danger: "med", n: 3 }
+  ];
+  var STOR_LABEL = { pages: "storCatPages", trials: "storCatTrials", subs: "storCatSubs", auth: "storCatAuth", stats: "storCatStats", limits: "storCatLimits", copy: "storCatCopy", creds: "storCatCreds", flags: "storCatFlags" };
+  var STOR_WARN = { critical: "storWarnCritical", high: "storWarnHigh", med: "storWarnMed", low: "storWarnLow" };
+  var STOR_WARN_CLS = { critical: "neu-badge--danger", high: "neu-badge--warning", med: "neu-badge--warning", low: "" };
+  /* تجاوز تجريبي واحد لإظهار حالة «معدَّل» في نافذة نصوص الرئيسية */
+  var SC_OVERRIDE = { heroTitle1: { ar: "أنشئ متجرك الإلكتروني", en: "Your online store," } };
+
+  /* ── أدوات مساعدة ── */
+  var $ = function (id) { return document.getElementById(id); };
+  function langIdx() { return SampleUI.lang() === "ar" ? 1 : 0; }
+  function txt(key, vars) {
+    var v = T[key] || ["", ""]; var en = v[0], ar = v[1];
+    if (vars) { for (var k in vars) { en = en.split("{" + k + "}").join(vars[k]); ar = ar.split("{" + k + "}").join(vars[k]); } }
+    return [en, ar];
+  }
+  function setBi(el, key, vars) { var p = txt(key, vars); SampleUI.setText(el, p[0], p[1]); return el; }
+  function mk(tag, cls, key, vars) { var e = document.createElement(tag); if (cls) e.className = cls; if (key) setBi(e, key, vars); return e; }
+  function ic(cls) { var i = document.createElement("i"); i.className = cls; return i; }
+  function badge(cls, key, iconCls, vars) {
+    var b = mk("span", "neu-badge " + (cls || ""));
+    if (iconCls) b.appendChild(ic(iconCls));
+    b.appendChild(mk("span", null, key, vars));
+    return b;
+  }
+  function badgeRaw(cls, en, ar, iconCls) {
+    var b = mk("span", "neu-badge " + (cls || ""));
+    if (iconCls) b.appendChild(ic(iconCls));
+    var s = mk("span"); SampleUI.setText(s, en, ar); b.appendChild(s);
+    return b;
+  }
+  function reasonText(reason) { var k = REASON_KEYS[(reason || "").trim()]; return k ? txt(k)[langIdx()] : (reason || ""); }
+  function quotaOf(r) { var q = QUOTAS[r.plan]; return { pages: q.pages, products: q.products * q.pages, images: q.images * q.pages }; }
+  function isOver(r) { var q = quotaOf(r); return r.pages > q.pages || r.productCount > q.products || r.imageCount > q.images; }
+  function num(n) { return n.toLocaleString("en-US"); }
+
+  /* ── الحالة المحلية (عرض فقط) ── */
+  var base = "panel";
+  var activeTab = "all", searchQuery = "", sortBy = "updated";
+  var expandedId = "sara.fashion@example.dz";
+  var selected = {};
+  var healthRan = true;
+  var fb = { bytes: 62.4, warn: 90, warning: false, mode: false, gh: true };
+  var genOff = false, planFor = null;
+  var scTab = "header", scCopy = { ar: {}, en: {} };
+  (function () { for (var k in SC_OVERRIDE) { scCopy.ar[k] = SC_OVERRIDE[k].ar; scCopy.en[k] = SC_OVERRIDE[k].en; } })();
+  var credTab = "studio", studioOver = true, adminOver = false;
+  var storSel = {};
+  var openStack = [];
+  var confirmState = null;
+
+  /* ── الإحصائيات ── */
+  function renderStats() {
+    var total = SUBS.length, byPlan = { basic: 0, pro: 0, gold: 0 }, active = 0, revenue = 0, expiring = 0;
+    SUBS.forEach(function (r) {
+      byPlan[r.plan]++;
+      if (r.status === "active") { active++; revenue += PLAN_PRICES[r.plan]; }
+      if (r.status === "active" && r.remainingDays != null && r.remainingDays > 0 && r.remainingDays <= 7) expiring++;
+    });
+    $("statTotal").textContent = total;
+    $("statActive").textContent = active;
+    $("statExpiring").textContent = expiring;
+    SampleUI.setText($("statRevenue"), num(revenue) + " " + txt("adminCurrency")[0], num(revenue) + " " + txt("adminCurrency")[1]);
+    var dist = $("planDist"); dist.innerHTML = "";
+    ["basic", "pro", "gold"].forEach(function (p) {
+      var row = mk("div", "dist-row");
+      row.appendChild(mk("span", "dist-label", PLAN_KEY[p]));
+      var pct = total ? Math.round(byPlan[p] / total * 100) : 0;
+      var prog = mk("div", "neu-progress");
+      var fill = document.createElement("span"); fill.style.width = pct + "%";
+      prog.appendChild(fill); row.appendChild(prog);
+      var cnt = mk("span", "dist-count"); cnt.textContent = byPlan[p] + " (" + pct + "%)";
+      row.appendChild(cnt); dist.appendChild(row);
+    });
+  }
+
+  /* ── التحذيرات الذكية ── */
+  function warnBox(iconCls, colorCls, titleKey, count, buildRows) {
+    var box = mk("div", "warn-box neu-inset");
+    var title = mk("div", "warn-title " + colorCls);
+    title.appendChild(ic(iconCls));
+    title.appendChild(mk("span", null, titleKey, { count: count }));
+    box.appendChild(title);
+    var list = mk("div", "warn-list");
+    buildRows(list);
+    box.appendChild(list);
+    return box;
+  }
+  function warnRow(list, userId, spans) {
+    var row = mk("div", "warn-row");
+    var c = mk("code"); c.textContent = userId; row.appendChild(c);
+    spans.forEach(function (s) { row.appendChild(s); });
+    list.appendChild(row);
+  }
+  function renderWarnings() {
+    var over = SUBS.filter(isOver);
+    var exp = SUBS.filter(function (r) { return r.status === "active" && r.remainingDays != null && r.remainingDays > 0 && r.remainingDays <= 7; });
+    var auto = SUBS.filter(function (r) { return r.status === "suspended" && (r.reason || "").indexOf("انتهت صلاحية") > -1; });
+    $("warningsSection").classList.toggle("hidden", over.length + exp.length + auto.length === 0);
+    var body = $("warningsBody"); body.innerHTML = "";
+    if (over.length) {
+      body.appendChild(warnBox("fa-solid fa-triangle-exclamation", "t-warning", "adminQuotaWarn", over.length, function (list) {
+        over.forEach(function (r) {
+          var q = quotaOf(r);
+          var spans = [["adminPagesLabel", r.pages, q.pages], ["adminProductsLabel", r.productCount, q.products], ["adminImagesLabel", r.imageCount, q.images]].map(function (u) {
+            var s = mk("span"); var p = txt(u[0]);
+            SampleUI.setText(s, u[1] + "/" + u[2] + " " + p[0], u[1] + "/" + u[2] + " " + p[1]);
+            return s;
+          });
+          warnRow(list, r.userId, spans);
+        });
+      }));
+    }
+    if (exp.length) {
+      body.appendChild(warnBox("fa-solid fa-bell", "t-warning", "adminExpiringWarn", exp.length, function (list) {
+        exp.forEach(function (r) {
+          var s = mk("span"); var rem = txt("adminRemaining"), day = txt("adminDay");
+          SampleUI.setText(s, rem[0] + " " + r.remainingDays + " " + day[0], rem[1] + " " + r.remainingDays + " " + day[1]);
+          warnRow(list, r.userId, [s]);
+        });
+      }));
+    }
+    if (auto.length) {
+      body.appendChild(warnBox("fa-solid fa-circle-exclamation", "t-danger", "adminSuspendedAuto", auto.length, function (list) {
+        auto.forEach(function (r) {
+          var s = mk("span"); var rem = txt("adminRemaining"), day = txt("adminDay");
+          SampleUI.setText(s, rem[0] + " " + (r.remainingDays || 0) + " " + day[0], rem[1] + " " + (r.remainingDays || 0) + " " + day[1]);
+          warnRow(list, r.userId, [s]);
+        });
+      }));
+    }
+  }
+
+  /* ── بطاقات المشتركين ── */
+  function filteredRows() {
+    var res = SUBS.slice();
+    if (activeTab !== "all") res = res.filter(function (r) { return r.plan === activeTab; });
+    var st = $("statusFilter").value, pl = $("planFilter").value;
+    if (st !== "all") res = res.filter(function (r) { return r.status === st; });
+    if (pl !== "all") res = res.filter(function (r) { return r.plan === pl; });
+    if (searchQuery.trim()) {
+      var q = searchQuery.toLowerCase();
+      res = res.filter(function (r) {
+        return r.userId.toLowerCase().indexOf(q) > -1 || (r.storeName || "").toLowerCase().indexOf(q) > -1 || (r.whatsapp || "").toLowerCase().indexOf(q) > -1;
+      });
+    }
+    res.sort(function (a, b) {
+      if (sortBy === "plan") { var o = { basic: 0, pro: 1, gold: 2 }; return o[a.plan] - o[b.plan]; }
+      if (sortBy === "created") return b.startsAt.localeCompare(a.startsAt);
+      return b.updatedAt.localeCompare(a.updatedAt);
+    });
+    return res;
+  }
+  function buildCard(r) {
+    var isAdmin = r.userId.toLowerCase() === ADMIN_EMAIL;
+    var card = mk("div", "sub-card neu-panel" + (selected[r.userId] ? " is-selected" : ""));
+
+    var top = mk("div", "sub-top");
+    var idWrap = mk("div", "sub-id-wrap");
+    var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = !!selected[r.userId];
+    cb.setAttribute("data-en-aria", "Select subscriber"); cb.setAttribute("data-ar-aria", "تحديد المشترك");
+    cb.addEventListener("change", function () { if (selected[r.userId]) delete selected[r.userId]; else selected[r.userId] = true; renderSubs(); });
+    idWrap.appendChild(cb);
+    var id = mk("div", "sub-id");
+    if (r.storeName) {
+      var sn = mk("div", "store-name");
+      sn.appendChild(ic("fa-solid fa-store t-primary"));
+      var snT = mk("span"); snT.textContent = r.storeName; snT.setAttribute("dir", "auto");
+      sn.appendChild(snT); id.appendChild(sn);
+    }
+    var em = mk("code", "sub-email"); em.textContent = r.userId; id.appendChild(em);
+    var meta = mk("div", "sub-meta");
+    if (r.whatsapp) {
+      var wa = document.createElement("a"); wa.className = "wa-link"; wa.href = "#";
+      var tip = txt("adminWhatsappTip");
+      wa.setAttribute("data-en-title", tip[0]); wa.setAttribute("data-ar-title", tip[1]); wa.title = tip[langIdx()];
+      wa.appendChild(ic("fa-brands fa-whatsapp"));
+      var waN = mk("span"); waN.textContent = r.whatsapp; wa.appendChild(waN);
+      meta.appendChild(wa);
+    }
+    var pg = mk("span", "pages-note"); var pgs = txt("adminPages");
+    SampleUI.setText(pg, r.pages + " " + pgs[0], r.pages + " " + pgs[1]);
+    meta.appendChild(pg);
+    id.appendChild(meta); idWrap.appendChild(id); top.appendChild(idWrap);
+    top.appendChild(badge(STATUS_CLS[r.status], STATUS_KEY[r.status]));
+    card.appendChild(top);
+
+    /* التحكم السريع بالخطة والأيام (لا يظهر لصف المشرف) */
+    if (!isAdmin) {
+      var qp = mk("div", "quick-panel neu-inset");
+      var qrow = mk("div", "quick-row");
+      qrow.appendChild(mk("span", "quick-label", "adminPlanColon"));
+      var sw = mk("div", "select-wrap");
+      var sel = document.createElement("select"); sel.className = "neu-input";
+      [["basic", "adminPlanBasicPrice"], ["pro", "adminPlanProPrice"], ["gold", "adminPlanGoldPrice"]].forEach(function (p) {
+        var o = document.createElement("option"); o.value = p[0]; setBi(o, p[1]); if (r.plan === p[0]) o.selected = true;
+        sel.appendChild(o);
+      });
+      sw.appendChild(sel); sw.appendChild(ic("fa-solid fa-chevron-down select-caret"));
+      qrow.appendChild(sw);
+      qrow.appendChild(mk("span", "quick-label", "adminRemainingDays"));
+      var days = document.createElement("input"); days.type = "number"; days.min = "0"; days.max = "365";
+      days.className = "neu-input days-input"; days.value = r.remainingDays != null ? r.remainingDays : 30; days.placeholder = "30";
+      qrow.appendChild(days);
+      qrow.appendChild(mk("span", "quick-label", "adminDay"));
+      var save = mk("button", "neu-btn neu-btn--success btn-sm"); save.type = "button";
+      save.appendChild(ic("fa-solid fa-floppy-disk")); save.appendChild(mk("span", null, "adminSave"));
+      save.addEventListener("click", function () {
+        /* كما الحقيقي: الحفظ على حساب محظور يتطلب تأكيداً صريحاً */
+        if (r.status === "banned") openConfirm({ t: "adminSave", m: "adminSaveUnbansConfirm", b: "adminSave", danger: false });
+      });
+      qrow.appendChild(save);
+      qp.appendChild(qrow);
+      var cur = mk("div", "quick-current");
+      cur.appendChild(mk("span", null, "adminCurrentPlan")); cur.appendChild(document.createTextNode(": "));
+      var s1 = document.createElement("strong"); setBi(s1, PLAN_KEY[r.plan]); cur.appendChild(s1);
+      cur.appendChild(document.createTextNode(" • "));
+      cur.appendChild(mk("span", null, "adminRemaining")); cur.appendChild(document.createTextNode(": "));
+      var s2 = document.createElement("strong"); var day = txt("adminDay");
+      SampleUI.setText(s2, (r.remainingDays || 0) + " " + day[0], (r.remainingDays || 0) + " " + day[1]);
+      cur.appendChild(s2);
+      qp.appendChild(cur);
+      card.appendChild(qp);
+    }
+
+    /* الشارات: الخطة + الصلاحية + تجاوز الحصة */
+    var br = mk("div", "badges-row");
+    var pb = badge("neu-badge--primary", PLAN_KEY[r.plan], r.plan === "gold" ? "fa-solid fa-crown" : null);
+    var price = mk("span"); var cur2 = txt("adminCurrency");
+    SampleUI.setText(price, " (" + num(PLAN_PRICES[r.plan]) + " " + cur2[0] + ")", " (" + num(PLAN_PRICES[r.plan]) + " " + cur2[1] + ")");
+    pb.appendChild(price);
+    br.appendChild(pb);
+    if (r.validityUnit === "always") br.appendChild(badge("", "adminPermanent"));
+    else if (r.validityUnit) {
+      var rem = txt("adminRemaining"), day2 = txt("adminDay");
+      br.appendChild(badgeRaw("", rem[0] + " " + (r.remainingDays || 0) + " " + day2[0], rem[1] + " " + (r.remainingDays || 0) + " " + day2[1]));
+    } else br.appendChild(badge("", "adminNoValidity"));
+    if (isOver(r)) br.appendChild(badge("neu-badge--danger", "adminQuotaExceeded", "fa-solid fa-triangle-exclamation"));
+    card.appendChild(br);
+
+    /* أشرطة الاستهلاك */
+    var usage = mk("div", "usage");
+    var q = quotaOf(r);
+    [["adminPagesLabel", r.pages, q.pages], ["adminProductsLabel", r.productCount, q.products], ["adminImagesLabel", r.imageCount, q.images]].forEach(function (u) {
+      var w = mk("div");
+      var h = mk("div", "usage-head");
+      h.appendChild(mk("span", "usage-label", u[0]));
+      var over = u[1] > u[2];
+      var cnt = mk("span", "usage-count" + (over ? " is-over" : ""));
+      cnt.textContent = u[1] + " / " + u[2];
+      if (over) cnt.appendChild(ic("fa-solid fa-triangle-exclamation"));
+      h.appendChild(cnt); w.appendChild(h);
+      var prog = mk("div", "neu-progress");
+      var fill = document.createElement("span");
+      fill.style.width = Math.min(100, u[2] ? u[1] / u[2] * 100 : 0) + "%";
+      prog.appendChild(fill); w.appendChild(prog);
+      usage.appendChild(w);
+    });
+    card.appendChild(usage);
+
+    /* التفاصيل القابلة للتوسيع */
+    if (expandedId === r.userId) {
+      var det = mk("div", "sub-details");
+      det.appendChild(mk("hr", "neu-divider"));
+      var rows = mk("div", "detail-rows");
+      function drow(key, val, danger) {
+        var d = mk("div", "detail-row");
+        d.appendChild(mk("span", null, key));
+        var s = document.createElement("strong"); if (danger) s.className = "t-danger";
+        s.textContent = val; s.setAttribute("dir", "ltr");
+        d.appendChild(s); rows.appendChild(d);
+      }
+      drow("adminStartSub", r.startsAt);
+      drow("adminLastUpdate", r.updatedAt);
+      if (r.expiresAt) drow("adminExpiryDate", r.expiresAt, true);
+      if (r.validityStartsAt) drow("adminValidityStart", r.validityStartsAt);
+      if (r.validityExpiresAt) drow("adminValidityEnd", r.validityExpiresAt);
+      if (r.reason) drow("adminReason", reasonText(r.reason), true);
+      det.appendChild(rows);
+      if (!isAdmin) {
+        var acts = mk("div", "sub-actions");
+        function act(cls, key, fn) {
+          var b = mk("button", "neu-btn " + cls + " btn-sm"); b.type = "button";
+          b.appendChild(mk("span", null, key));
+          b.addEventListener("click", fn);
+          acts.appendChild(b);
+        }
+        if (r.status === "active") {
+          act("neu-btn--warning", "adminSuspend", function () { openConfirm({ t: "adminConfirmSuspendTitle", m: "adminConfirmSuspendMsg", b: "adminConfirmSuspendBtn", danger: false }); });
+          act("neu-btn--danger", "adminBan", function () { openConfirm({ t: "adminConfirmBanTitle", m: "adminConfirmBanMsg", b: "adminConfirmBanBtn", danger: true }); });
+        }
+        if (r.status === "banned") {
+          act("neu-btn--success", "adminUnban", function () { openConfirm({ t: "adminConfirmUnbanTitle", m: "adminConfirmUnbanMsg", b: "adminConfirmUnbanBtn", danger: false }); });
+        }
+        if (r.status !== "active" && r.status !== "banned") {
+          act("neu-btn--success", "adminActivate", function () { /* خامل في العينة */ });
+        }
+        act("neu-btn--warning", "adminDeletePages", function () { openConfirm({ t: "adminConfirmDeletePagesTitle", m: "adminConfirmDeletePagesMsg", b: "adminConfirmDeletePagesBtn", danger: true }); });
+        act("neu-btn--danger", "adminDeleteSub", function () { openConfirm({ t: "adminConfirmDeleteTitle", m: "adminConfirmDeleteMsg", b: "adminConfirmDeleteBtn", danger: true }); });
+        det.appendChild(acts);
+      }
+      card.appendChild(det);
+    }
+
+    var ch = mk("div", "chevron-row");
+    var chb = mk("button", "neu-circle neu-circle--sm t-muted"); chb.type = "button";
+    chb.setAttribute("aria-expanded", expandedId === r.userId ? "true" : "false");
+    chb.appendChild(ic("fa-solid " + (expandedId === r.userId ? "fa-chevron-up" : "fa-chevron-down")));
+    chb.addEventListener("click", function () { expandedId = expandedId === r.userId ? null : r.userId; renderSubs(); });
+    ch.appendChild(chb);
+    card.appendChild(ch);
+    return card;
+  }
+  function renderSubs() {
+    var rows = filteredRows();
+    setBi($("usersHeading"), "adminUsersHeading", { count: rows.length, total: SUBS.length });
+    var selIds = Object.keys(selected);
+    $("bulkBar").classList.toggle("hidden", selIds.length === 0);
+    var sel = txt("adminSelected");
+    SampleUI.setText($("bulkCount"), selIds.length + " " + sel[0], selIds.length + " " + sel[1]);
+    $("noMatches").classList.toggle("hidden", rows.length > 0);
+    var list = $("subList"); list.innerHTML = "";
+    rows.forEach(function (r) { list.appendChild(buildCard(r)); });
+  }
+
+  /* ── قائمة المحظورين ── */
+  function renderBanned() {
+    var banned = SUBS.filter(function (r) { return r.status === "banned"; });
+    var unit = txt("adminBannedCount");
+    SampleUI.setText($("bannedCount"), banned.length + " " + unit[0], banned.length + " " + unit[1]);
+    $("noBanned").classList.toggle("hidden", banned.length > 0);
+    var list = $("bannedList"); list.innerHTML = "";
+    banned.forEach(function (r) {
+      var row = mk("div", "banned-row neu-row");
+      var top = mk("div", "banned-top");
+      var c = mk("code"); c.textContent = r.userId; top.appendChild(c);
+      if (r.pages > 0) {
+        var pu = txt("adminPageUnit");
+        top.appendChild(badgeRaw("neu-badge--warning", r.pages + " " + pu[0], r.pages + " " + pu[1]));
+      }
+      row.appendChild(top);
+      if (r.reason) { var p = mk("p", "banned-reason"); p.textContent = reasonText(r.reason); row.appendChild(p); }
+      var acts = mk("div", "banned-actions");
+      var rm = mk("button", "neu-btn neu-btn--success btn-sm"); rm.type = "button";
+      rm.appendChild(mk("span", null, "adminRemoveFromList"));
+      rm.addEventListener("click", function () { openConfirm({ t: "adminConfirmUnbanTitle", m: "adminConfirmUnbanMsg", b: "adminConfirmUnbanBtn", danger: false }); });
+      acts.appendChild(rm);
+      var pg = mk("button", "neu-btn neu-btn--danger btn-sm"); pg.type = "button";
+      pg.appendChild(mk("span", null, "adminDeleteInventory"));
+      pg.addEventListener("click", function () { openConfirm({ t: "adminConfirmPurgeTitle", m: "adminConfirmPurgeMsg", b: "adminConfirmPurgeBtn", danger: true }); });
+      acts.appendChild(pg);
+      row.appendChild(acts);
+      list.appendChild(row);
+    });
+  }
+
+  /* ── صحة الروابط ── */
+  function renderHealth() {
+    $("noHealth").classList.toggle("hidden", healthRan);
+    $("healthBody").classList.toggle("hidden", !healthRan);
+    if (!healthRan) return;
+    var hb = $("healthBadges"); hb.innerHTML = "";
+    var h = txt("adminHealthy"), b = txt("adminBlocked"), e = txt("adminError");
+    hb.appendChild(badgeRaw("neu-badge--success", h[0] + ": " + HEALTH.ok, h[1] + ": " + HEALTH.ok));
+    hb.appendChild(badgeRaw("neu-badge--danger", b[0] + ": " + HEALTH.blocked, b[1] + ": " + HEALTH.blocked));
+    hb.appendChild(badgeRaw("neu-badge--warning", e[0] + ": " + HEALTH.error, e[1] + ": " + HEALTH.error));
+    var last = txt("adminLastError");
+    var time = mk("span", "health-time");
+    SampleUI.setText(time, last[0] + ": " + HEALTH.checkedAt, last[1] + ": " + HEALTH.checkedAt);
+    hb.appendChild(time);
+    $("healthErrorNote").classList.toggle("hidden", HEALTH.error === 0);
+    setBi($("healthErrorText"), "adminHealthErrorCount", { count: HEALTH.error });
+    var list = $("healthList"); list.innerHTML = "";
+    HEALTH.entries.forEach(function (en) {
+      var row = mk("div", "health-entry neu-row");
+      var id = mk("div", "health-id");
+      var c = mk("code"); c.textContent = "/p/" + en.slug; id.appendChild(c);
+      if (en.owner) { var o = mk("span", "health-owner"); o.textContent = en.owner; id.appendChild(o); }
+      row.appendChild(id);
+      if (en.status === "ok") row.appendChild(badge("neu-badge--success", "adminHealthy"));
+      else if (en.status === "blocked") row.appendChild(badge("neu-badge--danger", "adminBlocked"));
+      else row.appendChild(badgeRaw("neu-badge--warning", e[0] + " " + en.httpStatus, e[1] + " " + en.httpStatus));
+      list.appendChild(row);
+    });
+  }
+
+  /* ── منتجات المتجر ── */
+  function renderProducts() {
+    $("noProducts").classList.toggle("hidden", PRODUCTS.length > 0);
+    var list = $("productList"); list.innerHTML = "";
+    PRODUCTS.forEach(function (p) {
+      var row = mk("div", "product-row neu-row");
+      var th = mk("span", "p-thumb"); th.appendChild(ic("fa-solid fa-image")); row.appendChild(th);
+      var info = mk("div", "p-info");
+      var nm = mk("span", "p-name"); nm.textContent = p.name; nm.setAttribute("dir", "auto"); info.appendChild(nm);
+      var meta = mk("div", "p-meta");
+      var price = mk("span", "p-price"); var cur = txt("adminCurrency");
+      SampleUI.setText(price, num(p.price) + " " + cur[0], num(p.price) + " " + cur[1]);
+      meta.appendChild(price);
+      if (p.owner) { var ow = mk("span", "p-owner"); ow.textContent = p.owner; meta.appendChild(ow); }
+      info.appendChild(meta); row.appendChild(info);
+      var badges = mk("div", "p-badges");
+      badges.appendChild(badge(p.listed ? "neu-badge--success" : "", p.listed ? "adminListed" : "adminPrivate"));
+      if (p.hidden) badges.appendChild(badge("neu-badge--warning", "adminHidden"));
+      if (p.banned) badges.appendChild(badge("neu-badge--danger", "adminStatusBanned"));
+      row.appendChild(badges);
+      var acts = mk("div", "p-actions");
+      var open = document.createElement("a"); open.className = "neu-btn neu-btn--muted btn-sm"; open.href = "#";
+      open.appendChild(ic("fa-solid fa-arrow-up-right-from-square")); open.appendChild(mk("span", null, "adminOpen"));
+      acts.appendChild(open);
+      var edit = mk("button", "neu-btn btn-sm"); edit.type = "button";
+      edit.appendChild(ic("fa-solid fa-pen")); edit.appendChild(mk("span", null, "adminEdit"));
+      edit.addEventListener("click", function () { openProductEdit(p); });
+      acts.appendChild(edit);
+      var hid = mk("button", "neu-btn btn-sm " + (p.hidden ? "neu-btn--success" : "neu-btn--warning")); hid.type = "button";
+      hid.appendChild(ic("fa-solid " + (p.hidden ? "fa-eye" : "fa-eye-slash")));
+      hid.appendChild(mk("span", null, p.hidden ? "adminShow" : "adminHide"));
+      hid.addEventListener("click", function () { p.hidden = !p.hidden; renderProducts(); });
+      acts.appendChild(hid);
+      var del = mk("button", "neu-circle neu-circle--sm neu-circle--danger"); del.type = "button";
+      var dt = txt("adminDeleteProductTitle");
+      del.setAttribute("data-en-title", dt[0]); del.setAttribute("data-ar-title", dt[1]); del.title = dt[langIdx()];
+      del.appendChild(ic("fa-solid fa-trash"));
+      del.addEventListener("click", function () {
+        openConfirm({ t: "adminDeleteProductTitle", m: "adminConfirmDeleteProductMsg", vars: { name: p.name, slug: p.slug }, b: "adminConfirmDeleteBtn", danger: true });
+      });
+      acts.appendChild(del);
+      row.appendChild(acts);
+      list.appendChild(row);
+    });
+  }
+  function openProductEdit(p) {
+    $("peName").value = p.name;
+    $("pePrice").value = p.price;
+    $("peOldPrice").value = p.oldPrice != null ? p.oldPrice : "";
+    $("peBadge").value = p.badge || "";
+    $("peEyebrow").value = p.eyebrow || "";
+    showOverlay("productEditOverlay");
+  }
+
+  /* ── الاحتياط والسعة ── */
+  function renderFallback() {
+    $("bwValue").textContent = fb.bytes.toFixed(2) + " / " + fb.warn + " GB";
+    $("bwValue").classList.toggle("is-warn", fb.warning);
+    $("bwBar").style.width = Math.min(100, fb.bytes / fb.warn * 100).toFixed(1) + "%";
+    $("bwAlert").classList.toggle("hidden", !fb.warning);
+    setBi($("fallbackDesc"), fb.mode ? "adminFallbackEnabled" : "adminFallbackDisabled");
+    var btn = $("fallbackToggleBtn");
+    btn.className = "neu-btn btn-sm " + (fb.mode ? "neu-btn--muted" : "neu-btn--success");
+    setBi(btn, fb.mode ? "adminDisableFallback" : "adminEnableFallback");
+    $("fallbackTempNote").classList.toggle("hidden", !fb.mode);
+    $("fallbackMisconfNote").classList.toggle("hidden", !(fb.mode && fb.gh === false));
+  }
+
+  /* ── روابط التجربة ── */
+  function renderTrials() {
+    var strip = $("genStrip");
+    strip.className = "gen-strip neu-inset " + (genOff ? "t-warning" : "t-success");
+    $("genStripIcon").className = "fa-solid " + (genOff ? "fa-triangle-exclamation" : "fa-circle-check");
+    setBi($("genStripText"), genOff ? "trialGenerationOff" : "trialGenerationOn");
+    var gt = $("genToggleBtn");
+    gt.className = "neu-btn btn-sm " + (genOff ? "neu-btn--success" : "neu-btn--warning");
+    setBi(gt, genOff ? "trialEnableGeneration" : "trialDisableGeneration");
+    var list = $("trialList"); list.innerHTML = "";
+    TRIALS.forEach(function (t) {
+      var row = mk("div", "trial-row neu-row");
+      var top = mk("div", "trial-top");
+      var em = mk("span", "trial-email"); em.textContent = t.email; top.appendChild(em);
+      top.appendChild(badge(TRIAL_CLS[t.status], TRIAL_KEY[t.status], t.status === "converted" ? "fa-solid fa-circle-check" : null));
+      row.appendChild(top);
+      var meta = mk("div", "trial-meta");
+      var w = mk("span"); w.appendChild(ic("fa-solid fa-phone"));
+      var wn = mk("span", "ltr"); wn.textContent = t.whatsapp || "—"; w.appendChild(wn); meta.appendChild(w);
+      var l = mk("span"); l.appendChild(ic("fa-solid fa-link"));
+      var ln = mk("span", "ltr"); ln.textContent = "/p/" + t.slug; l.appendChild(ln); meta.appendChild(l);
+      if (t.status === "active") {
+        var rm = mk("span"); rm.appendChild(ic("fa-solid fa-clock"));
+        var rmt = mk("span"); var rem = txt("trialRemaining");
+        SampleUI.setText(rmt, rem[0] + ": " + t.leftEn, rem[1] + ": " + t.leftAr);
+        rm.appendChild(rmt); meta.appendChild(rm);
+      }
+      var dt = mk("span"); dt.appendChild(ic("fa-solid fa-calendar-days"));
+      var dtn = mk("span", "ltr"); dtn.textContent = t.created; dt.appendChild(dtn); meta.appendChild(dt);
+      row.appendChild(meta);
+      if (planFor === t.email) {
+        var pick = mk("div", "plan-picker neu-inset");
+        pick.appendChild(mk("span", "quick-label", "adminChoosePlan"));
+        var sw = mk("div", "select-wrap");
+        var sel = document.createElement("select"); sel.className = "neu-input";
+        ["basic", "pro", "gold"].forEach(function (p) {
+          var o = document.createElement("option"); o.value = p; o.textContent = p; if (p === "basic") o.selected = true;
+          sel.appendChild(o);
+        });
+        sw.appendChild(sel); sw.appendChild(ic("fa-solid fa-chevron-down select-caret"));
+        pick.appendChild(sw);
+        var ok = mk("button", "neu-btn btn-sm"); ok.type = "button";
+        ok.appendChild(mk("span", null, "trialConfirmActivation"));
+        ok.addEventListener("click", function () { planFor = null; renderTrials(); });
+        pick.appendChild(ok);
+        var cc = mk("button", "neu-btn neu-btn--muted btn-sm"); cc.type = "button";
+        cc.appendChild(mk("span", null, "trialCancel"));
+        cc.addEventListener("click", function () { planFor = null; renderTrials(); });
+        pick.appendChild(cc);
+        row.appendChild(pick);
+      } else {
+        var acts = mk("div", "trial-actions");
+        var open = document.createElement("a");
+        open.className = "neu-btn neu-btn--success btn-sm trial-open" + ((t.status === "burned" || t.status === "deleted") ? " is-disabled" : "");
+        open.href = "#";
+        open.appendChild(mk("span", null, "trialOpenLink"));
+        open.appendChild(ic("fa-solid fa-arrow-up-right-from-square"));
+        acts.appendChild(open);
+        var assign = mk("button", "neu-btn btn-sm"); assign.type = "button";
+        assign.appendChild(mk("span", null, "trialAssignPlan"));
+        assign.addEventListener("click", function () { planFor = t.email; renderTrials(); });
+        acts.appendChild(assign);
+        var burn = mk("button", "neu-btn neu-btn--danger btn-sm"); burn.type = "button";
+        burn.appendChild(mk("span", null, "trialBurnNow"));
+        burn.addEventListener("click", function () { openConfirm({ t: "trialConfirmBurnTitle", m: "trialConfirmBurnMsg", b: "trialConfirmBtn", danger: true }); });
+        acts.appendChild(burn);
+        var rel = mk("button", "neu-btn neu-btn--muted btn-sm"); rel.type = "button";
+        rel.appendChild(mk("span", null, "trialReleaseEmail"));
+        rel.addEventListener("click", function () { openConfirm({ t: "trialConfirmReleaseTitle", m: "trialConfirmReleaseMsg", b: "trialConfirmBtn", danger: true }); });
+        acts.appendChild(rel);
+        row.appendChild(acts);
+      }
+      list.appendChild(row);
+    });
+  }
+
+  /* ── الإعدادات المتقدمة (site-copy) ── */
+  function scModified(key) { return !!(scCopy.ar[key] || scCopy.en[key]); }
+  function scModCount() {
+    var n = 0;
+    SC_GROUPS.forEach(function (g) { g.keys.forEach(function (k) { if (scModified(k.k)) n++; }); });
+    return n;
+  }
+  function updateScMeta() {
+    var n = scModCount();
+    $("scModCount").classList.toggle("hidden", n === 0);
+    var mod = txt("siteCopyModified");
+    SampleUI.setText($("scModCountText"), n + " " + mod[0], n + " " + mod[1]);
+    renderScTabs();
+  }
+  function renderScTabs() {
+    var tabs = $("scTabs"); tabs.innerHTML = "";
+    SC_GROUPS.forEach(function (g) {
+      var n = g.keys.filter(function (k) { return scModified(k.k); }).length;
+      var b = mk("button", "neu-tab" + (scTab === g.id ? " is-active" : "")); b.type = "button";
+      b.appendChild(mk("span", null, "siteCopyGroup_" + g.id));
+      if (n > 0) { var c = mk("span", "t-muted"); c.textContent = " (" + n + ")"; b.appendChild(c); }
+      b.addEventListener("click", function () { scTab = g.id; renderSc(); });
+      tabs.appendChild(b);
+    });
+  }
+  function renderScList() {
+    var list = $("scList"); list.innerHTML = "";
+    var g = null;
+    SC_GROUPS.forEach(function (x) { if (x.id === scTab) g = x; });
+    if (!g) g = SC_GROUPS[0];
+    g.keys.forEach(function (k) {
+      var row = mk("div", "sc-row neu-panel" + (scModified(k.k) ? " is-mod" : ""));
+      var head = mk("div", "sc-head");
+      var code = mk("code", "sc-key"); code.textContent = k.k; head.appendChild(code);
+      var ha = mk("div", "sc-head-actions");
+      var modBadge = scModified(k.k) ? badge("neu-badge--warning", "siteCopyModified") : null;
+      if (modBadge) ha.appendChild(modBadge);
+      var rst = mk("button", "neu-btn neu-btn--muted btn-sm"); rst.type = "button";
+      rst.appendChild(mk("span", null, "siteCopyReset"));
+      rst.disabled = !scModified(k.k);
+      rst.addEventListener("click", function () { delete scCopy.ar[k.k]; delete scCopy.en[k.k]; renderSc(); });
+      ha.appendChild(rst);
+      head.appendChild(ha);
+      row.appendChild(head);
+      var inputs = mk("div", "sc-inputs");
+      [["ar", "العربية", "rtl"], ["en", "English", "ltr"]].forEach(function (L) {
+        var wrap = mk("div");
+        var lab = mk("span", "sc-lang"); lab.textContent = L[1]; lab.setAttribute("lang", L[0]); lab.setAttribute("translate", "no");
+        wrap.appendChild(lab);
+        var inp = document.createElement("input"); inp.className = "neu-input input-sm"; inp.type = "text"; inp.dir = L[2];
+        inp.placeholder = k[L[0]]; inp.value = scCopy[L[0]][k.k] || "";
+        inp.addEventListener("input", function () {
+          if (inp.value.trim()) scCopy[L[0]][k.k] = inp.value; else delete scCopy[L[0]][k.k];
+          var mod = scModified(k.k);
+          row.classList.toggle("is-mod", mod);
+          rst.disabled = !mod;
+          if (mod && !modBadge) { modBadge = badge("neu-badge--warning", "siteCopyModified"); ha.insertBefore(modBadge, rst); }
+          if (!mod && modBadge) { modBadge.remove(); modBadge = null; }
+          updateScMeta();
+        });
+        wrap.appendChild(inp);
+        inputs.appendChild(wrap);
+      });
+      row.appendChild(inputs);
+      list.appendChild(row);
+    });
+  }
+  function renderSc() { renderScTabs(); renderScList(); updateScMeta(); }
+
+  /* ── بيانات الدخول ── */
+  function renderCreds() {
+    var sb = $("studioStateBadge");
+    sb.className = "neu-badge " + (studioOver ? "neu-badge--success" : "");
+    setBi(sb.querySelector("span"), studioOver ? "credOverridden" : "credDefault");
+    var ab = $("adminStateBadge");
+    ab.className = "neu-badge " + (adminOver ? "neu-badge--success" : "");
+    setBi(ab.querySelector("span"), adminOver ? "credOverridden" : "credDefault");
+    $("credStReset").classList.toggle("hidden", !studioOver);
+    $("credAdReset").classList.toggle("hidden", !adminOver);
+    $("credStudioTab").classList.toggle("hidden", credTab !== "studio");
+    $("credAdminTab").classList.toggle("hidden", credTab !== "admin");
+    document.querySelectorAll("#credTabs .neu-tab").forEach(function (b) {
+      b.classList.toggle("is-active", b.getAttribute("data-ctab") === credTab);
+    });
+  }
+  function credShowMsg(key) {
+    setBi($("credMsgOkText"), key);
+    $("credMsgOk").classList.remove("hidden");
+    setTimeout(function () { $("credMsgOk").classList.add("hidden"); }, 2500);
+  }
+
+  /* ── إدارة التخزين ── */
+  function storTotalKeys() {
+    var t = 0;
+    STOR_CATS.forEach(function (c) { if (storSel[c.id]) t += c.n; });
+    return t;
+  }
+  function updateStorDelete() {
+    var v = $("storConfirmInput").value.trim();
+    var ok = (v === "حذف" || v.toUpperCase() === "DELETE") && Object.keys(storSel).length > 0;
+    $("storDeleteBtn").disabled = !ok;
+  }
+  function renderStorage() {
+    var list = $("storList"); list.innerHTML = "";
+    STOR_CATS.forEach(function (c) {
+      var row = mk("label", "stor-row neu-row" + (storSel[c.id] ? " is-selected" : ""));
+      var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = !!storSel[c.id];
+      cb.addEventListener("change", function () { if (storSel[c.id]) delete storSel[c.id]; else storSel[c.id] = true; renderStorage(); });
+      row.appendChild(cb);
+      row.appendChild(mk("span", "stor-name", STOR_LABEL[c.id]));
+      row.appendChild(badge("stor-warn " + STOR_WARN_CLS[c.danger], STOR_WARN[c.danger]));
+      var ku = c.n === 1 ? txt("storKeyUnit") : txt("storKeysUnit");
+      row.appendChild(badgeRaw("", c.n + " " + ku[0], c.n + " " + ku[1]));
+      list.appendChild(row);
+    });
+    var ids = Object.keys(storSel);
+    $("storSelBadge").classList.toggle("hidden", ids.length === 0);
+    var ku2 = txt("storKeysUnit");
+    SampleUI.setText($("storSelText"), ids.length + " · " + storTotalKeys() + " " + ku2[0], ids.length + " · " + storTotalKeys() + " " + ku2[1]);
+    var all = ids.length === STOR_CATS.length && ids.length > 0;
+    setBi($("storSelectAllBtn"), all ? "storClear" : "storSelectAll");
+    updateStorDelete();
+  }
+
+  /* ── النوافذ: فتح/إغلاق + مكدس Escape ── */
+  var OVERLAY_STAGE = { trialsOverlay: "trials", siteCopyOverlay: "sitecopy", credsOverlay: "creds", storageOverlay: "storage", confirmOverlay: "confirm", productEditOverlay: null };
+  function showOverlay(id) {
+    $(id).classList.remove("hidden");
+    if (openStack.indexOf(id) === -1) openStack.push(id);
+    updateReview();
+  }
+  function hideOverlay(id) {
+    $(id).classList.add("hidden");
+    var i = openStack.indexOf(id); if (i > -1) openStack.splice(i, 1);
+    updateReview();
+  }
+  function hideAllOverlays() {
+    ["confirmOverlay", "productEditOverlay", "trialsOverlay", "siteCopyOverlay", "credsOverlay", "storageOverlay"].forEach(function (id) { $(id).classList.add("hidden"); });
+    openStack = [];
+    confirmState = null;
+  }
+  function openConfirm(o) {
+    confirmState = o;
+    setBi($("confirmTitle"), o.t);
+    if (o.mRaw) SampleUI.setText($("confirmMsg"), o.mRaw[0], o.mRaw[1]);
+    else setBi($("confirmMsg"), o.m, o.vars);
+    setBi($("confirmOk"), o.b);
+    $("confirmOk").className = "neu-btn " + (o.danger ? "neu-btn--danger" : "");
+    showOverlay("confirmOverlay");
+  }
+  function closeConfirm() { hideOverlay("confirmOverlay"); confirmState = null; }
+
+  /* ── شريط المراجعة وحالات الصفحة ── */
+  function updateReview() {
+    var active = base;
+    if (openStack.length) {
+      var top = openStack[openStack.length - 1];
+      var s = OVERLAY_STAGE[top];
+      if (s) active = s;
+    }
+    document.querySelectorAll(".review-bar button[data-stage]").forEach(function (b) {
+      b.classList.toggle("is-active", b.getAttribute("data-stage") === active);
+    });
+  }
+  function applyBase() {
+    $("errorBox").classList.toggle("hidden", base !== "error");
+    if (base === "fallback") fb = { bytes: 91.2, warn: 90, warning: true, mode: true, gh: false };
+    else fb = { bytes: 62.4, warn: 90, warning: false, mode: false, gh: true };
+    healthRan = base !== "nohealth";
+    renderAll();
+    updateReview();
+  }
+  function renderAll() {
+    renderStats(); renderWarnings(); renderSubs(); renderBanned();
+    renderHealth(); renderProducts(); renderFallback();
+    renderTrials(); renderSc(); renderCreds(); renderStorage();
+  }
+
+  /* ── ربط الأحداث ── */
+  $("exitBtn").addEventListener("click", function () { window.location.href = "admin-login.html"; });
+
+  $("searchInput").addEventListener("input", function () { searchQuery = this.value; renderSubs(); });
+  $("statusFilter").addEventListener("change", renderSubs);
+  $("planFilter").addEventListener("change", renderSubs);
+  $("sortBy").addEventListener("change", function () { sortBy = this.value; renderSubs(); });
+  $("planTabs").addEventListener("click", function (e) {
+    var b = e.target.closest(".neu-tab"); if (!b) return;
+    activeTab = b.getAttribute("data-tab");
+    searchQuery = ""; $("searchInput").value = "";
+    document.querySelectorAll("#planTabs .neu-tab").forEach(function (x) {
+      var on = x === b;
+      x.classList.toggle("is-active", on);
+      x.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    renderSubs();
+  });
+  $("clearSelectionBtn").addEventListener("click", function () { selected = {}; renderSubs(); });
+  document.querySelectorAll("[data-bulk]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var kind = b.getAttribute("data-bulk");
+      var n = Object.keys(selected).length;
+      var sel = txt("adminSelected");
+      var suffix = " (" + n + " " + sel[0] + ")";
+      var suffixAr = " (" + n + " " + sel[1] + ")";
+      if (kind === "extend_7" || kind === "extend_30") {
+        var days = kind === "extend_7" ? 7 : 30;
+        var m = txt("adminBulkExtendConfirm", { n: days });
+        openConfirm({ t: kind === "extend_7" ? "adminExtend7" : "adminExtend30", mRaw: [m[0] + suffix, m[1] + suffixAr], b: kind === "extend_7" ? "adminExtend7" : "adminExtend30", danger: false });
+      } else if (kind === "activate") {
+        var m2 = txt("adminBulkActivateConfirm");
+        openConfirm({ t: "adminActivate", mRaw: [m2[0] + suffix, m2[1] + suffixAr], b: "adminActivate", danger: false });
+      } else {
+        var m3 = txt("adminBulkSuspendConfirm");
+        openConfirm({ t: "adminSuspend", mRaw: [m3[0] + suffix, m3[1] + suffixAr], b: "adminSuspend", danger: false });
+      }
+    });
+  });
+
+  /* أزرار التحديث خاملة (عرض فقط) — عدا فحص الروابط يحاكي الانتظار محلياً */
+  $("healthCheckBtn").addEventListener("click", function () {
+    var btn = this;
+    btn.disabled = true;
+    setBi($("healthCheckLabel"), "adminChecking");
+    setTimeout(function () {
+      healthRan = true; renderHealth();
+      setBi($("healthCheckLabel"), "adminCheckNow");
+      btn.disabled = false;
+    }, 900);
+  });
+
+  $("fallbackToggleBtn").addEventListener("click", function () { fb.mode = !fb.mode; renderFallback(); });
+  $("clearWarningBtn").addEventListener("click", function () { fb.warning = false; renderFallback(); });
+
+  /* نافذة تعديل المنتج */
+  $("productEditClose").addEventListener("click", function () { hideOverlay("productEditOverlay"); });
+  $("productEditCancel").addEventListener("click", function () { hideOverlay("productEditOverlay"); });
+  $("productEditSave").addEventListener("click", function () { hideOverlay("productEditOverlay"); });
+  $("productEditOverlay").addEventListener("mousedown", function (e) { if (e.target === this) hideOverlay("productEditOverlay"); });
+
+  /* نافذة التجارب */
+  $("trialsBtn").addEventListener("click", function () { showOverlay("trialsOverlay"); });
+  $("trialsCloseBtn").addEventListener("click", function () { hideOverlay("trialsOverlay"); });
+  $("trialsOverlay").addEventListener("mousedown", function (e) { if (e.target === this) hideOverlay("trialsOverlay"); });
+  $("genToggleBtn").addEventListener("click", function () { genOff = !genOff; renderTrials(); });
+
+  /* نافذة نصوص الرئيسية */
+  $("siteCopyBtn").addEventListener("click", function () { showOverlay("siteCopyOverlay"); });
+  $("scCloseBtn").addEventListener("click", function () { hideOverlay("siteCopyOverlay"); });
+  $("siteCopyOverlay").addEventListener("mousedown", function (e) { if (e.target === this) hideOverlay("siteCopyOverlay"); });
+  $("scResetAllBtn").addEventListener("click", function () { scCopy = { ar: {}, en: {} }; renderSc(); });
+  $("scSaveBtn").addEventListener("click", function () {
+    $("scHint").classList.add("hidden");
+    $("scMsg").classList.remove("hidden");
+    setTimeout(function () { $("scMsg").classList.add("hidden"); $("scHint").classList.remove("hidden"); }, 2500);
+  });
+
+  /* نافذة بيانات الدخول */
+  $("credsBtn").addEventListener("click", function () {
+    /* كما الحقيقي: الحقول فارغة دائماً عند الفتح (لا كشف أسرار) */
+    $("credStUser").value = ""; $("credStPass").value = ""; $("credAdPass").value = "";
+    showOverlay("credsOverlay");
+  });
+  $("credsCloseBtn").addEventListener("click", function () { hideOverlay("credsOverlay"); });
+  $("credsOverlay").addEventListener("mousedown", function (e) { if (e.target === this) hideOverlay("credsOverlay"); });
+  $("credTabs").addEventListener("click", function (e) {
+    var b = e.target.closest(".neu-tab"); if (!b) return;
+    credTab = b.getAttribute("data-ctab");
+    $("credMsgOk").classList.add("hidden");
+    renderCreds();
+  });
+  $("credStSave").addEventListener("click", function () { credShowMsg("credSaved"); $("credStUser").value = ""; $("credStPass").value = ""; });
+  $("credAdSave").addEventListener("click", function () { credShowMsg("credSaved"); $("credAdPass").value = ""; });
+  $("credStReset").addEventListener("click", function () {
+    openConfirm({ t: "credReset", m: "credResetConfirm", b: "credReset", danger: true, onOk: function () { studioOver = false; renderCreds(); credShowMsg("credResetDone"); } });
+  });
+  $("credAdReset").addEventListener("click", function () {
+    openConfirm({ t: "credReset", m: "credResetConfirm", b: "credReset", danger: true, onOk: function () { adminOver = false; renderCreds(); credShowMsg("credResetDone"); } });
+  });
+
+  /* نافذة التخزين */
+  $("storageBtn").addEventListener("click", function () { showOverlay("storageOverlay"); });
+  $("storCloseBtn").addEventListener("click", function () { hideOverlay("storageOverlay"); });
+  $("storageOverlay").addEventListener("mousedown", function (e) { if (e.target === this) hideOverlay("storageOverlay"); });
+  $("storSelectAllBtn").addEventListener("click", function () {
+    var all = Object.keys(storSel).length === STOR_CATS.length;
+    storSel = {};
+    if (!all) STOR_CATS.forEach(function (c) { storSel[c.id] = true; });
+    renderStorage();
+  });
+  $("storConfirmInput").addEventListener("input", updateStorDelete);
+  $("storDeleteBtn").addEventListener("click", function () {
+    /* خامل: لا حذف حقيقي — رسالة توضيحية فقط ثم تفريغ التحديد */
+    var done = txt("storDone"), ku = txt("storKeysUnit");
+    SampleUI.setText($("storMsgText"), done[0] + ": " + storTotalKeys() + " " + ku[0], done[1] + ": " + storTotalKeys() + " " + ku[1]);
+    $("storMsg").classList.remove("hidden");
+    storSel = {}; $("storConfirmInput").value = "";
+    renderStorage();
+    setTimeout(function () { $("storMsg").classList.add("hidden"); }, 2500);
+  });
+
+  /* نافذة التأكيد العامة */
+  $("confirmOk").addEventListener("click", function () {
+    var o = confirmState;
+    closeConfirm();
+    if (o && o.onOk) o.onOk();
+  });
+  $("confirmCancel").addEventListener("click", closeConfirm);
+  $("confirmOverlay").addEventListener("mousedown", function (e) { if (e.target === this) closeConfirm(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && openStack.length) hideOverlay(openStack[openStack.length - 1]);
+  });
+
+  /* شريط المراجعة */
+  document.querySelectorAll(".review-bar button[data-stage]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var s = b.getAttribute("data-stage");
+      if (s === "trials") { showOverlay("trialsOverlay"); return; }
+      if (s === "sitecopy") { showOverlay("siteCopyOverlay"); return; }
+      if (s === "creds") { showOverlay("credsOverlay"); return; }
+      if (s === "storage") { showOverlay("storageOverlay"); return; }
+      if (s === "confirm") {
+        openConfirm({ t: "adminConfirmBanTitle", m: "adminConfirmBanMsg", b: "adminConfirmBanBtn", danger: true });
+        return;
+      }
+      hideAllOverlays();
+      base = s;
+      applyBase();
+      if (s === "panel") window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
+
+  /* إعادة الرسم عند تبديل اللغة (النصوص الديناميكية) */
+  document.addEventListener("sample:lang", function () { renderAll(); });
+
+  applyBase();
+</script>
+</body>
+</html>
